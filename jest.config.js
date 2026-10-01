@@ -2,7 +2,11 @@
 module.exports = {
   preset: 'jest-expo',
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
-  collectCoverageFrom: ['src/screens/**/*.{ts,tsx}', '!src/**/*.test.{ts,tsx}'],
+  collectCoverageFrom: [
+    'src/screens/**/*.{ts,tsx}',
+    'src/lib/api/client.ts',
+    '!src/**/*.test.{ts,tsx}',
+  ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'json-summary', 'html'],
   coverageThreshold: {

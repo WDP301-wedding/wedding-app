@@ -19,6 +19,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "audit:ci": "npm run test:audit-policy && node scripts/audit-ci.mjs",
     "build": "expo export --platform android --output-dir dist",
     "api:generate": "node scripts/generate-api.mjs",
     "api:check": "node scripts/generate-api.mjs --check",
@@ -27,6 +28,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
+    "test:audit-policy": "node --test scripts/audit-ci.test.mjs",
     "test:coverage": "jest --runInBand --coverage",
     "test:watch": "jest --watch"
   },

@@ -69,6 +69,52 @@ function knownExpoAuditReport() {
   };
 }
 
+function knownExpoAndBracesLockfile() {
+  const lockfile = knownExpoLockfile();
+  const micromatchDependents = new Map([
+    ['@expo/metro-file-map', '57.0.3'],
+    ['@jest/core', '29.7.0'],
+    ['@jest/transform', '29.7.0'],
+    ['jest-config', '29.7.0'],
+    ['jest-haste-map', '29.7.0'],
+    ['jest-message-util', '29.7.0'],
+    ['metro-file-map', '0.84.5'],
+  ]);
+  lockfile.packages['node_modules/braces'] = { version: '3.0.3' };
+  lockfile.packages['node_modules/micromatch'] = {
+    version: '4.0.8',
+    dependencies: { braces: '^3.0.3' },
+  };
+  for (const [packageName, version] of micromatchDependents) {
+    lockfile.packages[`node_modules/${packageName}`] = {
+      version,
+      dependencies: { micromatch: '^4.0.4' },
+    };
+  }
+  return lockfile;
+}
+
+function knownExpoAndBracesAuditReport() {
+  const report = knownExpoAuditReport();
+  report.vulnerabilities.braces = {
+    severity: 'high',
+    via: [
+      {
+        source: 1240992,
+        name: 'braces',
+        severity: 'high',
+        url: 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm',
+      },
+    ],
+  };
+  report.vulnerabilities.micromatch = { severity: 'high', via: ['braces'] };
+  report.vulnerabilities['@expo/metro-file-map'] = {
+    severity: 'high',
+    via: ['micromatch'],
+  };
+  return report;
+}
+
 test('allows only the reviewed Expo node-forge advisory before its review date', () => {
   const result = evaluateAuditReport(knownExpoAuditReport(), knownExpoLockfile(), beforeReview);
 
@@ -80,6 +126,39 @@ test('allows only the reviewed Expo node-forge advisory before its review date',
     'expo',
     'node-forge',
   ]);
+});
+
+test('allows the reviewed build-only braces advisory with an exact lockfile scope', () => {
+  const result = evaluateAuditReport(
+    knownExpoAndBracesAuditReport(),
+    knownExpoAndBracesLockfile(),
+    beforeReview,
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.blocking, []);
+  assert.deepEqual(result.allowed, [
+    '@expo/cli',
+    '@expo/code-signing-certificates',
+    '@expo/metro-file-map',
+    'braces',
+    'expo',
+    'micromatch',
+    'node-forge',
+  ]);
+});
+
+test('blocks the braces exception when its toolchain graph changes', () => {
+  const lockfile = knownExpoAndBracesLockfile();
+  lockfile.packages['node_modules/example'] = {
+    version: '1.0.0',
+    dependencies: { micromatch: '^4.0.4' },
+  };
+
+  const result = evaluateAuditReport(knownExpoAndBracesAuditReport(), lockfile, beforeReview);
+
+  assert.equal(result.ok, false);
+  assert.match(result.blocking.join('\n'), /micromatch dependents/i);
 });
 
 test('allows the reviewed advisory through a cyclic propagated Expo audit graph', () => {

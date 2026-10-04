@@ -3,11 +3,33 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const reviewedAdvisory = '1240912|node-forge|https://github.com/advisories/GHSA-86w9-cpqp-85rv';
+const nodeForgeAdvisory = '1240912|node-forge|https://github.com/advisories/GHSA-86w9-cpqp-85rv';
+const bracesAdvisory = '1240992|braces|https://github.com/advisories/GHSA-vfj7-8cjw-p6xm';
+const reviewedAdvisories = new Set([nodeForgeAdvisory, bracesAdvisory]);
 const reviewedNodeForgeVersion = '1.4.0';
 const reviewedNodeForgeDependents = new Map([
   ['@expo/cli', '^1.3.3'],
   ['@expo/code-signing-certificates', '^1.3.3'],
+]);
+const reviewedBracesPackages = new Map([
+  ['braces', '3.0.3'],
+  ['micromatch', '4.0.8'],
+  ['@expo/metro-file-map', '57.0.3'],
+  ['@jest/core', '29.7.0'],
+  ['@jest/transform', '29.7.0'],
+  ['jest-config', '29.7.0'],
+  ['jest-haste-map', '29.7.0'],
+  ['jest-message-util', '29.7.0'],
+  ['metro-file-map', '0.84.5'],
+]);
+const reviewedMicromatchDependents = new Set([
+  '@expo/metro-file-map',
+  '@jest/core',
+  '@jest/transform',
+  'jest-config',
+  'jest-haste-map',
+  'jest-message-util',
+  'metro-file-map',
 ]);
 const reviewExpiresAt = new Date('2026-10-16T00:00:00.000Z');
 const dependencySections = [
@@ -83,20 +105,20 @@ function packageNameFromLockPath(lockPath) {
   return markerIndex === -1 ? lockPath : lockPath.slice(markerIndex + marker.length);
 }
 
-function findDependencyReferences(lockEntry) {
+function findDependencyReferences(lockEntry, dependencyName = 'node-forge') {
   const references = [];
 
   for (const section of dependencySections) {
     const dependencies = lockEntry?.[section];
-    if (dependencies && Object.hasOwn(dependencies, 'node-forge')) {
-      references.push({ section, range: dependencies['node-forge'] });
+    if (dependencies && Object.hasOwn(dependencies, dependencyName)) {
+      references.push({ section, range: dependencies[dependencyName] });
     }
   }
 
   return references;
 }
 
-function validateReviewedLockScope(lockfile) {
+function validateNodeForgeLockScope(lockfile) {
   const blocking = [];
   if (
     !lockfile ||
@@ -177,6 +199,80 @@ function validateReviewedLockScope(lockfile) {
   return blocking;
 }
 
+function validateBracesLockScope(lockfile) {
+  const blocking = [];
+  if (
+    !lockfile ||
+    typeof lockfile !== 'object' ||
+    lockfile.lockfileVersion !== 3 ||
+    !lockfile.packages ||
+    typeof lockfile.packages !== 'object'
+  ) {
+    return ['Cannot verify the braces exception against an npm v3 lockfile.'];
+  }
+
+  const entries = Object.entries(lockfile.packages);
+  for (const [packageName, expectedVersion] of reviewedBracesPackages) {
+    const matches = entries.filter(
+      ([lockPath]) => packageNameFromLockPath(lockPath) === packageName,
+    );
+    if (matches.length !== 1 || matches[0]?.[1]?.version !== expectedVersion) {
+      blocking.push(`Expected exactly one ${packageName}@${expectedVersion} lockfile entry.`);
+    }
+  }
+
+  const rootBraces = findDependencyReferences(lockfile.packages[''], 'braces');
+  const rootMicromatch = findDependencyReferences(lockfile.packages[''], 'micromatch');
+  if (rootBraces.length > 0 || rootMicromatch.length > 0) {
+    blocking.push('braces and micromatch must not be direct app dependencies.');
+  }
+
+  const bracesReferences = [];
+  const micromatchReferences = [];
+  for (const [lockPath, entry] of entries) {
+    if (!lockPath) continue;
+    const packageName = packageNameFromLockPath(lockPath);
+    for (const reference of findDependencyReferences(entry, 'braces')) {
+      bracesReferences.push({ packageName, ...reference });
+    }
+    for (const reference of findDependencyReferences(entry, 'micromatch')) {
+      micromatchReferences.push({ packageName, ...reference });
+    }
+  }
+
+  if (
+    bracesReferences.length !== 1 ||
+    bracesReferences[0]?.packageName !== 'micromatch' ||
+    bracesReferences[0]?.section !== 'dependencies' ||
+    bracesReferences[0]?.range !== '^3.0.3'
+  ) {
+    blocking.push('Unexpected braces dependency scope.');
+  }
+
+  const actualMicromatchDependents = new Set();
+  for (const reference of micromatchReferences) {
+    actualMicromatchDependents.add(reference.packageName);
+    if (reference.section !== 'dependencies' || reference.range !== '^4.0.4') {
+      blocking.push(
+        `Unexpected micromatch range for ${reference.packageName}: ` +
+          `${reference.section}:${String(reference.range)}.`,
+      );
+    }
+  }
+  if (
+    actualMicromatchDependents.size !== reviewedMicromatchDependents.size ||
+    [...actualMicromatchDependents].some(
+      (packageName) => !reviewedMicromatchDependents.has(packageName),
+    )
+  ) {
+    blocking.push(
+      `Unexpected micromatch dependents: ${[...actualMicromatchDependents].sort().join(', ')}.`,
+    );
+  }
+
+  return blocking;
+}
+
 export function evaluateAuditReport(report, lockfile, now = new Date()) {
   if (
     !report ||
@@ -191,6 +287,7 @@ export function evaluateAuditReport(report, lockfile, now = new Date()) {
 
   const allowed = [];
   const blocking = [];
+  const observedReviewedAdvisories = new Set();
 
   for (const [packageName, vulnerability] of Object.entries(report.vulnerabilities)) {
     if (
@@ -213,20 +310,24 @@ export function evaluateAuditReport(report, lockfile, now = new Date()) {
     }
 
     const roots = [...findRootAdvisories(packageName, report.vulnerabilities)];
-    if (roots.length === 0 || roots.some((root) => root !== reviewedAdvisory)) {
+    if (roots.length === 0 || roots.some((root) => !reviewedAdvisories.has(root))) {
       blocking.push(`Unreviewed high vulnerability: ${packageName} (${roots.join(', ')}).`);
       continue;
     }
 
+    for (const root of roots) observedReviewedAdvisories.add(root);
     allowed.push(packageName);
   }
 
   allowed.sort();
   if (allowed.length > 0 && now >= reviewExpiresAt) {
-    blocking.push(`The node-forge allowlist expired at ${reviewExpiresAt.toISOString()}.`);
+    blocking.push(`The dependency audit allowlist expired at ${reviewExpiresAt.toISOString()}.`);
   }
-  if (allowed.length > 0) {
-    blocking.push(...validateReviewedLockScope(lockfile));
+  if (observedReviewedAdvisories.has(nodeForgeAdvisory)) {
+    blocking.push(...validateNodeForgeLockScope(lockfile));
+  }
+  if (observedReviewedAdvisories.has(bracesAdvisory)) {
+    blocking.push(...validateBracesLockScope(lockfile));
   }
 
   return { ok: blocking.length === 0, allowed, blocking };
@@ -279,7 +380,7 @@ function main() {
 
   if (result.allowed.length > 0 && result.ok) {
     console.warn(
-      `Temporarily allowed GHSA-86w9-cpqp-85rv through 2026-10-15 across ` +
+      `Temporarily allowed the reviewed node-forge/braces advisories through 2026-10-15 across ` +
         `${result.allowed.length} audit package(s); lockfile scope verified.`,
     );
   }

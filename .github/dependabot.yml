@@ -3,11 +3,20 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    # Limit routine version PRs; security update PRs have a separate limit.
+    open-pull-requests-limit: 2
+    # Expo owns the supported native version ranges; do not widen them automatically.
+    versioning-strategy: lockfile-only
+    groups:
+      expo-compatible-patches:
+        patterns: ['expo', 'expo-*', '@expo/*', 'react*', 'jest*', '@types/react*']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ['*']

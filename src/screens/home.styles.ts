@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.62 },
   heroFrame: { overflow: 'hidden' },
-  heroImage: { width: '100%', height: 228, backgroundColor: '#DCE6F6' },
+  heroImage: { width: '100%', height: 228, backgroundColor: '#F3EFEA' },
   heroBand: {
     minHeight: 58,
     alignItems: 'center',
@@ -159,9 +159,9 @@ export const styles = StyleSheet.create({
   authInput: {
     minHeight: 52,
     paddingHorizontal: spacing.md,
-    color: '#2F2925',
-    backgroundColor: '#FFFEFA',
-    borderColor: '#A0B9DB',
+    color: '#232321',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#C3C8C1',
     borderWidth: 1,
     borderRadius: 4,
     fontSize: 16,

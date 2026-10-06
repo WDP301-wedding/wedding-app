@@ -3,45 +3,45 @@ import { Platform, useColorScheme, type ColorValue, type TextStyle } from 'react
 
 const brandPalette = {
   light: {
-    primary: '#163A70',
-    primaryText: '#FFFFFF',
-    powder: '#DCE6F6',
-    display: '#553419',
-    script: '#6B3A3A',
-    gold: '#B08A47',
-    goldSoft: '#E7DABF',
+    primary: '#334537',
+    primaryText: '#FAF8F5',
+    powder: '#F3EFEA',
+    display: '#232321',
+    script: '#8C6D62',
+    gold: '#C5A880',
+    goldSoft: '#F1E5CE',
   },
   dark: {
-    primary: '#A0B9DB',
-    primaryText: '#102B55',
-    powder: '#1C2D46',
-    display: '#E7DABF',
-    script: '#DCAAAA',
-    gold: '#D8BD82',
-    goldSoft: '#5C4B2E',
+    primary: '#B7CCB9',
+    primaryText: '#1C211D',
+    powder: '#28312A',
+    display: '#F7F3EC',
+    script: '#E4BEB1',
+    gold: '#E0C298',
+    goldSoft: '#584A34',
   },
 } as const;
 
 export const semanticColors = {
   label: Platform.select<ColorValue>({
     android: Color.android.dynamic.onSurface,
-    default: '#2C2725',
+    default: '#232321',
   })!,
   secondaryLabel: Platform.select<ColorValue>({
     android: Color.android.dynamic.onSurfaceVariant,
-    default: '#716965',
+    default: '#62645F',
   })!,
   background: Platform.select<ColorValue>({
     android: Color.android.dynamic.surface,
-    default: '#FBF8F4',
+    default: '#FAF8F5',
   })!,
   secondaryBackground: Platform.select<ColorValue>({
     android: Color.android.dynamic.surfaceVariant,
-    default: '#F4F7FC',
+    default: '#F3EFEA',
   })!,
   separator: Platform.select<ColorValue>({
     android: Color.android.dynamic.outlineVariant,
-    default: '#DDD5CD',
+    default: '#D7D4CC',
   })!,
 };
 

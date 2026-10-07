@@ -17,8 +17,9 @@ import {
   readResetCredential,
   type IdentityApi,
 } from '@/features/identity-access/session';
+import type { PlanningGateway } from '@/features/booking-lifecycle/planning-api';
 
-import { HomeScreen } from './home';
+import { ConfirmedPlanningScreen, HomeScreen } from './home';
 
 jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
@@ -150,14 +151,14 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen session={session} />);
 
-    expect(await screen.findByText('Chào Minh & An')).toBeOnTheScreen();
-    expect(screen.getByText('Còn 42 ngày')).toBeOnTheScreen();
+    expect(await screen.findByText('Ngày trọng đại của hai bạn')).toBeOnTheScreen();
+    expect(screen.getByText('Chưa chọn kế hoạch')).toBeOnTheScreen();
     await user.press(screen.getByTestId('logout-button'));
     await waitFor(() => expect(api.logout).toHaveBeenCalledWith('wia_rotated'));
     expect(await screen.findByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
   });
 
-  it('logs in from an empty process and opens the authenticated plan', async () => {
+  it('logs in from an empty process and opens the confirmed-planning entry', async () => {
     const user = userEvent.setup();
     const api = createApi();
     const session = new AndroidIdentitySession(api, createSecureRefreshStore());
@@ -168,9 +169,47 @@ describe('HomeScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'sample-password-123');
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
 
-    expect(await screen.findByText('Chào Minh & An')).toBeOnTheScreen();
-    await user.press(screen.getByTestId('open-plan-button'));
-    expect(await screen.findByText('Bản xem trước kế hoạch đã được mở.')).toBeOnTheScreen();
+    expect(await screen.findByText('Ngày trọng đại của hai bạn')).toBeOnTheScreen();
+    expect(screen.getByText('Chưa chọn kế hoạch')).toBeOnTheScreen();
+  });
+
+  it('renders only a server-confirmed planning summary and timeline', async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    const session = new AndroidIdentitySession(api, createSecureRefreshStore());
+    await session.login('minhanh@example.com', 'sample-password-123');
+    const gateway: PlanningGateway = {
+      loadConfirmed: jest.fn().mockResolvedValue({
+        status: 'confirmed',
+        snapshot: {
+          bookingId: '00000000-0000-4000-8000-000000000101',
+          phase: 'CONFIRMED',
+          revision: 8,
+          eventDate: '2026-11-15',
+          planningHeadcount: 280,
+          hallName: 'Sảnh Ánh Dương',
+          shift: { startTime: '17:00', endTime: '22:00' },
+          timelineRevision: 3,
+          timeline: [
+            {
+              itemId: '00000000-0000-4000-8000-000000000201',
+              startTime: '17:30',
+              title: 'Đón khách',
+              description: 'Chụp ảnh cùng gia đình',
+            },
+          ],
+        },
+      }),
+    };
+
+    await render(<ConfirmedPlanningScreen session={session} gateway={gateway} onLogout={jest.fn()} />);
+    await fireEvent.changeText(screen.getByLabelText('Mã booking'), 'booking-101');
+    await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
+
+    expect(await screen.findByText('Sảnh Ánh Dương')).toBeOnTheScreen();
+    expect(screen.getByText('Đón khách')).toBeOnTheScreen();
+    expect(screen.getByText('280 khách')).toBeOnTheScreen();
+    expect(gateway.loadConfirmed).toHaveBeenCalledWith('wia_access', 'booking-101');
   });
 
   it('shows a recoverable error when login is rejected', async () => {

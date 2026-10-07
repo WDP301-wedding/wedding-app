@@ -1,9 +1,13 @@
-import { Button, Host } from '@expo/ui';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import {
+  createPlanningGateway,
+  type ConfirmedPlanningSnapshot,
+  type PlanningGateway,
+} from '@/features/booking-lifecycle/planning-api';
 import {
   AndroidIdentitySession,
   createIdentityApi,
@@ -18,6 +22,7 @@ import { styles } from './home.styles';
 const VENUE_IMAGE =
   'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85';
 const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
+const planningGateway = createPlanningGateway();
 
 export function HomeScreen({
   initialResetToken,
@@ -27,7 +32,6 @@ export function HomeScreen({
   session?: AndroidIdentitySession;
 }>) {
   const { brand, colors } = useWeddingTheme();
-  const [planOpened, setPlanOpened] = useState(false);
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
   const [resetToken, setResetToken] = useState<string | null>(initialResetToken ?? null);
@@ -81,160 +85,92 @@ export function HomeScreen({
   }
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
-    >
+    <ConfirmedPlanningScreen
+      gateway={planningGateway}
+      session={session}
+      onLogout={() => {
+        void session.logout().finally(() => setSnapshot(session.snapshot()));
+      }}
+    />
+  );
+}
+
+type ConfirmedPlanningScreenProps = Readonly<{
+  gateway: PlanningGateway;
+  session: AndroidIdentitySession;
+  onLogout: () => void;
+}>;
+
+export function ConfirmedPlanningScreen({ gateway, onLogout, session }: ConfirmedPlanningScreenProps) {
+  const { brand, colors } = useWeddingTheme();
+  const [bookingId, setBookingId] = useState('');
+  const [snapshot, setSnapshot] = useState<ConfirmedPlanningSnapshot | null>(null);
+  const [state, setState] = useState<'idle' | 'loading' | 'not-confirmed' | 'error'>('idle');
+
+  const load = async () => {
+    if (state === 'loading' || bookingId.trim() === '') return;
+    setState('loading');
+    try {
+      const result = await session.authorize((token) => gateway.loadConfirmed(token, bookingId.trim()));
+      if (result.status === 'confirmed') {
+        setSnapshot(result.snapshot);
+        setState('idle');
+      } else {
+        setSnapshot(null);
+        setState('not-confirmed');
+      }
+    } catch {
+      setState('error');
+    }
+  };
+
+  return (
+    <ScrollView contentInsetAdjustmentBehavior="automatic" keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}>
       <View style={styles.topBar}>
-        <View style={styles.brandLockup} accessibilityLabel="The Wedding Estate">
-          <Text style={[styles.brandPrelude, { color: brand.gold }]}>THE</Text>
-          <Text style={[styles.brandName, { color: brand.display }]}>WEDDING ESTATE</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Đăng xuất"
-          testID="logout-button"
-          onPress={() => {
-            void session.logout().finally(() => setSnapshot(session.snapshot()));
-          }}
-          style={({ pressed }) => [styles.logoutAction, pressed && styles.pressed]}
-        >
-          <Text style={[styles.previewTag, { color: brand.primary }]}>ĐĂNG XUẤT</Text>
+        <View style={styles.brandLockup} accessibilityLabel="The Wedding Estate"><Text style={[styles.brandPrelude, { color: brand.gold }]}>THE</Text><Text style={[styles.brandName, { color: brand.display }]}>WEDDING ESTATE</Text></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Đăng xuất" testID="logout-button" onPress={onLogout} style={({ pressed }) => [styles.logoutAction, pressed && styles.pressed]}><Text style={[styles.previewTag, { color: brand.primary }]}>ĐĂNG XUẤT</Text></Pressable>
+      </View>
+
+      <View style={[styles.planningHero, { backgroundColor: brand.primary }]}>
+        <Text style={[styles.countdownEyebrow, { color: brand.goldSoft }]}>KẾ HOẠCH ĐÃ XÁC NHẬN</Text>
+        <Text selectable style={[styles.planningHeroTitle, { color: brand.primaryText }]}>Ngày trọng đại của hai bạn</Text>
+        <Text style={[type.body, { color: brand.primaryText }]}>Nhập mã booking để xem thông tin mới nhất từ nhà hàng.</Text>
+      </View>
+
+      <View style={[styles.planningLookup, { backgroundColor: brand.powder, borderColor: brand.gold }]}>
+        <Text style={[styles.authFieldLabel, { color: colors.label }]}>Mã booking</Text>
+        <TextInput accessibilityLabel="Mã booking" autoCapitalize="none" autoCorrect={false} value={bookingId} onChangeText={setBookingId} placeholder="UUID trong xác nhận đặt tiệc" placeholderTextColor={colors.secondaryLabel} style={[styles.authInput, { color: colors.label }]} />
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: state === 'loading' || bookingId.trim() === '' }} disabled={state === 'loading' || bookingId.trim() === ''} onPress={() => void load()} style={({ pressed }) => [styles.authPrimaryAction, { backgroundColor: brand.primary }, (pressed || state === 'loading') && styles.pressed]}>
+          {state === 'loading' ? <ActivityIndicator color={brand.primaryText} /> : <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>MỞ KẾ HOẠCH</Text>}
         </Pressable>
       </View>
 
-      <View style={styles.heroFrame}>
-        <Image
-          source={{ uri: VENUE_IMAGE }}
-          style={styles.heroImage}
-          contentFit="cover"
-          accessibilityLabel="Không gian tiệc cưới ngoài trời trang nhã"
-        />
-        <View style={[styles.heroBand, { backgroundColor: brand.primary }]}>
-          <Text selectable style={[styles.heroDate, { color: brand.primaryText }]}>
-            15 · 11 · 2026
-          </Text>
-          <Text selectable style={[styles.heroVenue, { color: brand.primaryText }]}>
-            SẢNH ÁNH DƯƠNG
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.welcomeBlock}>
-        <Text style={[styles.scriptTitle, { color: brand.script }]}>Hành trình của hai bạn</Text>
-        <Text selectable style={[styles.displayTitle, { color: brand.display }]}>
-          Chào Minh &amp; An
-        </Text>
-        <View style={[styles.goldRule, { backgroundColor: brand.gold }]} />
-        <Text style={[type.body, styles.welcomeCopy, { color: colors.secondaryLabel }]}>
-          Mọi việc đang tiến triển đúng kế hoạch. Hôm nay chỉ còn một quyết định quan trọng.
-        </Text>
-      </View>
-
-      <View
-        style={[styles.countdownPanel, { backgroundColor: brand.powder, borderColor: brand.gold }]}
-        accessibilityLabel="Còn 42 ngày đến lễ cưới"
-      >
-        <View>
-          <Text style={[styles.countdownEyebrow, { color: brand.primary }]}>
-            ĐẾM NGƯỢC ĐẾN NGÀY CƯỚI
-          </Text>
-          <Text selectable style={[styles.countdownValue, { color: brand.display }]}>
-            Còn 42 ngày
-          </Text>
-          <Text style={[styles.countdownCaption, { color: colors.secondaryLabel }]}>
-            đến khoảnh khắc của hai bạn
-          </Text>
-        </View>
-        <View style={styles.progressRow} accessibilityLabel="Tiến độ chuẩn bị 68 phần trăm">
-          <View style={[styles.progressTrack, { backgroundColor: brand.goldSoft }]}>
-            <View style={[styles.progressValue, { backgroundColor: brand.primary }]} />
-          </View>
-          <Text style={[styles.progressText, { color: brand.primary }]}>68%</Text>
-        </View>
-      </View>
-
-      <View style={styles.sectionHeading}>
-        <View>
-          <Text style={[styles.sectionTitle, { color: brand.display }]}>
-            Việc cần làm tiếp theo
-          </Text>
-          <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-            Ưu tiên trong tuần này
-          </Text>
-        </View>
-        <Text style={[styles.taskCount, { color: brand.gold }]}>03</Text>
-      </View>
-
-      <View style={[styles.taskGroup, { borderColor: brand.gold }]}>
-        <TaskRow
-          index="01"
-          title="Xác nhận thực đơn"
-          description="Chọn món chính trước 08 tháng 10"
-          accent={brand.primary}
-          colors={colors}
-        />
-        <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-        <TaskRow
-          index="02"
-          title="Duyệt sơ đồ bàn"
-          description="320 khách · 32 bàn dự kiến"
-          accent={brand.gold}
-          colors={colors}
-        />
-        <View style={[styles.separator, { backgroundColor: colors.separator }]} />
-        <TaskRow
-          index="03"
-          title="Chọn nhạc đón khách"
-          description="12 bài đã được gợi ý"
-          accent={brand.gold}
-          colors={colors}
-        />
-      </View>
-
-      <View style={[styles.appointmentSection, { backgroundColor: brand.powder }]}>
-        <Text style={[styles.sectionTitle, { color: brand.display }]}>Lịch hẹn gần nhất</Text>
-        <View style={[styles.appointmentRow, { borderColor: brand.gold }]}>
-          <View style={styles.dateTile}>
-            <Text style={[styles.dateMonth, { color: brand.primary }]}>THÁNG 10</Text>
-            <Text selectable style={[styles.dateNumber, { color: brand.display }]}>
-              09
-            </Text>
-          </View>
-          <View style={styles.appointmentCopy}>
-            <Text style={[type.headline, { color: colors.label }]}>
-              Thử thực đơn cùng bếp trưởng
-            </Text>
-            <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-              18:30 · Phòng Tasting 02
-            </Text>
-          </View>
-          <Text style={[styles.chevron, { color: brand.gold }]} aria-hidden>
-            ›
-          </Text>
-        </View>
-      </View>
-
-      <Host matchContents seedColor={brand.primary}>
-        <Button
-          label="Xem toàn bộ kế hoạch"
-          variant="filled"
-          testID="open-plan-button"
-          onPress={() => setPlanOpened(true)}
-        />
-      </Host>
-
-      {planOpened ? (
-        <Text
-          style={[styles.previewStatus, { color: brand.primary }]}
-          accessibilityLiveRegion="polite"
-        >
-          Bản xem trước kế hoạch đã được mở.
-        </Text>
-      ) : null}
+      {state === 'not-confirmed' ? <PlanningNotice title="Kế hoạch chưa sẵn sàng" body="Ứng dụng Android chỉ mở sau khi tiền cọc được xác nhận. Hãy tiếp tục cộng tác trên Web." tone={brand.script} /> : null}
+      {state === 'error' ? <PlanningNotice title="Không thể tải kế hoạch" body="Kiểm tra mã booking và kết nối mạng, sau đó thử lại. Nội dung hiện có vẫn được giữ." tone={brand.script} actionLabel="Thử lại" onAction={() => void load()} /> : null}
+      {snapshot === null && state === 'idle' ? <PlanningNotice title="Chưa chọn kế hoạch" body="Sau khi đặt cọc thành công, mã booking sẽ mở tóm tắt lịch tiệc và các mốc chương trình." tone={brand.primary} /> : null}
+      {snapshot === null ? null : <PlanningContent snapshot={snapshot} />}
     </ScrollView>
   );
 }
+
+function PlanningContent({ snapshot }: Readonly<{ snapshot: ConfirmedPlanningSnapshot }>) {
+  const { brand, colors } = useWeddingTheme();
+  return <>
+    <View style={styles.planningSummary}>
+      <Text style={[styles.scriptTitle, { color: brand.script }]}>Thông tin đã xác nhận</Text>
+      <Text selectable style={[styles.displayTitle, { color: brand.display }]}>{snapshot.hallName}</Text>
+      <View style={[styles.goldRule, { backgroundColor: brand.gold }]} />
+      <View style={styles.planningFacts}><PlanningFact label="Ngày tổ chức" value={formatDate(snapshot.eventDate)} /><PlanningFact label="Khung giờ" value={`${snapshot.shift.startTime}–${snapshot.shift.endTime}`} /><PlanningFact label="Khách dự kiến" value={`${snapshot.planningHeadcount} khách`} /><PlanningFact label="Trạng thái" value={snapshot.phase === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã xác nhận'} /></View>
+    </View>
+    <View style={styles.sectionHeading}><View><Text style={[styles.sectionTitle, { color: brand.display }]}>Kịch bản ngày cưới</Text><Text selectable style={[type.caption, { color: colors.secondaryLabel }]}>Revision {snapshot.timelineRevision ?? 0} · dữ liệu từ nhà hàng</Text></View><Text style={[styles.taskCount, { color: brand.gold }]}>{String(snapshot.timeline.length).padStart(2, '0')}</Text></View>
+    {snapshot.timeline.length === 0 ? <PlanningNotice title="Chưa có mốc chương trình" body="Kịch bản đã xác nhận chưa có nội dung. Quản lý sẽ cập nhật khi sẵn sàng." tone={brand.primary} /> : <View style={[styles.taskGroup, { borderColor: brand.gold }]}>{snapshot.timeline.map((item, index) => <View key={item.itemId}><TimelineRow item={item} colors={colors} accent={index === 0 ? brand.primary : brand.gold} />{index < snapshot.timeline.length - 1 ? <View style={[styles.separator, { backgroundColor: colors.separator }]} /> : null}</View>)}</View>}
+  </>;
+}
+
+function PlanningFact({ label, value }: Readonly<{ label: string; value: string }>) { const { brand, colors } = useWeddingTheme(); return <View style={[styles.planningFact, { borderColor: brand.gold }]}><Text style={[type.caption, { color: colors.secondaryLabel }]}>{label}</Text><Text selectable style={[type.headline, { color: colors.label }]}>{value}</Text></View>; }
+function TimelineRow({ accent, colors, item }: Readonly<{ accent: string; colors: typeof semanticColors; item: ConfirmedPlanningSnapshot['timeline'][number] }>) { return <View style={styles.taskRow} accessibilityLabel={`${item.startTime}. ${item.title}`}><Text selectable style={[styles.taskIndex, { color: accent }]}>{item.startTime}</Text><View style={styles.taskCopy}><Text selectable style={[type.headline, { color: colors.label }]}>{item.title}</Text>{item.description ? <Text selectable style={[type.caption, { color: colors.secondaryLabel }]}>{item.description}</Text> : null}</View></View>; }
+function PlanningNotice({ actionLabel, body, onAction, title, tone }: Readonly<{ actionLabel?: string; body: string; onAction?: () => void; title: string; tone: string }>) { const { brand, colors } = useWeddingTheme(); return <View accessibilityRole="summary" style={[styles.planningNotice, { backgroundColor: brand.powder, borderColor: tone }]}><Text selectable style={[type.headline, { color: colors.label }]}>{title}</Text><Text selectable style={[type.body, { color: colors.secondaryLabel }]}>{body}</Text>{actionLabel && onAction ? <Pressable accessibilityRole="button" onPress={onAction} style={styles.noticeAction}><Text style={[type.subhead, { color: brand.primary }]}>{actionLabel}</Text></Pressable> : null}</View>; }
+function formatDate(value: string): string { return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'long', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(`${value}T00:00:00+07:00`)); }
 
 type IdentityScreenProps = Readonly<{
   onAuthenticated: (snapshot: AndroidSessionSnapshot) => void;
@@ -443,29 +379,6 @@ function LabeledInput({
         autoCorrect={false}
         style={styles.authInput}
       />
-    </View>
-  );
-}
-
-type TaskRowProps = Readonly<{
-  index: string;
-  title: string;
-  description: string;
-  accent: string;
-  colors: typeof semanticColors;
-}>;
-
-function TaskRow({ index, title, description, accent, colors }: TaskRowProps) {
-  return (
-    <View style={styles.taskRow} accessibilityLabel={`${title}. ${description}`}>
-      <Text style={[styles.taskIndex, { color: accent }]}>{index}</Text>
-      <View style={styles.taskCopy}>
-        <Text style={[type.headline, { color: colors.label }]}>{title}</Text>
-        <Text style={[type.caption, { color: colors.secondaryLabel }]}>{description}</Text>
-      </View>
-      <Text style={[styles.chevron, { color: accent }]} aria-hidden>
-        ›
-      </Text>
     </View>
   );
 }

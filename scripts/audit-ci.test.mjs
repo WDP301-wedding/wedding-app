@@ -12,7 +12,7 @@ function knownExpoLockfile() {
       '': {
         name: 'wedding-app',
         dependencies: {
-          expo: '~57.0.26',
+          expo: '~57.0.27',
         },
       },
       'node_modules/@expo/code-signing-certificates': {
@@ -72,7 +72,6 @@ function knownExpoAuditReport() {
 function knownExpoAndBracesLockfile() {
   const lockfile = knownExpoLockfile();
   const micromatchDependents = new Map([
-    ['@expo/metro-file-map', '57.0.3'],
     ['@jest/core', '29.7.0'],
     ['@jest/transform', '29.7.0'],
     ['jest-config', '29.7.0'],
@@ -108,7 +107,7 @@ function knownExpoAndBracesAuditReport() {
     ],
   };
   report.vulnerabilities.micromatch = { severity: 'high', via: ['braces'] };
-  report.vulnerabilities['@expo/metro-file-map'] = {
+  report.vulnerabilities['metro-file-map'] = {
     severity: 'high',
     via: ['micromatch'],
   };
@@ -140,12 +139,25 @@ test('allows the reviewed build-only braces advisory with an exact lockfile scop
   assert.deepEqual(result.allowed, [
     '@expo/cli',
     '@expo/code-signing-certificates',
-    '@expo/metro-file-map',
     'braces',
     'expo',
+    'metro-file-map',
     'micromatch',
     'node-forge',
   ]);
+});
+
+test('blocks the braces exception if Expo reintroduces a micromatch dependency', () => {
+  const lockfile = knownExpoAndBracesLockfile();
+  lockfile.packages['node_modules/@expo/metro-file-map'] = {
+    version: '57.0.4',
+    dependencies: { micromatch: '^4.0.4' },
+  };
+
+  const result = evaluateAuditReport(knownExpoAndBracesAuditReport(), lockfile, beforeReview);
+
+  assert.equal(result.ok, false);
+  assert.match(result.blocking.join('\n'), /micromatch dependents/i);
 });
 
 test('blocks the braces exception when its toolchain graph changes', () => {

@@ -11,10 +11,11 @@ const reviewedNodeForgeDependents = new Map([
   ['@expo/cli', '^1.3.3'],
   ['@expo/code-signing-certificates', '^1.3.3'],
 ]);
+// @expo/metro-file-map@57.0.4 no longer depends on micromatch. Keep it out of
+// this exception so a future reintroduction must receive a new scope review.
 const reviewedBracesPackages = new Map([
   ['braces', '3.0.3'],
   ['micromatch', '4.0.8'],
-  ['@expo/metro-file-map', '57.0.3'],
   ['@jest/core', '29.7.0'],
   ['@jest/transform', '29.7.0'],
   ['jest-config', '29.7.0'],
@@ -23,7 +24,6 @@ const reviewedBracesPackages = new Map([
   ['metro-file-map', '0.84.5'],
 ]);
 const reviewedMicromatchDependents = new Set([
-  '@expo/metro-file-map',
   '@jest/core',
   '@jest/transform',
   'jest-config',

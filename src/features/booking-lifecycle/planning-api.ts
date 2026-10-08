@@ -22,41 +22,7 @@ export type PlanningResult =
   | Readonly<{ status: 'not-confirmed'; snapshot: null }>;
 
 export interface PlanningGateway {
-  loadConfirmed(accessToken: string, bookingId: string): Promise<PlanningResult>;
-}
-
-type ProposalPayload = Readonly<{
-  bookingId: string;
-  phase: string;
-  revision: number;
-  eventDate: string;
-  planningHeadcount: number;
-  proposal: Readonly<{
-    hall: Readonly<{ name: string }>;
-    shift: Readonly<{ startTime: string; endTime: string }>;
-  }>;
-  timeline: null | Readonly<{
-    revisionNumber: number;
-    items: readonly Readonly<{
-      itemId: string;
-      startTime: string;
-      title: string;
-      description: string | null;
-    }>[];
-  }>;
-}>;
-
-function readPayload(value: unknown): ProposalPayload {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    !('bookingId' in value) ||
-    !('phase' in value) ||
-    !('proposal' in value)
-  ) {
-    throw new Error('The planning response is malformed.');
-  }
-  return value as ProposalPayload;
+  loadConfirmed(this: void, accessToken: string, bookingId: string): Promise<PlanningResult>;
 }
 
 export function createPlanningGateway(client?: ApiClient): PlanningGateway {
@@ -69,7 +35,10 @@ export function createPlanningGateway(client?: ApiClient): PlanningGateway {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (data === undefined) throw new Error('The planning response did not include data.');
-      const value = readPayload(data.data);
+      const value = data.data;
+      if (value.capabilities.accessLevel !== 'FULL') {
+        return { status: 'not-confirmed', snapshot: null };
+      }
       if (value.phase !== 'CONFIRMED' && value.phase !== 'COMPLETED') {
         return { status: 'not-confirmed', snapshot: null };
       }
@@ -83,8 +52,9 @@ export function createPlanningGateway(client?: ApiClient): PlanningGateway {
           planningHeadcount: value.planningHeadcount,
           hallName: value.proposal.hall.name,
           shift: value.proposal.shift,
-          timelineRevision: value.timeline?.revisionNumber ?? null,
-          timeline: value.timeline?.items ?? [],
+          timelineRevision: value.effectiveTimeline?.revisionNumber ?? null,
+          timeline:
+            value.effectiveTimeline === null ? [] : Array.from(value.effectiveTimeline.items),
         },
       };
     },

@@ -18,6 +18,7 @@ import {
   type IdentityApi,
 } from '@/features/identity-access/session';
 import type { PlanningGateway } from '@/features/booking-lifecycle/planning-api';
+import { ApiClientError } from '@/lib/api/client';
 
 import { ConfirmedPlanningScreen, HomeScreen } from './home';
 
@@ -202,14 +203,35 @@ describe('HomeScreen', () => {
       }),
     };
 
-    await render(<ConfirmedPlanningScreen session={session} gateway={gateway} onLogout={jest.fn()} />);
+    await render(
+      <ConfirmedPlanningScreen session={session} gateway={gateway} onLogout={jest.fn()} />,
+    );
     await fireEvent.changeText(screen.getByLabelText('Mã booking'), 'booking-101');
     await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
 
     expect(await screen.findByText('Sảnh Ánh Dương')).toBeOnTheScreen();
     expect(screen.getByText('Đón khách')).toBeOnTheScreen();
+    expect(screen.getByText('17:30')).toHaveProp('numberOfLines', 1);
     expect(screen.getByText('280 khách')).toBeOnTheScreen();
     expect(gateway.loadConfirmed).toHaveBeenCalledWith('wia_access', 'booking-101');
+    for (const status of [403, 404, 401]) {
+      jest.mocked(gateway.loadConfirmed).mockRejectedValueOnce(
+        new ApiClientError({
+          kind: 'api',
+          status,
+          code: 'BOOKING_NOT_FOUND',
+          message: 'Access denied',
+          requestId: actor.accountId,
+        }),
+      );
+      await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
+      expect(await screen.findByText('Không thể tải kế hoạch')).toBeOnTheScreen();
+      expect(screen.queryByText('Sảnh Ánh Dương')).not.toBeOnTheScreen();
+      expect(screen.queryByText('Đón khách')).not.toBeOnTheScreen();
+      if (status === 401) await session.login('minhanh@example.com', 'sample-password-123');
+      await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
+      expect(await screen.findByText('Sảnh Ánh Dương')).toBeOnTheScreen();
+    }
   });
 
   it('shows a recoverable error when login is rejected', async () => {

@@ -49,7 +49,9 @@ const resetPattern = /^wip_[A-Za-z0-9_-]{43}$/u;
 export function readResetCredential(url: string | null): string | null {
   if (url === null) return null;
   try {
-    const token = new URLSearchParams(new URL(url).hash.slice(1)).get('resetToken');
+    const raw = new URL(url).hash.slice(1);
+    const token =
+      new URLSearchParams(raw).get('resetToken') ?? (resetPattern.test(raw) ? raw : null);
     return token !== null && resetPattern.test(token) ? token : null;
   } catch {
     return null;
@@ -83,6 +85,10 @@ export class AndroidIdentitySession {
 
   snapshot(): AndroidSessionSnapshot {
     return this.state;
+  }
+
+  async discardRevokedSession(): Promise<void> {
+    await this.clear();
   }
 
   async login(email: string, password: string): Promise<AndroidSessionSnapshot> {

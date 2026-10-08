@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import {
-  createPlanningGateway,
   type ConfirmedPlanningSnapshot,
   type PlanningGateway,
 } from '@/features/booking-lifecycle/planning-api';
@@ -19,11 +18,11 @@ import { semanticColors, type, useWeddingTheme } from '@/theme';
 import { ApiClientError } from '@/lib/api/client';
 
 import { styles } from './home.styles';
+import { CoupleOverviewScreen } from './couple-overview';
 
 const VENUE_IMAGE =
   'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85';
 const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
-const planningGateway = createPlanningGateway();
 
 export function HomeScreen({
   initialResetToken,
@@ -33,6 +32,7 @@ export function HomeScreen({
   session?: AndroidIdentitySession;
 }>) {
   const { brand, colors } = useWeddingTheme();
+  const incomingUrl = Linking.useURL();
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
   const [resetToken, setResetToken] = useState<string | null>(initialResetToken ?? null);
@@ -42,7 +42,7 @@ export function HomeScreen({
     void (async () => {
       const token =
         initialResetToken === undefined
-          ? readResetCredential(await Linking.getInitialURL())
+          ? readResetCredential(incomingUrl ?? (await Linking.getInitialURL()))
           : initialResetToken;
       if (!active) return;
       if (token !== null) {
@@ -58,7 +58,7 @@ export function HomeScreen({
     return () => {
       active = false;
     };
-  }, [initialResetToken, session]);
+  }, [initialResetToken, incomingUrl, session]);
 
   if (loading) {
     return (
@@ -72,9 +72,10 @@ export function HomeScreen({
     );
   }
 
-  if (snapshot.status === 'anonymous' || snapshot.access === 'denied') {
+  if (resetToken !== null || snapshot.status === 'anonymous' || snapshot.access === 'denied') {
     return (
       <IdentityScreen
+        key={resetToken ?? 'identity'}
         session={session}
         resetToken={resetToken}
         onAuthenticated={(nextSnapshot) => {
@@ -86,8 +87,8 @@ export function HomeScreen({
   }
 
   return (
-    <ConfirmedPlanningScreen
-      gateway={planningGateway}
+    <CoupleOverviewScreen
+      renderPlan={(value) => <PlanningContent snapshot={value} />}
       session={session}
       onLogout={() => {
         void session.logout().finally(() => setSnapshot(session.snapshot()));

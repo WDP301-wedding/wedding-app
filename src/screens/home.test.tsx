@@ -8,6 +8,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as Linking from 'expo-linking';
 import type { ReactNode } from 'react';
 import { Pressable as MockPressable, Text as MockText, View as MockView } from 'react-native';
 
@@ -30,6 +31,13 @@ jest.mock('expo-secure-store', () => ({
 
 jest.mock('expo-linking', () => ({
   getInitialURL: jest.fn().mockResolvedValue(null),
+  useURL: jest.fn().mockReturnValue(null),
+}));
+
+jest.mock('@/features/identity-access/experience-api', () => ({
+  createExperienceGateway: () => ({
+    overview: jest.fn().mockResolvedValue({ data: [], nextCursor: null }),
+  }),
 }));
 
 jest.mock('@expo/ui', () => ({
@@ -69,6 +77,7 @@ function createApi(): IdentityApi {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.mocked(Linking.useURL).mockReturnValue(null);
   jest.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
   jest.mocked(SecureStore.setItemAsync).mockResolvedValue(undefined);
   jest.mocked(SecureStore.deleteItemAsync).mockResolvedValue(undefined);
@@ -144,6 +153,15 @@ describe('AndroidIdentitySession', () => {
 });
 
 describe('HomeScreen', () => {
+  it('opens an incoming reset link while the Couple overview is already active', async () => {
+    const session = new AndroidIdentitySession(createApi(), createSecureRefreshStore());
+    await session.login('minhanh@example.com', 'initial-password-123');
+    const rendered = await render(<HomeScreen session={session} />);
+    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
+    jest.mocked(Linking.useURL).mockReturnValue(`weddingapp://reset#wip_${'a'.repeat(43)}`);
+    await rendered.rerender(<HomeScreen session={session} />);
+    expect(await screen.findByText('Đặt mật khẩu mới')).toBeOnTheScreen();
+  });
   it('restores the Couple experience and logs out with secure cleanup', async () => {
     const user = userEvent.setup();
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue('wir_previous');
@@ -152,9 +170,9 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen session={session} />);
 
-    expect(await screen.findByText('Ngày trọng đại của hai bạn')).toBeOnTheScreen();
-    expect(screen.getByText('Chưa chọn kế hoạch')).toBeOnTheScreen();
-    await user.press(screen.getByTestId('logout-button'));
+    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
+    expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
+    await user.press(screen.getByText('Đăng xuất'));
     await waitFor(() => expect(api.logout).toHaveBeenCalledWith('wia_rotated'));
     expect(await screen.findByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
   });
@@ -170,8 +188,8 @@ describe('HomeScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'sample-password-123');
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
 
-    expect(await screen.findByText('Ngày trọng đại của hai bạn')).toBeOnTheScreen();
-    expect(screen.getByText('Chưa chọn kế hoạch')).toBeOnTheScreen();
+    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
+    expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
   });
 
   it('renders only a server-confirmed planning summary and timeline', async () => {

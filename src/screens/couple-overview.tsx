@@ -1,3 +1,4 @@
+import type { OtpChallenge } from '@/features/identity-access/password-otp-api';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Host, TextInput, useNativeState } from '@expo/ui';
@@ -198,6 +199,14 @@ export function NativeAccountSettings({
   const [current, setCurrent] = useState(''),
     [next, setNext] = useState(''),
     [confirm, setConfirm] = useState('');
+  const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
+  const [code, setCode] = useState('');
+  const [remaining, setRemaining] = useState(0);
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [remaining]);
   const [pending, setPending] = useState(false),
     [message, setMessage] = useState<string | null>(null),
     [error, setError] = useState<string | null>(null);
@@ -239,6 +248,24 @@ export function NativeAccountSettings({
       setPending(false);
     }
   }
+  async function changeRequest() {
+    if (pending || remaining > 0) return;
+    setPending(true);
+    setError(null);
+    try {
+      const value = await session.authorize((token) =>
+        experience.requestPasswordChange(token, current),
+      );
+      setChallenge(value);
+      setRemaining(value.resendAfterSeconds);
+      setCode('');
+      setMessage('Đã gửi mã OTP mới vào email.');
+    } catch {
+      setError('Chưa gửi được mã. Hãy thử lại sau.');
+    } finally {
+      setPending(false);
+    }
+  }
   async function change() {
     if (pending) return;
     if (!current || next.length < 12 || next.length > 128 || next !== confirm) {
@@ -249,7 +276,22 @@ export function NativeAccountSettings({
     setError(null);
     setMessage(null);
     try {
-      await session.authorize((token) => experience.changePassword(token, current, next));
+      if (!challenge) {
+        const value = await session.authorize((token) =>
+          experience.requestPasswordChange(token, current),
+        );
+        setChallenge(value);
+        setRemaining(value.resendAfterSeconds);
+        setMessage('Mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.');
+        return;
+      }
+      if (!/^\d{6}$/.test(code)) {
+        setError('Nhập mã OTP gồm 6 chữ số.');
+        return;
+      }
+      await session.authorize((token) =>
+        experience.changePassword(token, challenge.challengeId, code, next),
+      );
       setCurrent('');
       setNext('');
       setConfirm('');
@@ -259,7 +301,7 @@ export function NativeAccountSettings({
       setError(
         caught instanceof ApiClientError && caught.code === 'CURRENT_PASSWORD_INVALID'
           ? 'Mật khẩu hiện tại chưa đúng.'
-          : 'Chưa đổi được mật khẩu. Hãy thử lại.',
+          : 'Mã OTP chưa đúng, đã hết hạn hoặc chưa gửi được. Kiểm tra mã mới nhất rồi thử lại.',
       );
     } finally {
       setPending(false);
@@ -315,7 +357,16 @@ export function NativeAccountSettings({
           <Text style={[type.caption, { color: colors.secondaryLabel }]}>
             Dùng 12–128 ký tự. Sau khi đổi, hãy đăng nhập lại trên các thiết bị.
           </Text>
-          {action('Cập nhật mật khẩu', () => void change())}
+          {challenge && (
+            <NativeField label="Mã OTP" value={code} onChangeText={setCode} secret={false} otp />
+          )}
+          {action(challenge ? 'Xác nhận và cập nhật mật khẩu' : 'Gửi mã OTP', () => void change())}
+          {challenge &&
+            remaining === 0 &&
+            action('Gửi lại mã OTP', () => {
+              void changeRequest();
+            })}
+          {challenge && remaining > 0 && <Text>Gửi lại sau {remaining}s</Text>}
         </>
       )}
     </View>
@@ -327,11 +378,13 @@ function NativeField({
   value,
   onChangeText,
   secret,
+  otp = false,
 }: Readonly<{
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   secret: boolean;
+  otp?: boolean;
 }>) {
   const state = useNativeState(value);
   const { colors } = useWeddingTheme();
@@ -350,7 +403,9 @@ function NativeField({
           }}
           placeholder={label}
           secureTextEntry={secret}
-          autoComplete={secret ? 'off' : 'name'}
+          autoComplete={otp ? 'one-time-code' : secret ? 'off' : 'name'}
+          keyboardType={otp ? 'number-pad' : 'default'}
+          maxLength={otp ? 6 : secret ? 512 : 120}
           autoCapitalize="none"
           autoCorrect={false}
           style={{

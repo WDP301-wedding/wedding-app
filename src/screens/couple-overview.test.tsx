@@ -56,6 +56,7 @@ jest.mock('@/features/identity-access/experience-api', () => {
     profile: jest.fn(),
     updateProfile: jest.fn(),
     changePassword: jest.fn(),
+    requestPasswordChange: jest.fn(),
     overview: jest.fn(),
   };
   return { createExperienceGateway: () => gateway };
@@ -113,6 +114,12 @@ it('checks password confirmation before sending and clears secure state after su
   const current = await session(),
     signedOut = jest.fn();
   gateway.changePassword.mockResolvedValue(undefined);
+  gateway.requestPasswordChange.mockResolvedValue({
+    accepted: true,
+    challengeId: 'challenge',
+    expiresInSeconds: 600,
+    resendAfterSeconds: 60,
+  });
   await render(<NativeAccountSettings session={current.value} onSignedOut={signedOut} />);
   await screen.findByText('couple@example.com');
   await fireEvent.changeText(screen.getByLabelText('Mật khẩu hiện tại'), 'initial-password-123');
@@ -121,17 +128,24 @@ it('checks password confirmation before sending and clears secure state after su
     screen.getByLabelText('Xác nhận mật khẩu mới'),
     'different-password-123',
   );
-  await fireEvent.press(screen.getByText('Cập nhật mật khẩu'));
+  await fireEvent.press(screen.getByText('Gửi mã OTP'));
   expect(gateway.changePassword).not.toHaveBeenCalled();
   await fireEvent.changeText(
     screen.getByLabelText('Xác nhận mật khẩu mới'),
     'replacement-password-123',
   );
-  await fireEvent.press(screen.getByText('Cập nhật mật khẩu'));
+  await fireEvent.press(screen.getByText('Gửi mã OTP'));
+  await screen.findByLabelText('Mã OTP');
+  expect(signedOut).not.toHaveBeenCalled();
+  expect(gateway.changePassword).not.toHaveBeenCalled();
+  expect(gateway.requestPasswordChange).toHaveBeenCalledWith('access', 'initial-password-123');
+  await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
+  await fireEvent.press(screen.getByText('Xác nhận và cập nhật mật khẩu'));
   await waitFor(() => expect(signedOut).toHaveBeenCalledTimes(1));
   expect(gateway.changePassword).toHaveBeenCalledWith(
     'access',
-    'initial-password-123',
+    'challenge',
+    '123456',
     'replacement-password-123',
   );
   expect(current.store.clear).toHaveBeenCalled();

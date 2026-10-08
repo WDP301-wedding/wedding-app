@@ -24,10 +24,17 @@ export function createExperienceGateway(client?: ApiClient) {
         ).data,
       ).data;
     },
-    async changePassword(token: string, currentPassword: string, newPassword: string) {
+    async requestPasswordChange(token: string, currentPassword: string) {
+      const response = await api().POST('/auth/password-change-otp-requests', {
+        headers: headers(token),
+        body: { currentPassword },
+      });
+      return required(response.data).data;
+    },
+    async changePassword(token: string, challengeId: string, code: string, newPassword: string) {
       await api().POST('/auth/password-changes', {
         headers: headers(token),
-        body: { currentPassword, newPassword },
+        body: { challengeId, code, newPassword },
       });
     },
     async overview(token: string, cursor?: string) {

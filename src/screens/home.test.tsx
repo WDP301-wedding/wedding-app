@@ -1,3 +1,4 @@
+import { createPasswordOtpGateway } from '@/features/identity-access/password-otp-api';
 import { describe, expect, it } from '@jest/globals';
 import {
   cleanup,
@@ -22,6 +23,21 @@ import type { PlanningGateway } from '@/features/booking-lifecycle/planning-api'
 import { ApiClientError } from '@/lib/api/client';
 
 import { ConfirmedPlanningScreen, HomeScreen } from './home';
+
+jest.mock('@/features/identity-access/password-otp-api', () => {
+  const gateway = {
+    request: jest
+      .fn()
+      .mockResolvedValue({
+        accepted: true,
+        challengeId: 'challenge',
+        expiresInSeconds: 600,
+        resendAfterSeconds: 60,
+      }),
+    complete: jest.fn().mockResolvedValue(undefined),
+  };
+  return { createPasswordOtpGateway: () => gateway };
+});
 
 jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(),
@@ -160,7 +176,7 @@ describe('HomeScreen', () => {
     expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
     jest.mocked(Linking.useURL).mockReturnValue(`weddingapp://reset#wip_${'a'.repeat(43)}`);
     await rendered.rerender(<HomeScreen session={session} />);
-    expect(await screen.findByText('Đặt mật khẩu mới')).toBeOnTheScreen();
+    expect(await screen.findByText('Khôi phục mật khẩu')).toBeOnTheScreen();
   });
   it('restores the Couple experience and logs out with secure cleanup', async () => {
     const user = userEvent.setup();
@@ -280,40 +296,48 @@ describe('HomeScreen', () => {
     await screen.findByText('Đăng nhập cho cặp đôi');
     await user.press(screen.getByRole('button', { name: 'Quên mật khẩu?' }));
     await fireEvent.changeText(screen.getByLabelText('Email'), 'unknown@example.com');
-    await user.press(screen.getByRole('button', { name: 'Gửi hướng dẫn' }));
+    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
 
     expect(
       await screen.findByText(
-        'Nếu tài khoản đủ điều kiện, hướng dẫn đặt lại mật khẩu đã được gửi.',
+        'Nếu tài khoản đủ điều kiện, mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
       ),
     ).toBeOnTheScreen();
-    expect(api.requestPasswordReset).toHaveBeenCalledWith('unknown@example.com');
+    expect(createPasswordOtpGateway().request).toHaveBeenCalledWith('unknown@example.com');
+    await user.press(screen.getByRole('button', { name: 'Dùng email khác' }));
     await user.press(screen.getByRole('button', { name: 'Quay lại đăng nhập' }));
     expect(screen.getByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
   });
 
-  it('validates and completes an Android reset fragment without route state', async () => {
+  it('requests a fresh OTP for a legacy link and confirms it before clearing secure state', async () => {
     const user = userEvent.setup();
     const api = createApi();
     const session = new AndroidIdentitySession(api, createSecureRefreshStore());
-    const resetToken = `wip_${'a'.repeat(43)}`;
-
-    await render(<HomeScreen session={session} initialResetToken={resetToken} />);
-    expect(await screen.findByText('Đặt mật khẩu mới')).toBeOnTheScreen();
+    await render(<HomeScreen session={session} initialResetToken={`wip_${'a'.repeat(43)}`} />);
+    await screen.findByText('Khôi phục mật khẩu');
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'minhanh@example.com');
+    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
+    await screen.findByLabelText('Mã OTP');
+    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'new-sample-password-123');
     await fireEvent.changeText(
       screen.getByLabelText('Xác nhận mật khẩu'),
       'different-password-123',
     );
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
-    expect(screen.getByText('Hai mật khẩu chưa trùng khớp.')).toBeOnTheScreen();
-
+    expect(createPasswordOtpGateway().complete).not.toHaveBeenCalled();
     await fireEvent.changeText(
       screen.getByLabelText('Xác nhận mật khẩu'),
       'new-sample-password-123',
     );
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
     expect(await screen.findByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
-    expect(api.completePasswordReset).toHaveBeenCalledWith(resetToken, 'new-sample-password-123');
+    expect(createPasswordOtpGateway().complete).toHaveBeenCalledWith(
+      'challenge',
+      '123456',
+      'new-sample-password-123',
+    );
+    expect(api.completePasswordReset).not.toHaveBeenCalled();
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
   });
 });

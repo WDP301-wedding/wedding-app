@@ -1,6 +1,13 @@
 import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react-native';
 import { describe, expect, it } from '@jest/globals';
 import type { ReactNode } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import {
+  createHash,
+  createHash as mockCreateHash,
+  randomUUID,
+  randomUUID as mockRandomUUID,
+} from 'node:crypto';
 import { View as MockView, Pressable as MockPressable, Text as MockText } from 'react-native';
 import { AndroidBillingPage, AndroidBillingScreen } from './billing';
 import {
@@ -10,6 +17,10 @@ import {
 } from '@/features/identity-access/session';
 import { ApiClientError } from '@/lib/api/client';
 import type { CoupleBillingGateway } from '@/features/payments-billing/billing-api';
+import {
+  createBillingIntents,
+  type IntentStorage,
+} from '@/features/payments-billing/billing-intents';
 
 jest.mock('@expo/ui', () => ({
   Host: ({ children }: { children: ReactNode }) => <MockView>{children}</MockView>,
@@ -43,9 +54,23 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(),
   deleteItemAsync: jest.fn(),
 }));
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => mockRandomUUID(),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: (_algorithm: string, value: string) =>
+    Promise.resolve(mockCreateHash('sha256').update(value).digest('hex')),
+}));
 const authorize = <T,>(operation: (token: string) => Promise<T>) => operation('token');
 const intents = {
+  lastBooking: () => Promise.resolve(null),
+  recoverCheckout: () => Promise.resolve(null),
+  finishCheckout: () => Promise.resolve(),
   pending: () => Promise.resolve(null),
+  runCheckout: <T,>(
+    _bookingId: string,
+    _body: object,
+    operation: (key: string, body: object) => Promise<T>,
+  ) => operation('stable-key', _body),
   run: <T,>(_scope: string, _body: object, operation: (key: string, body: object) => Promise<T>) =>
     operation('stable-key', _body),
 };
@@ -113,6 +138,203 @@ async function mount(api: CoupleBillingGateway) {
   await load();
 }
 describe('Android authorized billing', () => {
+  it('retains the checkout confirmation after rate limiting and offers an exact retry', async () => {
+    const api = gateway();
+    await mount(api);
+    jest.mocked(api.startBalance).mockRejectedValueOnce(failure('RATE_LIMITED', 429));
+    await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán còn lại' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận mở VNPay' }));
+    await screen.findByText('Thử lại cùng yêu cầu');
+    expect(screen.getByRole('button', { name: 'Quay lại' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
+    await fireEvent.press(screen.getByRole('button', { name: 'Thử lại cùng yêu cầu' }));
+    await screen.findByText('Đường dẫn thanh toán đã được tạo');
+    expect(api.startBalance).toHaveBeenLastCalledWith(
+      'token',
+      'booking',
+      { expectedBillingRevision: 4 },
+      'stable-key',
+    );
+  });
+  it('does not read a logged-out actor checkout recovery when billing session memory remains mounted', async () => {
+    let stored: string | null = null;
+    const store = {
+      read: () => Promise.resolve(stored),
+      replace: (value: string) => {
+        stored = value;
+        return Promise.resolve();
+      },
+      clear: () => {
+        stored = null;
+        return Promise.resolve();
+      },
+    };
+    const identity = createIdentityApi();
+    const credential = {
+      accessToken: 'fixture-access',
+      refreshToken: 'fixture-refresh',
+      sessionId: 'fixture-session',
+    };
+    jest.spyOn(identity, 'createSession').mockResolvedValue(credential);
+    jest.spyOn(identity, 'refreshSession').mockResolvedValue(credential);
+    jest.spyOn(identity, 'getCurrentUser').mockResolvedValue({
+      accountId: 'fixture-account',
+      displayEmail: 'fixture@example.invalid',
+      roles: ['COUPLE'],
+      sessionId: credential.sessionId,
+    });
+    jest.spyOn(identity, 'logout').mockRejectedValue(new Error('offline'));
+    const home = new AndroidIdentitySession(identity, store);
+    const billing = new AndroidIdentitySession(identity, store);
+    await home.login('fixture@example.invalid', 'fixture-password');
+    await billing.restore();
+    await expect(home.logout()).rejects.toThrow('offline');
+    const api = gateway();
+    await render(<AndroidBillingPage session={billing} gateway={api} />);
+    await screen.findByText('Cần tài khoản cặp đôi đã xác nhận');
+    expect(screen.queryByText('Thanh toán của hai bạn')).toBeNull();
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
+    expect(api.load).not.toHaveBeenCalled();
+  });
+  it('recovers a real durable checkout after unmount without creating another attempt', async () => {
+    const records = new Map<string, string>();
+    const storage: IntentStorage = {
+      read: (key) => Promise.resolve(records.get(key) ?? null),
+      write: (key, value) => {
+        records.set(key, value);
+        return Promise.resolve();
+      },
+      remove: (key) => {
+        records.delete(key);
+        return Promise.resolve();
+      },
+    };
+    const hash = (value: string) =>
+      Promise.resolve(createHash('sha256').update(value).digest('hex'));
+    const bookingId = randomUUID();
+    const paymentAttemptId = randomUUID();
+    const api = gateway();
+    const context = await api.loadContext('token', 'booking');
+    const billing = await api.load('token', 'booking');
+    const checkout = await api.startBalance(
+      'token',
+      'booking',
+      { expectedBillingRevision: 4 },
+      'key',
+    );
+    const attempt = await api.loadAttempt('token', 'booking', 'attempt');
+    jest.mocked(api.loadContext).mockResolvedValue({ ...context, bookingId });
+    jest.mocked(api.load).mockResolvedValue({ ...billing, bookingId });
+    jest
+      .mocked(api.startBalance)
+      .mockClear()
+      .mockResolvedValue({ ...checkout, paymentAttemptId });
+    jest
+      .mocked(api.loadAttempt)
+      .mockClear()
+      .mockResolvedValue({ ...attempt, paymentAttemptId });
+    await render(
+      <AndroidBillingScreen
+        accountId="actor"
+        authorize={authorize}
+        gateway={api}
+        intents={createBillingIntents('actor', storage, hash)}
+        initialBookingId={bookingId}
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+    await screen.findByText('Còn phải thanh toán');
+    await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán còn lại' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận mở VNPay' }));
+    await screen.findByText('Đường dẫn thanh toán đã được tạo');
+    await cleanup();
+    const recovered = createBillingIntents('actor', storage, hash);
+    await render(
+      <AndroidBillingScreen
+        accountId="actor"
+        authorize={authorize}
+        gateway={api}
+        intents={recovered}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Mã hồ sơ đặt tiệc')).toHaveDisplayValue(bookingId),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+    await screen.findByText('Chưa rõ kết quả · đang kiểm tra');
+    expect(api.startBalance).toHaveBeenCalledTimes(1);
+    expect(api.loadAttempt).toHaveBeenLastCalledWith('token', bookingId, paymentAttemptId);
+    expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
+    await fireEvent.changeText(screen.getByLabelText('Mã hồ sơ đặt tiệc'), randomUUID());
+    expect(screen.getByLabelText('Mã hồ sơ đặt tiệc')).toHaveDisplayValue(bookingId);
+    expect(await recovered.recoverCheckout(bookingId)).not.toBeNull();
+  });
+  it('restores the account checkout when reopening billing from Home and reconciles before collection', async () => {
+    const api = gateway();
+    const checkout = await api.startBalance(
+      'token',
+      'booking',
+      { expectedBillingRevision: 4 },
+      'key',
+    );
+    await render(
+      <AndroidBillingScreen
+        accountId="actor"
+        authorize={authorize}
+        gateway={api}
+        intents={{
+          ...intents,
+          lastBooking: () => Promise.resolve('booking'),
+          recoverCheckout: () =>
+            Promise.resolve({ metadata: { expectedBillingRevision: 4 }, checkout }),
+        }}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Mã hồ sơ đặt tiệc')).toHaveDisplayValue('booking'),
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+    await screen.findByText('Chưa rõ kết quả · đang kiểm tra');
+    expect(api.loadAttempt).toHaveBeenCalledWith('token', 'booking', checkout.paymentAttemptId);
+    expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
+    expect(screen.getByLabelText('Mã hồ sơ đặt tiệc')).not.toBeEnabled();
+    expect(screen.queryByText('Tiếp tục trên VNPay')).toBeNull();
+  });
+  it('keeps collection blocked for restored settlement awaiting downstream application', async () => {
+    const api = gateway();
+    jest.mocked(api.loadAttempt).mockResolvedValue({
+      paymentAttemptId: 'attempt',
+      status: 'SUCCEEDED',
+      purpose: 'BALANCE',
+      amountVnd: 4000000,
+      applicationStatus: 'PENDING',
+      expiresAt: '2026-10-09T10:00:00Z',
+    });
+    await render(
+      <AndroidBillingScreen
+        accountId="actor"
+        authorize={authorize}
+        gateway={api}
+        intents={intents}
+        initialBookingId="booking"
+        initialAttemptId="attempt"
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+    await screen.findByText('Tiền đã được xác minh; hồ sơ đang chờ cập nhật.');
+    expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
+  });
+  it('invalidates old billing after editing the booking and cannot pay the old booking after a failed read', async () => {
+    const api = gateway();
+    await mount(api);
+    await fireEvent.changeText(screen.getByLabelText('Mã hồ sơ đặt tiệc'), 'other-booking');
+    expect(screen.queryByRole('button', { name: 'Thanh toán còn lại' })).toBeNull();
+    jest.mocked(api.loadContext).mockRejectedValueOnce(failure('UNAVAILABLE', 503));
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+    await screen.findByText(/Chưa rõ kết quả/);
+    expect(screen.queryByText('Còn phải thanh toán')).toBeNull();
+    expect(api.startBalance).not.toHaveBeenCalled();
+  });
   it('restores route attempt IDs and keeps collection blocked when the first status read fails', async () => {
     const api = gateway();
     jest.mocked(api.loadAttempt).mockRejectedValueOnce(failure('UNAVAILABLE', 503));

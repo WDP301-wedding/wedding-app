@@ -154,7 +154,10 @@ export class AndroidIdentitySession {
 
   private async restoreProcess(): Promise<AndroidSessionSnapshot> {
     const refreshToken = await this.refreshStore.read();
-    if (refreshToken === null) return this.state;
+    if (refreshToken === null) {
+      await this.clear();
+      return this.state;
+    }
     try {
       return await this.installCredential(await this.api.refreshSession(refreshToken));
     } catch {

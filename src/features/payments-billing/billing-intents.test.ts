@@ -43,6 +43,100 @@ const unknown = new ApiClientError({
 });
 
 describe('durable billing intent identity', () => {
+  it.each([401, 403, 404, 429])(
+    'keeps an uncertain checkout through access denial or rate limiting %i and reuses it after retry',
+    async (status) => {
+      const storage = memory();
+      const bookingId = mockRandomUUID();
+      const keys: string[] = [];
+      const first = createBillingIntents('actor', storage, hash);
+      await expect(
+        first.runCheckout(bookingId, { expectedBillingRevision: 7 }, (key) => {
+          keys.push(key);
+          return Promise.reject(unknown);
+        }),
+      ).rejects.toBe(unknown);
+      const reloaded = createBillingIntents('actor', storage, hash);
+      await expect(
+        reloaded.runCheckout(bookingId, { expectedBillingRevision: 8 }, (key) => {
+          keys.push(key);
+          return Promise.reject(
+            new ApiClientError({
+              kind: 'api',
+              code: 'ACCESS_DENIED',
+              status,
+              message: 'denied',
+              requestId: 'request',
+            }),
+          );
+        }),
+      ).rejects.toThrow('denied');
+      expect(await reloaded.recoverCheckout(bookingId)).not.toBeNull();
+      await reloaded.runCheckout(bookingId, { expectedBillingRevision: 8 }, (key, body) => {
+        keys.push(key);
+        expect(body).toEqual({ expectedBillingRevision: 7 });
+        return Promise.resolve({
+          paymentAttemptId: mockRandomUUID(),
+          status: 'PENDING',
+          checkoutUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
+          expiresAt: '2026-10-09T10:00:00Z',
+        });
+      });
+      expect(keys).toEqual([keys[0], keys[0], keys[0]]);
+    },
+  );
+  it('retains checkout identity across restart until verified settlement is fully applied', async () => {
+    const storage = memory();
+    const bookingId = mockRandomUUID();
+    const result = {
+      paymentAttemptId: mockRandomUUID(),
+      status: 'PENDING' as const,
+      checkoutUrl: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
+      expiresAt: '2026-10-09T10:00:00Z',
+    };
+    const first = createBillingIntents('actor', storage, hash);
+    let originalKey = '';
+    await first.runCheckout(bookingId, { expectedBillingRevision: 7 }, (key) => {
+      originalKey = key;
+      return Promise.resolve(result);
+    });
+    const reloaded = createBillingIntents('actor', storage, hash);
+    expect(await reloaded.lastBooking()).toBe(bookingId);
+    expect(await reloaded.recoverCheckout(bookingId)).toEqual({
+      metadata: { expectedBillingRevision: 7 },
+      checkout: result,
+    });
+    await reloaded.runCheckout(bookingId, { expectedBillingRevision: 8 }, (key, body) => {
+      expect(key).toBe(originalKey);
+      expect(body).toEqual({ expectedBillingRevision: 7 });
+      return Promise.resolve(result);
+    });
+    await reloaded.finishCheckout(bookingId, {
+      paymentAttemptId: result.paymentAttemptId,
+      status: 'SUCCEEDED',
+      applicationStatus: 'PENDING',
+    });
+    expect(await reloaded.recoverCheckout(bookingId)).not.toBeNull();
+    await reloaded.finishCheckout(bookingId, {
+      paymentAttemptId: result.paymentAttemptId,
+      status: 'SUCCEEDED',
+      applicationStatus: 'SUCCEEDED',
+    });
+    expect(await reloaded.recoverCheckout(bookingId)).toBeNull();
+  });
+  it('discovers an uncertain checkout after restart and separates account recovery', async () => {
+    const storage = memory();
+    const bookingId = mockRandomUUID();
+    const first = createBillingIntents('actor', storage, hash);
+    await expect(
+      first.runCheckout(bookingId, { expectedBillingRevision: 7 }, () => Promise.reject(unknown)),
+    ).rejects.toBe(unknown);
+    expect(await createBillingIntents('actor', storage, hash).lastBooking()).toBe(bookingId);
+    expect(await createBillingIntents('another', storage, hash).lastBooking()).toBeNull();
+    expect(
+      await createBillingIntents('another', storage, hash).recoverCheckout(bookingId),
+    ).toBeNull();
+  });
   it('recovers the original revision and uses SecureStore without persisting receipt text', async () => {
     const records = new Map<string, string>();
     jest

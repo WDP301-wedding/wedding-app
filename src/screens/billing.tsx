@@ -61,7 +61,14 @@ function unknown(error: unknown): boolean {
     !(error instanceof ApiClientError) ||
     error.kind !== 'api' ||
     (error.status ?? 500) >= 500 ||
+    error.status === 429 ||
     error.code === 'REQUEST_IN_PROGRESS'
+  );
+}
+function completed(attempt: AttemptView): boolean {
+  return (
+    attempt.status === 'FAILED' ||
+    (attempt.status === 'SUCCEEDED' && attempt.applicationStatus === 'SUCCEEDED')
   );
 }
 function message(error: unknown): string {
@@ -168,7 +175,26 @@ export function AndroidBillingScreen({
   const [gated, setGated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const busy = useRef(false);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        if (!initialBookingId) {
+          const remembered = await intents.lastBooking();
+          if (active && remembered !== null) setBookingId(remembered);
+        }
+      } catch (caught) {
+        if (active) setError(message(caught));
+      } finally {
+        if (active) setRecoveryReady(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [intents, initialBookingId]);
   const fail = (caught: unknown) => {
     if (denied(caught)) {
       setView(null);
@@ -210,25 +236,34 @@ export function AndroidBillingScreen({
       return;
     }
     setGated(false);
+    const saved = await intents.recoverCheckout(id);
     const restoreAttemptId =
-      view?.bookingId === id || initialBookingId === id ? attemptId.trim() : '';
+      saved?.checkout?.paymentAttemptId ??
+      (view?.bookingId === id || initialBookingId === id ? attemptId.trim() : '');
+    if (saved?.checkout) {
+      setCheckout(saved.checkout);
+      setAttemptId(saved.checkout.paymentAttemptId);
+      setIntent(null);
+      setRetry(false);
+      onAttemptCreated?.(id, saved.checkout.paymentAttemptId);
+    }
     setNeedsAttemptStatus(restoreAttemptId !== '');
     const value = await authorize((token) => gateway.load(token, id));
     if (value.bookingId !== id) throw new Error('Billing mismatch');
     setView(value);
     setCursors([null]);
-    const saved = await intents.pending(`checkout:${id}`);
-    if (saved?.expectedBillingRevision !== undefined) {
-      setIntent({ revision: saved.expectedBillingRevision, amountVnd: null });
+    const metadata = saved?.metadata ?? (await intents.pending(`checkout:${id}`));
+    if (!saved?.checkout && metadata?.expectedBillingRevision !== undefined) {
+      setIntent({ revision: metadata.expectedBillingRevision, amountVnd: null });
       setRetry(true);
     }
-    if (attempt?.status === 'SUCCEEDED' || attempt?.status === 'FAILED') setCheckout(null);
     if (restoreAttemptId !== '') {
       const restored = await authorize((token) => gateway.loadAttempt(token, id, restoreAttemptId));
       if (restored.paymentAttemptId !== restoreAttemptId) throw new Error('Attempt mismatch');
+      await intents.finishCheckout(id, restored);
       setAttempt(restored);
       setNeedsAttemptStatus(false);
-      if (restored.status === 'SUCCEEDED' || restored.status === 'FAILED') setCheckout(null);
+      if (completed(restored)) setCheckout(null);
     }
   };
   const page = async (next: (string | null)[]) => {
@@ -246,13 +281,14 @@ export function AndroidBillingScreen({
     setCursors(next);
   };
   const start = async () => {
-    if (busy.current || view === null || intent === null) return;
+    if (busy.current || view === null || intent === null || view.bookingId !== bookingId.trim())
+      return;
     busy.current = true;
     setPending(true);
     setError(null);
     const body = { expectedBillingRevision: intent.revision };
     try {
-      const value = await intents.run(`checkout:${view.bookingId}`, body, (key, stableBody) =>
+      const value = await intents.runCheckout(view.bookingId, body, (key, stableBody) =>
         authorize((token) =>
           gateway.startBalance(token, view.bookingId, stableBody as BalanceBody, key),
         ),
@@ -274,11 +310,12 @@ export function AndroidBillingScreen({
     }
   };
   const blocked =
+    !recoveryReady ||
     pending ||
     intent !== null ||
     checkout !== null ||
     needsAttemptStatus ||
-    (attempt !== null && attempt.status !== 'SUCCEEDED' && attempt.status !== 'FAILED');
+    (attempt !== null && !completed(attempt));
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -298,7 +335,17 @@ export function AndroidBillingScreen({
         autoCapitalize="none"
         autoCorrect={false}
         value={bookingId}
-        onChangeText={setBookingId}
+        onChangeText={(value) => {
+          if (blocked) return;
+          setBookingId(value);
+          setView(null);
+          setAttempt(null);
+          setAttemptId('');
+          setCheckout(null);
+          setGated(false);
+          setError(null);
+          setCursors([null]);
+        }}
         editable={!blocked}
         style={[styles.input, { borderColor: colors.separator, color: colors.label }]}
       />
@@ -432,9 +479,10 @@ export function AndroidBillingScreen({
                   );
                   if (value.paymentAttemptId !== attemptId.trim())
                     throw new Error('Attempt mismatch');
+                  await intents.finishCheckout(view.bookingId, value);
                   setAttempt(value);
                   setNeedsAttemptStatus(false);
-                  if (value.status === 'FAILED') setCheckout(null);
+                  if (completed(value)) setCheckout(null);
                 });
               }}
             />

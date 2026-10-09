@@ -16,5 +16,4 @@ export const billingStyles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '600', lineHeight: 30, letterSpacing: 0 },
   amount: { fontSize: 26, fontWeight: '600', lineHeight: 34, fontVariant: ['tabular-nums'] },
   notice: { padding: spacing.md, gap: spacing.sm, borderWidth: 1, borderRadius: 4 },
-  actions: { gap: spacing.sm },
 });

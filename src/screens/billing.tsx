@@ -33,19 +33,19 @@ const billing = createCoupleBillingGateway();
 const money = (value: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 const labels: Record<keyof BillingView['totals'], string> = {
-  acceptedChargesVnd: 'Giá trị đã chấp nhận',
+  acceptedChargesVnd: 'Tổng tiền phải thanh toán',
   paidVnd: 'Đã thanh toán',
-  refundedVnd: 'Đã hoàn',
-  netPaidVnd: 'Thanh toán ròng',
-  outstandingVnd: 'Còn phải thu',
-  creditVnd: 'Dư có cần đối soát',
+  refundedVnd: 'Đã hoàn tiền',
+  netPaidVnd: 'Đã thanh toán sau hoàn tiền',
+  outstandingVnd: 'Còn phải thanh toán',
+  creditVnd: 'Tiền thanh toán thừa',
 };
 const states = {
   CREATED: 'Đã tạo · chờ thanh toán',
   PENDING: 'Đang chờ xác minh',
   SUCCEEDED: 'Đã xác minh nhận tiền',
   FAILED: 'Thanh toán không thành công',
-  UNKNOWN: 'Chưa rõ kết quả · đang đối soát',
+  UNKNOWN: 'Chưa rõ kết quả · đang kiểm tra',
 };
 const kinds = {
   CHARGE: 'Khoản phải thu',
@@ -70,7 +70,7 @@ function message(error: unknown): string {
   if (error instanceof ApiClientError && error.code === 'STALE_BILLING_REVISION')
     return 'Số dư đã thay đổi. Làm mới hồ sơ và kiểm tra lại trước khi thanh toán.';
   return unknown(error)
-    ? 'Chưa rõ kết quả. Giữ nguyên yêu cầu để thử lại và đối soát.'
+    ? 'Chưa rõ kết quả. Giữ nguyên yêu cầu để thử lại và kiểm tra kết quả.'
     : 'Yêu cầu bị từ chối. Kiểm tra số dư và trạng thái trước khi tiếp tục.';
 }
 function Action({
@@ -290,7 +290,7 @@ export function AndroidBillingScreen({
     >
       <Text style={[styles.title, { color: colors.label }]}>Thanh toán của hai bạn</Text>
       <Text style={[type.body, { color: colors.secondaryLabel }]}>
-        Số dư và trạng thái được nhà hàng xác minh. Không suy ra thành công từ trang trả về VNPay.
+        Xem số tiền đã thanh toán, khoản còn lại và trạng thái giao dịch.
       </Text>
       <Text style={[type.subhead, { color: colors.label }]}>Mã hồ sơ đặt tiệc</Text>
       <TextInput
@@ -303,7 +303,7 @@ export function AndroidBillingScreen({
         style={[styles.input, { borderColor: colors.separator, color: colors.label }]}
       />
       <Action
-        label="Mở billing"
+        label="Xem thanh toán"
         disabled={blocked || !bookingId.trim()}
         onPress={() => {
           void run(load);
@@ -322,9 +322,10 @@ export function AndroidBillingScreen({
       )}
       {gated && (
         <View style={[styles.notice, { borderColor: brand.gold }]}>
-          <Text style={[styles.title, { color: colors.label }]}>Billing trên app chưa mở</Text>
+          <Text style={[styles.title, { color: colors.label }]}>Chưa thể xem thanh toán</Text>
           <Text style={[type.body, { color: colors.label }]}>
-            Cần quyền đầy đủ và hồ sơ đã xác nhận. Tiếp tục đặt cọc, cộng tác trên Public Web.
+            Bạn cần quyền xem đầy đủ và hồ sơ đặt tiệc đã được xác nhận. Hãy tiếp tục đặt cọc và
+            hoàn thiện đề xuất trên website.
           </Text>
         </View>
       )}
@@ -341,12 +342,9 @@ export function AndroidBillingScreen({
                 </Text>
               </View>
             ))}
-            <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-              Phiên bản số dư {view.billingRevision}. Dư có không tự động hoàn tiền.
-            </Text>
           </View>
           <Action
-            label="Làm mới số dư"
+            label="Cập nhật thông tin"
             secondary
             disabled={pending || intent !== null}
             onPress={() => {
@@ -414,9 +412,9 @@ export function AndroidBillingScreen({
           )}
           <View style={[styles.section, { borderColor: colors.separator }]}>
             <Text style={[styles.title, { color: colors.label }]}>Trạng thái thanh toán</Text>
-            <Text style={[type.subhead, { color: colors.label }]}>Mã lần thanh toán</Text>
+            <Text style={[type.subhead, { color: colors.label }]}>Mã giao dịch thanh toán</Text>
             <TextInput
-              accessibilityLabel="Mã lần thanh toán"
+              accessibilityLabel="Mã giao dịch thanh toán"
               autoCapitalize="none"
               autoCorrect={false}
               value={attemptId}
@@ -466,9 +464,9 @@ export function AndroidBillingScreen({
             )}
           </View>
           <View style={[styles.section, { borderColor: colors.separator }]}>
-            <Text style={[styles.title, { color: colors.label }]}>Lịch sử bất biến</Text>
+            <Text style={[styles.title, { color: colors.label }]}>Lịch sử giao dịch</Text>
             {view.history.length === 0 ? (
-              <Text style={[type.body, { color: colors.label }]}>Chưa có bút toán</Text>
+              <Text style={[type.body, { color: colors.label }]}>Chưa có giao dịch</Text>
             ) : (
               view.history.map((entry) => (
                 <View
@@ -488,7 +486,7 @@ export function AndroidBillingScreen({
               ))
             )}
             <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-              Trang {cursors.length} · phiên bản {view.billingRevision}
+              Trang {cursors.length}
             </Text>
             <Action
               label="Trang lịch sử trước"

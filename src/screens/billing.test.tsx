@@ -95,8 +95,8 @@ afterEach(async () => {
 });
 async function load() {
   await fireEvent.changeText(screen.getByLabelText('Mã hồ sơ đặt tiệc'), 'booking');
-  await fireEvent.press(screen.getByRole('button', { name: 'Mở billing' }));
-  await screen.findByText('Còn phải thu');
+  await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+  await screen.findByText('Còn phải thanh toán');
   await waitFor(() => expect(screen.queryByText('Đang kiểm tra với máy chủ…')).toBeNull());
 }
 const failure = (code: string, status = 409) =>
@@ -126,12 +126,12 @@ describe('Android authorized billing', () => {
         initialAttemptId="attempt"
       />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'Mở billing' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
     await screen.findByText(/Chưa rõ kết quả/);
     expect(api.loadAttempt).toHaveBeenCalledWith('token', 'booking', 'attempt');
     expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
     await fireEvent.press(screen.getByRole('button', { name: 'Kiểm tra trạng thái' }));
-    await screen.findByText('Chưa rõ kết quả · đang đối soát');
+    await screen.findByText('Chưa rõ kết quả · đang kiểm tra');
     expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
   });
   it.each(['anonymous', 'denied', 'full'] as const)(
@@ -179,7 +179,7 @@ describe('Android authorized billing', () => {
         onAttemptCreated={jest.fn()}
       />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'Mở billing' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
     await screen.findByText(/Khôi phục yêu cầu trước/);
     await fireEvent.press(screen.getByRole('button', { name: 'Thử lại cùng yêu cầu' }));
     await waitFor(() =>
@@ -233,9 +233,9 @@ describe('Android authorized billing', () => {
     const api = gateway();
     await mount(api);
     jest.mocked(api.loadContext).mockRejectedValueOnce(failure('UNAVAILABLE', 503));
-    await fireEvent.press(screen.getByRole('button', { name: 'Làm mới số dư' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cập nhật thông tin' }));
     await screen.findByText(/Chưa rõ kết quả/);
-    expect(screen.getByText('Còn phải thu')).toBeTruthy();
+    expect(screen.getByText('Còn phải thanh toán')).toBeTruthy();
     jest.mocked(api.loadContext).mockResolvedValueOnce({
       bookingId: 'different',
       accessLevel: 'FULL',
@@ -243,12 +243,12 @@ describe('Android authorized billing', () => {
       depositAmountVnd: 1,
       timelineRevisionId: null,
     });
-    await fireEvent.press(screen.getByRole('button', { name: 'Làm mới số dư' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cập nhật thông tin' }));
     await waitFor(() => expect(api.loadContext).toHaveBeenCalledTimes(3));
     jest.mocked(api.loadContext).mockRejectedValueOnce(failure('FORBIDDEN', 403));
-    await fireEvent.press(screen.getByRole('button', { name: 'Làm mới số dư' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Cập nhật thông tin' }));
     await screen.findByText(/quyền xem hồ sơ không còn/);
-    expect(screen.queryByText('Còn phải thu')).toBeNull();
+    expect(screen.queryByText('Còn phải thanh toán')).toBeNull();
   });
   it('rejects stale balance, renders history and navigates backwards within its fixed revision', async () => {
     const api = gateway();
@@ -320,7 +320,7 @@ describe('Android authorized billing', () => {
         await fireEvent.press(screen.getByRole('button', { name: 'Kiểm tra trạng thái' }));
         await screen.findByText('Đã hoàn tất cập nhật hồ sơ.');
       }
-      await fireEvent.press(screen.getByRole('button', { name: 'Làm mới số dư' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Cập nhật thông tin' }));
       await waitFor(() =>
         expect(screen.queryByText('Đường dẫn thanh toán đã được tạo')).toBeNull(),
       );
@@ -347,8 +347,8 @@ describe('Android authorized billing', () => {
         />,
       );
       await fireEvent.changeText(screen.getByLabelText('Mã hồ sơ đặt tiệc'), 'booking');
-      await fireEvent.press(screen.getByRole('button', { name: 'Mở billing' }));
-      await screen.findByText('Billing trên app chưa mở');
+      await fireEvent.press(screen.getByRole('button', { name: 'Xem thanh toán' }));
+      await screen.findByText('Chưa thể xem thanh toán');
       expect(api.load).not.toHaveBeenCalled();
       expect(api.startDeposit).not.toHaveBeenCalled();
       await cleanup();
@@ -365,7 +365,7 @@ describe('Android authorized billing', () => {
       />,
     );
     await load();
-    expect(screen.getByText('Chưa có bút toán')).toBeTruthy();
+    expect(screen.getByText('Chưa có giao dịch')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán còn lại' }));
     expect(api.startBalance).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận mở VNPay' }));
@@ -397,9 +397,9 @@ describe('Android authorized billing', () => {
         throughBillingRevision: 4,
       }),
     );
-    await fireEvent.changeText(screen.getByLabelText('Mã lần thanh toán'), 'attempt');
+    await fireEvent.changeText(screen.getByLabelText('Mã giao dịch thanh toán'), 'attempt');
     await fireEvent.press(screen.getByRole('button', { name: 'Kiểm tra trạng thái' }));
-    expect(await screen.findByText('Chưa rõ kết quả · đang đối soát')).toBeTruthy();
+    expect(await screen.findByText('Chưa rõ kết quả · đang kiểm tra')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Thanh toán còn lại' })).toBeDisabled();
     expect(api.startBalance).not.toHaveBeenCalled();
   });

@@ -6,6 +6,7 @@ module.exports = {
     'src/screens/**/*.{ts,tsx}',
     'src/lib/api/client.ts',
     'src/features/booking-lifecycle/**/*.{ts,tsx}',
+    'src/features/payments-billing/**/*.{ts,tsx}',
     '!src/**/*.test.{ts,tsx}',
   ],
   coverageDirectory: 'coverage',

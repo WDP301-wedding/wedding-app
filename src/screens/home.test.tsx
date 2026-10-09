@@ -26,14 +26,12 @@ import { ConfirmedPlanningScreen, HomeScreen } from './home';
 
 jest.mock('@/features/identity-access/password-otp-api', () => {
   const gateway = {
-    request: jest
-      .fn()
-      .mockResolvedValue({
-        accepted: true,
-        challengeId: 'challenge',
-        expiresInSeconds: 600,
-        resendAfterSeconds: 60,
-      }),
+    request: jest.fn().mockResolvedValue({
+      accepted: true,
+      challengeId: 'challenge',
+      expiresInSeconds: 600,
+      resendAfterSeconds: 60,
+    }),
     complete: jest.fn().mockResolvedValue(undefined),
   };
   return { createPasswordOtpGateway: () => gateway };
@@ -172,6 +170,7 @@ describe('HomeScreen', () => {
   it('opens an incoming reset link while the Couple overview is already active', async () => {
     const session = new AndroidIdentitySession(createApi(), createSecureRefreshStore());
     await session.login('minhanh@example.com', 'initial-password-123');
+    jest.mocked(SecureStore.getItemAsync).mockResolvedValue('wir_initial');
     const rendered = await render(<HomeScreen session={session} />);
     expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
     jest.mocked(Linking.useURL).mockReturnValue(`weddingapp://reset#wip_${'a'.repeat(43)}`);

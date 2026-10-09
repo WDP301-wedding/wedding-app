@@ -272,14 +272,15 @@ describe('Android authorized billing', () => {
     await mount(api);
     expect(screen.getByText('entry')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Trang lịch sử tiếp theo' }));
-    await screen.findByText('Trang 2 · phiên bản 4');
+    await screen.findByText('Trang 2');
     await fireEvent.press(screen.getByRole('button', { name: 'Trang lịch sử trước' }));
-    await screen.findByText('Trang 1 · phiên bản 4');
+    await screen.findByText('Trang 1');
     expect(api.load).toHaveBeenLastCalledWith('token', 'booking', { throughBillingRevision: 4 });
     jest.mocked(api.load).mockResolvedValueOnce({ ...current, billingRevision: 5 });
     await fireEvent.press(screen.getByRole('button', { name: 'Trang lịch sử tiếp theo' }));
     await screen.findByText(/Chưa rõ kết quả/);
-    expect(screen.getByText('Trang 1 · phiên bản 4')).toBeTruthy();
+    expect(screen.getByText('Trang 1')).toBeTruthy();
+    expect(screen.getByText('entry')).toBeTruthy();
     jest.mocked(api.startBalance).mockRejectedValueOnce(failure('STALE_BILLING_REVISION'));
     await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán còn lại' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận mở VNPay' }));

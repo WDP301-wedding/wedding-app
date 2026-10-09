@@ -1,10 +1,13 @@
+import {
+  createPasswordOtpGateway,
+  type OtpChallenge,
+} from '@/features/identity-access/password-otp-api';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import {
-  createPlanningGateway,
   type ConfirmedPlanningSnapshot,
   type PlanningGateway,
 } from '@/features/booking-lifecycle/planning-api';
@@ -19,11 +22,11 @@ import { semanticColors, type, useWeddingTheme } from '@/theme';
 import { ApiClientError } from '@/lib/api/client';
 
 import { styles } from './home.styles';
+import { CoupleOverviewScreen } from './couple-overview';
 
 const VENUE_IMAGE =
   'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85';
 const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
-const planningGateway = createPlanningGateway();
 
 export function HomeScreen({
   initialResetToken,
@@ -33,6 +36,7 @@ export function HomeScreen({
   session?: AndroidIdentitySession;
 }>) {
   const { brand, colors } = useWeddingTheme();
+  const incomingUrl = Linking.useURL();
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
   const [resetToken, setResetToken] = useState<string | null>(initialResetToken ?? null);
@@ -42,7 +46,7 @@ export function HomeScreen({
     void (async () => {
       const token =
         initialResetToken === undefined
-          ? readResetCredential(await Linking.getInitialURL())
+          ? readResetCredential(incomingUrl ?? (await Linking.getInitialURL()))
           : initialResetToken;
       if (!active) return;
       if (token !== null) {
@@ -58,7 +62,7 @@ export function HomeScreen({
     return () => {
       active = false;
     };
-  }, [initialResetToken, session]);
+  }, [initialResetToken, incomingUrl, session]);
 
   if (loading) {
     return (
@@ -72,9 +76,10 @@ export function HomeScreen({
     );
   }
 
-  if (snapshot.status === 'anonymous' || snapshot.access === 'denied') {
+  if (resetToken !== null || snapshot.status === 'anonymous' || snapshot.access === 'denied') {
     return (
       <IdentityScreen
+        key={resetToken ?? 'identity'}
         session={session}
         resetToken={resetToken}
         onAuthenticated={(nextSnapshot) => {
@@ -86,8 +91,8 @@ export function HomeScreen({
   }
 
   return (
-    <ConfirmedPlanningScreen
-      gateway={planningGateway}
+    <CoupleOverviewScreen
+      renderPlan={(value) => <PlanningContent snapshot={value} />}
       session={session}
       onLogout={() => {
         void session.logout().finally(() => setSnapshot(session.snapshot()));
@@ -379,9 +384,17 @@ type IdentityScreenProps = Readonly<{
 function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreenProps) {
   const { brand, colors } = useWeddingTheme();
   const [mode, setMode] = useState<'login' | 'reset-complete' | 'reset-request'>(
-    resetToken === null ? 'login' : 'reset-complete',
+    resetToken === null ? 'login' : 'reset-request',
   );
   const [email, setEmail] = useState('');
+  const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
+  const [code, setCode] = useState('');
+  const [remaining, setRemaining] = useState(0);
+  useEffect(() => {
+    if (remaining <= 0) return;
+    const timer = setTimeout(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [remaining]);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
@@ -421,19 +434,36 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
     }
     if (mode === 'reset-request') {
       void run(async () => {
-        await session.requestPasswordReset(email);
-        setMessage('Nếu tài khoản đủ điều kiện, hướng dẫn đặt lại mật khẩu đã được gửi.');
+        const value = await createPasswordOtpGateway().request(email);
+        setChallenge(value);
+        setRemaining(value.resendAfterSeconds);
+        setMode('reset-complete');
+        setCode('');
+        setMessage(
+          'Nếu tài khoản đủ điều kiện, mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
+        );
       });
       return;
     }
-    if (resetToken === null || password !== confirmation) {
+    if (password !== confirmation) {
       setError('Hai mật khẩu chưa trùng khớp.');
       return;
     }
     void run(async () => {
-      await session.completePasswordReset(resetToken, password);
+      if (!challenge) {
+        setMode('reset-request');
+        setMessage('Hãy yêu cầu mã OTP mới để đặt lại mật khẩu.');
+        return;
+      }
+      if (!/^\d{6}$/.test(code)) {
+        setError('Nhập mã OTP gồm 6 chữ số.');
+        return;
+      }
+      await createPasswordOtpGateway().complete(challenge.challengeId, code, password);
       setPassword('');
       setConfirmation('');
+      await session.discardRevokedSession();
+      onAuthenticated(session.snapshot());
       setMode('login');
       setMessage('Mật khẩu đã được cập nhật. Hãy đăng nhập lại.');
     });
@@ -485,6 +515,16 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             secureTextEntry
           />
         ) : null}
+        {mode === 'reset-complete' && challenge ? (
+          <LabeledInput
+            label="Mã OTP"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            autoComplete="one-time-code"
+            maxLength={6}
+          />
+        ) : null}
         {mode === 'reset-complete' ? (
           <LabeledInput
             label="Xác nhận mật khẩu"
@@ -518,7 +558,7 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             mode === 'login'
               ? 'Đăng nhập'
               : mode === 'reset-request'
-                ? 'Gửi hướng dẫn'
+                ? 'Gửi mã OTP'
                 : 'Cập nhật mật khẩu'
           }
           accessibilityState={{ disabled: pending }}
@@ -536,10 +576,40 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
               : mode === 'login'
                 ? 'ĐĂNG NHẬP'
                 : mode === 'reset-request'
-                  ? 'GỬI HƯỚNG DẪN'
+                  ? 'GỬI MÃ OTP'
                   : 'CẬP NHẬT MẬT KHẨU'}
           </Text>
         </Pressable>
+        {mode === 'reset-complete' && challenge ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              disabled={pending || remaining > 0}
+              onPress={() => {
+                void run(async () => {
+                  const value = await createPasswordOtpGateway().request(email);
+                  setChallenge(value);
+                  setRemaining(value.resendAfterSeconds);
+                  setCode('');
+                  setMessage('Đã yêu cầu mã OTP mới.');
+                });
+              }}
+            >
+              <Text>{remaining > 0 ? 'Gửi lại sau ' + remaining + 's' : 'Gửi lại mã OTP'}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={pending}
+              onPress={() => {
+                setChallenge(null);
+                setMode('reset-request');
+                setRemaining(0);
+              }}
+            >
+              <Text>Dùng email khác</Text>
+            </Pressable>
+          </>
+        ) : null}
         {mode === 'login' ? (
           <Pressable
             accessibilityRole="button"

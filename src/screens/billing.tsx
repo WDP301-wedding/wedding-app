@@ -15,6 +15,7 @@ import {
   type AttemptView,
   type CheckoutView,
   type CoupleBillingGateway,
+  type BalanceBody,
 } from '@/features/payments-billing/billing-api';
 import { createBillingIntents } from '@/features/payments-billing/billing-intents';
 import { ApiClientError } from '@/lib/api/client';
@@ -160,8 +161,9 @@ export function AndroidBillingScreen({
   const [attemptId, setAttemptId] = useState(initialAttemptId);
   const [attempt, setAttempt] = useState<AttemptView | null>(null);
   const [checkout, setCheckout] = useState<CheckoutView | null>(null);
-  const [intent, setIntent] = useState<{ revision: number; amountVnd: number } | null>(null);
+  const [intent, setIntent] = useState<{ revision: number; amountVnd: number | null } | null>(null);
   const [retry, setRetry] = useState(false);
+  const [needsAttemptStatus, setNeedsAttemptStatus] = useState(false);
   const [pending, setPending] = useState(false);
   const [gated, setGated] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,6 +175,7 @@ export function AndroidBillingScreen({
       setAttempt(null);
       setCheckout(null);
       setIntent(null);
+      setNeedsAttemptStatus(false);
     }
     setError(message(caught));
   };
@@ -202,14 +205,31 @@ export function AndroidBillingScreen({
       setAttempt(null);
       setCheckout(null);
       setGated(true);
+      setIntent(null);
+      setNeedsAttemptStatus(false);
       return;
     }
     setGated(false);
+    const restoreAttemptId =
+      view?.bookingId === id || initialBookingId === id ? attemptId.trim() : '';
+    setNeedsAttemptStatus(restoreAttemptId !== '');
     const value = await authorize((token) => gateway.load(token, id));
     if (value.bookingId !== id) throw new Error('Billing mismatch');
     setView(value);
     setCursors([null]);
+    const saved = await intents.pending(`checkout:${id}`);
+    if (saved?.expectedBillingRevision !== undefined) {
+      setIntent({ revision: saved.expectedBillingRevision, amountVnd: null });
+      setRetry(true);
+    }
     if (attempt?.status === 'SUCCEEDED' || attempt?.status === 'FAILED') setCheckout(null);
+    if (restoreAttemptId !== '') {
+      const restored = await authorize((token) => gateway.loadAttempt(token, id, restoreAttemptId));
+      if (restored.paymentAttemptId !== restoreAttemptId) throw new Error('Attempt mismatch');
+      setAttempt(restored);
+      setNeedsAttemptStatus(false);
+      if (restored.status === 'SUCCEEDED' || restored.status === 'FAILED') setCheckout(null);
+    }
   };
   const page = async (next: (string | null)[]) => {
     if (view === null) return;
@@ -232,8 +252,10 @@ export function AndroidBillingScreen({
     setError(null);
     const body = { expectedBillingRevision: intent.revision };
     try {
-      const value = await intents.run(`checkout:${view.bookingId}`, body, (key) =>
-        authorize((token) => gateway.startBalance(token, view.bookingId, body, key)),
+      const value = await intents.run(`checkout:${view.bookingId}`, body, (key, stableBody) =>
+        authorize((token) =>
+          gateway.startBalance(token, view.bookingId, stableBody as BalanceBody, key),
+        ),
       );
       setCheckout(value);
       setAttemptId(value.paymentAttemptId);
@@ -255,6 +277,7 @@ export function AndroidBillingScreen({
     pending ||
     intent !== null ||
     checkout !== null ||
+    needsAttemptStatus ||
     (attempt !== null && attempt.status !== 'SUCCEEDED' && attempt.status !== 'FAILED');
   return (
     <ScrollView
@@ -341,7 +364,9 @@ export function AndroidBillingScreen({
             <View style={[styles.notice, { borderColor: brand.gold }]}>
               <Text style={[styles.title, { color: colors.label }]}>Kiểm tra khoản còn lại</Text>
               <Text selectable style={[styles.amount, { color: colors.label }]}>
-                {money(intent.amountVnd)}
+                {intent.amountVnd === null
+                  ? 'Khôi phục yêu cầu trước; kiểm tra số tiền qua trạng thái đã xác minh.'
+                  : money(intent.amountVnd)}
               </Text>
               <Text style={[type.body, { color: colors.label }]}>
                 Máy chủ kiểm tra lại toàn bộ số dư trước khi tạo giao dịch.
@@ -373,15 +398,18 @@ export function AndroidBillingScreen({
                 Hết hạn: {new Date(checkout.expiresAt).toLocaleString('vi-VN')}. Hết hạn không chứng
                 minh thất bại.
               </Text>
-              <Action
-                label="Tiếp tục trên VNPay"
-                disabled={pending}
-                onPress={() => {
-                  void run(async () => {
-                    await openCheckout(checkout.checkoutUrl);
-                  });
-                }}
-              />
+              {((attempt?.status ?? checkout.status) === 'CREATED' ||
+                (attempt?.status ?? checkout.status) === 'PENDING') && (
+                <Action
+                  label="Tiếp tục trên VNPay"
+                  disabled={pending}
+                  onPress={() => {
+                    void run(async () => {
+                      await openCheckout(checkout.checkoutUrl);
+                    });
+                  }}
+                />
+              )}
             </View>
           )}
           <View style={[styles.section, { borderColor: colors.separator }]}>
@@ -393,7 +421,7 @@ export function AndroidBillingScreen({
               autoCorrect={false}
               value={attemptId}
               onChangeText={setAttemptId}
-              editable={!pending && intent === null}
+              editable={!pending && intent === null && checkout === null}
               style={[styles.input, { borderColor: colors.separator, color: colors.label }]}
             />
             <Action
@@ -404,7 +432,10 @@ export function AndroidBillingScreen({
                   const value = await authorize((token) =>
                     gateway.loadAttempt(token, view.bookingId, attemptId.trim()),
                   );
+                  if (value.paymentAttemptId !== attemptId.trim())
+                    throw new Error('Attempt mismatch');
                   setAttempt(value);
+                  setNeedsAttemptStatus(false);
                   if (value.status === 'FAILED') setCheckout(null);
                 });
               }}

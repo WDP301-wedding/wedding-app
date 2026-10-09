@@ -1,9 +1,19 @@
-import { createHash, randomUUID as mockRandomUUID } from 'node:crypto';
+import {
+  createHash,
+  randomUUID as mockRandomUUID,
+  createHash as mockCreateHash,
+} from 'node:crypto';
 import { describe, expect, it } from '@jest/globals';
 import { ApiClientError } from '../../lib/api/client';
 import { createBillingIntents, type IntentStorage } from './billing-intents';
+import * as SecureStore from 'expo-secure-store';
 
-jest.mock('expo-crypto', () => ({ randomUUID: () => mockRandomUUID() }));
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => mockRandomUUID(),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: (_algorithm: string, value: string) =>
+    Promise.resolve(mockCreateHash('sha256').update(value).digest('hex')),
+}));
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(),
   setItemAsync: jest.fn(),
@@ -33,6 +43,41 @@ const unknown = new ApiClientError({
 });
 
 describe('durable billing intent identity', () => {
+  it('recovers the original revision and uses SecureStore without persisting receipt text', async () => {
+    const records = new Map<string, string>();
+    jest
+      .mocked(SecureStore.getItemAsync)
+      .mockImplementation((key) => Promise.resolve(records.get(key) ?? null));
+    jest.mocked(SecureStore.setItemAsync).mockImplementation((key, value) => {
+      records.set(key, value);
+      return Promise.resolve();
+    });
+    jest.mocked(SecureStore.deleteItemAsync).mockImplementation((key) => {
+      records.delete(key);
+      return Promise.resolve();
+    });
+    const body = { amountVnd: 10, expectedBillingRevision: 7, reason: 'private receipt' };
+    await expect(
+      createBillingIntents('private actor').run('refund:booking', body, () =>
+        Promise.reject(unknown),
+      ),
+    ).rejects.toBe(unknown);
+    const saved = [...records.values()][0];
+    expect(saved).not.toContain('private');
+    const reloaded = createBillingIntents('private actor');
+    expect(await reloaded.pending('refund:booking')).toEqual({ expectedBillingRevision: 7 });
+    let recovered: object = {};
+    await reloaded.run(
+      'refund:booking',
+      { ...body, expectedBillingRevision: 8 },
+      (_key, stableBody) => {
+        recovered = stableBody;
+        return Promise.resolve();
+      },
+    );
+    expect(recovered).toEqual(body);
+    expect(await reloaded.pending('refund:booking')).toBeNull();
+  });
   it('keeps the key through network failure, reload and token rotation; success releases it', async () => {
     const storage = memory();
     const keys: string[] = [];

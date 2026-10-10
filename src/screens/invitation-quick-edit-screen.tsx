@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,12 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-} from "react-native";
+} from 'react-native';
 import type {
   AppInvitationGateway,
   AppDesignView,
   AppPrintOrderView,
-} from "../features/invitation-studio/app-invitation-api";
+} from '../features/invitation-studio/app-invitation-api';
 
 export interface InvitationQuickEditScreenProps {
   readonly accessToken: string;
@@ -30,18 +30,26 @@ export function InvitationQuickEditScreen({
   initialOrders = [],
 }: InvitationQuickEditScreenProps) {
   const [design, setDesign] = useState<AppDesignView | null>(initialDesign);
-  const [brideName, setBrideName] = useState(initialDesign?.textFields?.brideName ?? "Nguyễn Thị Mai");
-  const [groomName, setGroomName] = useState(initialDesign?.textFields?.groomName ?? "Trần Văn An");
-  const [greeting, setGreeting] = useState(initialDesign?.textFields?.greeting ?? "Trân trọng kính mời");
-  const [message, setMessage] = useState(initialDesign?.textFields?.message ?? "Tới dự buổi tiệc chung vui cùng chúng tôi");
-  const [footer, setFooter] = useState(initialDesign?.textFields?.footer ?? "Rất hân hạnh được đón tiếp");
+  const [brideName, setBrideName] = useState(
+    initialDesign?.textFields?.brideName ?? 'Nguyễn Thị Mai',
+  );
+  const [groomName, setGroomName] = useState(initialDesign?.textFields?.groomName ?? 'Trần Văn An');
+  const [greeting, setGreeting] = useState(
+    initialDesign?.textFields?.greeting ?? 'Trân trọng kính mời',
+  );
+  const [message, setMessage] = useState(
+    initialDesign?.textFields?.message ?? 'Tới dự buổi tiệc chung vui cùng chúng tôi',
+  );
+  const [footer, setFooter] = useState(
+    initialDesign?.textFields?.footer ?? 'Rất hân hạnh được đón tiếp',
+  );
 
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleSave = async () => {
     if (!design) {
-      setNotice({ type: "error", text: "Chưa có bản thiết kế thiệp để chỉnh sửa." });
+      setNotice({ type: 'error', text: 'Chưa có bản thiết kế thiệp để chỉnh sửa.' });
       return;
     }
     setSaving(true);
@@ -61,9 +69,12 @@ export function InvitationQuickEditScreen({
         },
       );
       setDesign(updated);
-      setNotice({ type: "success", text: `Đã lưu chỉnh sửa thành công (Bản ${updated.revisionNumber})!` });
+      setNotice({
+        type: 'success',
+        text: `Đã lưu chỉnh sửa thành công (Bản ${updated.revisionNumber})!`,
+      });
     } catch (err: unknown) {
-      setNotice({ type: "error", text: err instanceof Error ? err.message : "Lỗi lưu thiệp." });
+      setNotice({ type: 'error', text: err instanceof Error ? err.message : 'Lỗi lưu thiệp.' });
     } finally {
       setSaving(false);
     }
@@ -81,9 +92,14 @@ export function InvitationQuickEditScreen({
       {notice && (
         <View
           accessibilityRole="alert"
-          style={[styles.notice, notice.type === "success" ? styles.noticeSuccess : styles.noticeError]}
+          style={[
+            styles.notice,
+            notice.type === 'success' ? styles.noticeSuccess : styles.noticeError,
+          ]}
         >
-          <Text style={notice.type === "success" ? styles.noticeTextSuccess : styles.noticeTextError}>
+          <Text
+            style={notice.type === 'success' ? styles.noticeTextSuccess : styles.noticeTextError}
+          >
             {notice.text}
           </Text>
         </View>
@@ -94,9 +110,9 @@ export function InvitationQuickEditScreen({
         <Text style={styles.previewOverline}>THIỆP CƯỚI BÁO HỶ</Text>
         <Text style={styles.previewGreeting}>{greeting}</Text>
         <View style={styles.coupleRow}>
-          <Text style={styles.previewGroom}>{groomName || "Chú Rể"}</Text>
+          <Text style={styles.previewGroom}>{groomName || 'Chú Rể'}</Text>
           <Text style={styles.previewAmpersand}>&amp;</Text>
-          <Text style={styles.previewBride}>{brideName || "Cô Dâu"}</Text>
+          <Text style={styles.previewBride}>{brideName || 'Cô Dâu'}</Text>
         </View>
         <Text style={styles.previewMessage}>{message}</Text>
         {footer ? <Text style={styles.previewFooter}>{footer}</Text> : null}
@@ -166,7 +182,9 @@ export function InvitationQuickEditScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Lưu chỉnh sửa thiệp"
-          onPress={() => { void handleSave(); }}
+          onPress={() => {
+            void handleSave();
+          }}
           disabled={saving}
           style={({ pressed }) => [
             styles.saveButton,
@@ -206,7 +224,7 @@ export function InvitationQuickEditScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAF8F5",
+    backgroundColor: '#FAF8F5',
   },
   content: {
     padding: 16,
@@ -217,13 +235,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: "700",
-    color: "#334537",
+    fontWeight: '700',
+    color: '#334537',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: "#62645F",
+    color: '#62645F',
   },
   notice: {
     padding: 12,
@@ -231,28 +249,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   noticeSuccess: {
-    backgroundColor: "#E8F5E9",
+    backgroundColor: '#E8F5E9',
   },
   noticeError: {
-    backgroundColor: "#FFEBEE",
+    backgroundColor: '#FFEBEE',
   },
   noticeTextSuccess: {
-    color: "#2E7D32",
+    color: '#2E7D32',
     fontSize: 14,
   },
   noticeTextError: {
-    color: "#C62828",
+    color: '#C62828',
     fontSize: 14,
   },
   cardPreview: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: '#E2E8F0',
     padding: 24,
-    alignItems: "center",
+    alignItems: 'center',
     marginBottom: 20,
-    shadowColor: "#000",
+    shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
@@ -260,65 +278,65 @@ const styles = StyleSheet.create({
   previewOverline: {
     fontSize: 11,
     letterSpacing: 2,
-    color: "#8C6D62",
-    fontWeight: "600",
+    color: '#8C6D62',
+    fontWeight: '600',
     marginBottom: 8,
   },
   previewGreeting: {
     fontSize: 15,
-    fontStyle: "italic",
-    color: "#52796F",
+    fontStyle: 'italic',
+    color: '#52796F',
     marginBottom: 12,
   },
   coupleRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginVertical: 12,
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "#F1E5CE",
-    width: "100%",
-    justifyContent: "center",
+    borderColor: '#F1E5CE',
+    width: '100%',
+    justifyContent: 'center',
   },
   previewGroom: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#334537",
+    fontWeight: '700',
+    color: '#334537',
   },
   previewAmpersand: {
     fontSize: 16,
-    color: "#C5A880",
+    color: '#C5A880',
     marginHorizontal: 12,
   },
   previewBride: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#334537",
+    fontWeight: '700',
+    color: '#334537',
   },
   previewMessage: {
     fontSize: 13,
-    color: "#62645F",
-    textAlign: "center",
+    color: '#62645F',
+    textAlign: 'center',
     marginTop: 8,
   },
   previewFooter: {
     fontSize: 11,
-    color: "#A0AEC0",
+    color: '#A0AEC0',
     marginTop: 12,
   },
   formCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: '#E2E8F0',
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#232321",
+    fontWeight: '600',
+    color: '#232321',
     marginBottom: 16,
   },
   inputGroup: {
@@ -326,70 +344,70 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: "500",
-    color: "#52796F",
+    fontWeight: '500',
+    color: '#52796F',
     marginBottom: 6,
   },
   input: {
     minHeight: 44,
     borderWidth: 1,
-    borderColor: "#D7D4CC",
+    borderColor: '#D7D4CC',
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: "#232321",
-    backgroundColor: "#FAF8F5",
+    color: '#232321',
+    backgroundColor: '#FAF8F5',
   },
   textArea: {
     minHeight: 80,
     paddingTop: 10,
-    textAlignVertical: "top",
+    textAlignVertical: 'top',
   },
   saveButton: {
     minHeight: 48,
-    backgroundColor: "#334537",
+    backgroundColor: '#334537',
     borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 8,
   },
   saveButtonPressed: {
-    backgroundColor: "#28312A",
+    backgroundColor: '#28312A',
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    color: "#FAF8F5",
+    color: '#FAF8F5',
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   orderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3EFEA",
+    borderBottomColor: '#F3EFEA',
   },
   orderId: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#232321",
+    fontWeight: '600',
+    color: '#232321',
   },
   orderSub: {
     fontSize: 12,
-    color: "#62645F",
+    color: '#62645F',
   },
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: "#E8F5E9",
+    backgroundColor: '#E8F5E9',
   },
   statusText: {
     fontSize: 12,
-    fontWeight: "500",
-    color: "#2E7D32",
+    fontWeight: '500',
+    color: '#2E7D32',
   },
 });

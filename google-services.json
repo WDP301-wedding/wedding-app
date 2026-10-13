@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "809672585844",
+    "project_id": "wdp301-wedding",
+    "storage_bucket": "wdp301-wedding.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:809672585844:android:8c244de24619aeeae75721",
+        "android_client_info": {
+          "package_name": "com.wdp301.wedding.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8_A6AR4ujwICvgNOVhftt3uftyRx4nuU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

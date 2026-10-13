@@ -1,5 +1,5 @@
 import type { OtpChallenge } from '@/features/identity-access/password-otp-api';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Host, TextInput, useNativeState } from '@expo/ui';
 import {
@@ -13,11 +13,66 @@ import {
   type ConfirmedPlanningSnapshot,
 } from '@/features/booking-lifecycle/planning-api';
 import { ApiClientError } from '@/lib/api/client';
-import { useWeddingTheme, type } from '@/theme';
+import { useWeddingTheme, type as typeTokens } from '@/theme';
 import { styles } from './home.styles';
+import {
+  createAppInvitationGateway,
+  type AppTextFields,
+} from '@/features/invitation-studio/app-invitation-api';
+import { V0CompanionShell } from './v0/v0-companion-shell';
+import type { V0EventFacts } from './v0/v0-types';
+
+const type = typeTokens;
+
+export function deriveInitials(
+  bride?: string,
+  groom?: string,
+  displayName?: string | null,
+): string {
+  const b = bride?.trim();
+  const g = groom?.trim();
+  if (b && g) {
+    return `${b.charAt(0)}${g.charAt(0)}`.toUpperCase();
+  }
+  const d = displayName?.trim();
+  if (d) {
+    const parts = d.split(/\s+/).filter(Boolean);
+    const first = parts[0];
+    const last = parts[parts.length - 1];
+    if (first && last && parts.length >= 2) {
+      return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+    }
+    return d.slice(0, 2).toUpperCase();
+  }
+  return 'CD';
+}
 
 const experience = createExperienceGateway();
 const planning = createPlanningGateway();
+const invitation = createAppInvitationGateway();
+
+function ActionButton({
+  label,
+  action,
+  disabled,
+}: {
+  readonly label: string;
+  readonly action: () => void;
+  readonly disabled?: boolean;
+}) {
+  return (
+    <Host matchContents>
+      <Button
+        label={label}
+        variant="text"
+        {...(disabled !== undefined ? { disabled } : {})}
+        onPress={action}
+        style={{ height: 48 }}
+      />
+    </Host>
+  );
+}
+
 export function CoupleOverviewScreen({
   session,
   onLogout,
@@ -28,20 +83,31 @@ export function CoupleOverviewScreen({
   renderPlan: (snapshot: ConfirmedPlanningSnapshot) => ReactNode;
 }>) {
   const { brand, colors } = useWeddingTheme();
-  const [view, setView] = useState<'overview' | 'account' | 'plan'>('overview');
+  const [view, setView] = useState<'overview' | 'account'>('overview');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<ConfirmedPlanningSnapshot | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [designFields, setDesignFields] = useState<AppTextFields | null>(null);
+  const [venueName, setVenueName] = useState<string>('Chưa cung cấp');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentBookingRequestIdRef = useRef(0);
+
   const load = useCallback(
     async (cursor?: string) => {
       setPending(true);
       setError(null);
       try {
-        const page = await session.authorize((token) => experience.overview(token, cursor));
+        const [page, prof, restaurant] = await Promise.all([
+          session.authorize((token) => experience.overview(token, cursor)),
+          session.authorize((token) => experience.profile(token)).catch(() => null),
+          invitation.getRestaurantCatalog().catch(() => null),
+        ]);
         setOverview((old) =>
           cursor && old ? { ...page, data: [...old.data, ...page.data] } : page,
         );
+        if (prof) setProfile(prof);
+        if (restaurant?.displayName) setVenueName(restaurant.displayName);
       } catch (caught) {
         if (caught instanceof ApiClientError && [401, 403, 404].includes(caught.status ?? 0)) {
           setOverview(null);
@@ -54,40 +120,111 @@ export function CoupleOverviewScreen({
     },
     [session],
   );
+
   useEffect(() => {
     queueMicrotask(() => void load());
   }, [load]);
-  async function open(id: string) {
-    if (pending) return;
-    setPending(true);
-    setError(null);
-    try {
-      const result = await session.authorize((token) => planning.loadConfirmed(token, id));
-      if (result.status === 'confirmed') {
-        setPlan(result.snapshot);
-        setView('plan');
-      } else {
-        setPlan(null);
-        setError('Kế hoạch chưa sẵn sàng trên ứng dụng. Hãy tiếp tục trên Web.');
+
+  const open = useCallback(
+    async (id: string) => {
+      if (pending) return;
+      const reqId = ++currentBookingRequestIdRef.current;
+      setPending(true);
+      setError(null);
+      try {
+        const result = await session.authorize((token) => planning.loadConfirmed(token, id));
+        if (reqId !== currentBookingRequestIdRef.current) return;
+        if (result.status === 'confirmed') {
+          setPlan(result.snapshot);
+          // Pre-fetch invitation details to derive canonical couple names if available
+          try {
+            const designs = await session.authorize((token) => invitation.listDesigns(token, id));
+            if (reqId !== currentBookingRequestIdRef.current) return;
+            const firstDesign = designs[0];
+            if (firstDesign?.textFields) {
+              setDesignFields(firstDesign.textFields);
+            }
+          } catch {
+            // Non-blocking
+          }
+        } else {
+          setPlan(null);
+          setError('Kế hoạch chưa sẵn sàng trên ứng dụng. Hãy tiếp tục trên Web.');
+        }
+      } catch {
+        if (reqId === currentBookingRequestIdRef.current) {
+          setPlan(null);
+          setError('Không tải được kế hoạch. Hãy kiểm tra quyền truy cập và thử lại.');
+        }
+      } finally {
+        if (reqId === currentBookingRequestIdRef.current) {
+          setPending(false);
+        }
       }
-    } catch {
-      setPlan(null);
-      setError('Không tải được kế hoạch. Hãy kiểm tra quyền truy cập và thử lại.');
-    } finally {
-      setPending(false);
-    }
-  }
-  const button = (label: string, action: () => void) => (
-    <Host matchContents>
-      <Button
-        label={label}
-        variant="text"
-        disabled={pending}
-        onPress={action}
-        style={{ height: 48 }}
-      />
-    </Host>
+    },
+    [pending, session],
   );
+
+  const handleSwitchBooking = useCallback(() => {
+    currentBookingRequestIdRef.current += 1;
+    setPlan(null);
+    setDesignFields(null);
+    setError(null);
+    void load();
+  }, [load]);
+
+  const brideName = designFields?.brideName?.trim() ?? '';
+  const groomName = designFields?.groomName?.trim() ?? '';
+  const coupleDisplay =
+    brideName && groomName
+      ? `${brideName} & ${groomName}`
+      : profile?.displayName || 'Chưa cung cấp';
+
+  const currentFacts: V0EventFacts = plan
+    ? {
+        brideName,
+        groomName,
+        coupleDisplay,
+        eventDate: plan.eventDate,
+        formattedDate: new Date(`${plan.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        }),
+        venueName: venueName || 'Chưa cung cấp',
+        hallName: plan.hallName,
+        shiftTime: `${plan.shift.startTime}–${plan.shift.endTime}`,
+        planningHeadcount: plan.planningHeadcount,
+        revisionNumber: plan.revision,
+      }
+    : {
+        brideName: '',
+        groomName: '',
+        coupleDisplay,
+        eventDate: '',
+        formattedDate: 'Chưa cung cấp',
+        venueName: venueName || 'Chưa cung cấp',
+        hallName: 'Chưa cung cấp',
+        shiftTime: 'Chưa cung cấp',
+        planningHeadcount: 0,
+        revisionNumber: 0,
+      };
+
+  // Render V0 companion shell as the primary native experience once a confirmed booking is loaded
+  if (plan) {
+    return (
+      <V0CompanionShell
+        facts={currentFacts}
+        session={session}
+        profile={profile}
+        activeBooking={plan}
+        invitationGateway={invitation}
+        onLogout={onLogout}
+        onSwitchBooking={handleSwitchBooking}
+      />
+    );
+  }
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -96,18 +233,25 @@ export function CoupleOverviewScreen({
     >
       <View style={styles.topBar}>
         <Text style={[type.headline, { color: brand.display }]}>WEDDING ESTATE</Text>
-        {button('Đăng xuất', onLogout)}
+        <ActionButton label="Đăng xuất" action={onLogout} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingHorizontal: 16 }}>
-        {button('Tổng quan', () => {
-          setView('overview');
-          setError(null);
-        })}
-        {button('Tài khoản', () => {
-          setView('account');
-          setError(null);
-        })}
+        <ActionButton
+          label="Tổng quan"
+          action={() => {
+            setView('overview');
+            setError(null);
+          }}
+        />
+        <ActionButton
+          label="Tài khoản"
+          action={() => {
+            setView('account');
+            setError(null);
+          }}
+        />
       </View>
+
       {view === 'account' ? (
         <NativeAccountSettings session={session} onSignedOut={onLogout} />
       ) : (
@@ -117,7 +261,7 @@ export function CoupleOverviewScreen({
               HÀNH TRÌNH CỦA HAI BẠN
             </Text>
             <Text style={[type.largeTitle, { color: brand.primaryText }]}>
-              {view === 'plan' ? 'Kế hoạch ngày cưới' : 'Cùng chuẩn bị ngày chung đôi'}
+              Cùng chuẩn bị ngày chung đôi
             </Text>
             <Text style={[type.body, { color: brand.primaryText }]}>
               Thông tin đã được nhà hàng xác nhận, luôn sẵn sàng để hai bạn theo dõi.
@@ -129,60 +273,61 @@ export function CoupleOverviewScreen({
               <Text accessibilityRole="alert" style={[type.body, { color: brand.script }]}>
                 {error}
               </Text>
-              {button('Thử lại', () => void load())}
+              <ActionButton label="Thử lại" action={() => void load()} />
             </View>
           )}
-          {view === 'plan' && plan ? (
-            <>
-              {button('Quay về tổng quan', () => setView('overview'))}
-              {renderPlan(plan)}
-            </>
-          ) : (
-            <>
-              {!overview && !pending && !error && button('Tải kế hoạch', () => void load())}
-              {overview?.data.length === 0 && (
-                <View style={styles.planningNotice}>
-                  <Text style={[type.title, { color: brand.display }]}>
-                    Chưa có kế hoạch đã xác nhận
-                  </Text>
-                  <Text style={[type.body, { color: colors.secondaryLabel }]}>
-                    Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp
-                    tục trao đổi với nhà hàng trên Web.
-                  </Text>
-                </View>
-              )}
-              {overview?.data.map((item) => (
-                <View
-                  key={item.bookingId}
-                  style={[
-                    styles.planningNotice,
-                    { borderColor: brand.gold, backgroundColor: brand.powder },
-                  ]}
-                >
-                  <Text style={[type.caption, { color: brand.script }]}>
-                    {item.phase === 'COMPLETED' ? 'ĐÃ HOÀN THÀNH' : 'ĐÃ XÁC NHẬN'}
-                  </Text>
-                  <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
-                  <Text style={[type.body, { color: colors.label }]}>
-                    {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
-                    {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} ·{' '}
-                    {item.planningHeadcount} khách
-                  </Text>
-                  <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
-                    {!item.hasTimeline
-                      ? 'Kịch bản đang được chuẩn bị'
-                      : item.coupleApproved && item.managerApproved
-                        ? 'Kịch bản đã được hai bên thống nhất'
-                        : 'Kịch bản cần được thống nhất'}
-                  </Text>
-                  {button('Xem kế hoạch', () => void open(item.bookingId))}
-                </View>
-              ))}
-              {overview?.nextCursor &&
-                button('Xem thêm kế hoạch', () => void load(overview.nextCursor!))}
-              {overview && button('Cập nhật tổng quan', () => void load())}
-            </>
+          {!overview && !pending && !error && (
+            <ActionButton label="Tải kế hoạch" action={() => void load()} />
           )}
+          {overview?.data.length === 0 && (
+            <View style={styles.planningNotice}>
+              <Text style={[type.title, { color: brand.display }]}>
+                Chưa có kế hoạch đã xác nhận
+              </Text>
+              <Text style={[type.body, { color: colors.secondaryLabel }]}>
+                Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp tục
+                trao đổi với nhà hàng trên Web.
+              </Text>
+            </View>
+          )}
+          {overview?.data.map((item) => (
+            <View
+              key={item.bookingId}
+              style={[
+                styles.planningNotice,
+                { borderColor: brand.gold, backgroundColor: brand.powder },
+              ]}
+            >
+              <Text style={[type.caption, { color: brand.script }]}>
+                {item.phase === 'COMPLETED' ? 'ĐÃ HOÀN THÀNH' : 'ĐÃ XÁC NHẬN'}
+              </Text>
+              <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
+              <Text style={[type.body, { color: colors.label }]}>
+                {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
+                {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} · {item.planningHeadcount}{' '}
+                khách
+              </Text>
+              <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
+                {!item.hasTimeline
+                  ? 'Kịch bản đang được chuẩn bị'
+                  : item.coupleApproved && item.managerApproved
+                    ? 'Kịch bản đã được hai bên thống nhất'
+                    : 'Kịch bản cần được thống nhất'}
+              </Text>
+              <ActionButton
+                label="Xem kế hoạch"
+                action={() => void open(item.bookingId)}
+                disabled={pending}
+              />
+            </View>
+          ))}
+          {overview?.nextCursor && (
+            <ActionButton
+              label="Xem thêm kế hoạch"
+              action={() => void load(overview.nextCursor!)}
+            />
+          )}
+          {overview && <ActionButton label="Cập nhật tổng quan" action={() => void load()} />}
         </>
       )}
     </ScrollView>

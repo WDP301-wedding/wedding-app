@@ -48,7 +48,16 @@ describe('InvitationQuickEditScreen (IS-W7 Android App Component)', () => {
       revisionNumber: 2,
       textFields: { ...initialDesign.textFields, brideName: 'Nguyễn Thùy Trang' },
     }),
+    publishInvitation: jest.fn().mockResolvedValue({} as never),
+    unpublishInvitation: jest.fn().mockResolvedValue(undefined),
     listPrintOrders: jest.fn().mockResolvedValue([]),
+    approvePrintOrder: jest.fn().mockResolvedValue(undefined as never),
+    approveReplacementProposal: jest.fn().mockResolvedValue(undefined as never),
+    cancelApprovedPrintOrder: jest.fn().mockResolvedValue(undefined as never),
+    getRestaurantCatalog: jest.fn().mockResolvedValue({ displayName: 'Nhà hàng Wedding Estate' }),
+    uploadWeddingMedia: jest
+      .fn()
+      .mockResolvedValue({ mediaAssetId: 'm-1', previewPath: '/preview' }),
     getPublicInvitation: jest.fn().mockResolvedValue({} as never),
   };
 

@@ -340,7 +340,7 @@ export function V0MediaSubflow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Tải thêm ảnh từ máy"
-          disabled={isCutoffPassed || uploading}
+          disabled={uploading}
           onPress={() => void handleUploadPhoto()}
           style={({ pressed }) => [
             styles.primaryButton,
@@ -603,7 +603,7 @@ export function V0PrintSubflow({
           const isExpired = rev?.expiresAt
             ? new Date(rev.expiresAt).getTime() <= currentTime
             : false;
-          const canApprove = order.status === 'QUOTED' && rev !== null && !isExpired;
+          const canApprove = order.status === 'QUOTED' && rev !== null;
           const canCancel = ['REQUESTED', 'QUOTED', 'APPROVED'].includes(order.status);
 
           return (

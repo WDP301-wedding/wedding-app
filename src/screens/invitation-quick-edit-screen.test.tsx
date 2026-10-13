@@ -109,4 +109,77 @@ describe('InvitationQuickEditScreen (IS-W7 Android App Component)', () => {
 
     expect(await screen.findByText('Đã lưu chỉnh sửa thành công (Bản 2)!')).toBeTruthy();
   });
+
+  it('displays error notice when saving without an initial design', async () => {
+    const user = userEvent.setup();
+    await render(
+      <InvitationQuickEditScreen
+        accessToken={token}
+        bookingId={bookingId}
+        gateway={mockGateway}
+        initialDesign={null}
+      />,
+    );
+
+    const saveBtn = screen.getByLabelText('Lưu chỉnh sửa thiệp');
+    await user.press(saveBtn);
+
+    expect(await screen.findByText('Chưa có bản thiết kế thiệp để chỉnh sửa.')).toBeTruthy();
+  });
+
+  it('displays error notice when gateway quickEditTextFields fails', async () => {
+    const user = userEvent.setup();
+    const failingGateway: AppInvitationGateway = {
+      ...mockGateway,
+      quickEditTextFields: jest.fn().mockRejectedValueOnce(new Error('Lỗi lưu thiệp từ máy chủ')),
+    };
+
+    await render(
+      <InvitationQuickEditScreen
+        accessToken={token}
+        bookingId={bookingId}
+        gateway={failingGateway}
+        initialDesign={initialDesign}
+      />,
+    );
+
+    const saveBtn = screen.getByLabelText('Lưu chỉnh sửa thiệp');
+    await user.press(saveBtn);
+
+    expect(await screen.findByText('Lỗi lưu thiệp từ máy chủ')).toBeTruthy();
+  });
+
+  it('renders initial print orders section when initialOrders is provided', async () => {
+    const mockOrder = {
+      orderId: 'ord-12345678',
+      status: 'APPROVED' as const,
+      revision: 1,
+      bookingId,
+      createdAt: '2026-10-01T00:00:00Z',
+      updatedAt: '2026-10-01T00:00:00Z',
+      receivableChargeId: null,
+      currentCommercialRevision: null,
+      lines: [],
+      currentCommercialRevisionId: null,
+      evidenceReference: null,
+      handedOverAt: null,
+      readyAt: null,
+      pendingReplacementProposal: null,
+    };
+
+    await render(
+      <InvitationQuickEditScreen
+        accessToken={token}
+        bookingId={bookingId}
+        gateway={mockGateway}
+        initialDesign={initialDesign}
+        initialOrders={[mockOrder]}
+      />,
+    );
+
+    expect(await screen.findByText('Tình Trạng Đơn In Ấn')).toBeTruthy();
+    expect(screen.getByText('Đơn in #ord-1234')).toBeTruthy();
+    expect(screen.getByText('Phiên bản: 1')).toBeTruthy();
+    expect(screen.getByText('APPROVED')).toBeTruthy();
+  });
 });

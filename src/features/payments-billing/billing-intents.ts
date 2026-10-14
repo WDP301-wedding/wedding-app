@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { z } from 'zod';
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
@@ -35,9 +36,42 @@ const recordSchema = z.strictObject({
     .optional(),
 });
 const deviceStorage: IntentStorage = {
-  read: (key) => SecureStore.getItemAsync(key),
-  write: (key, value) => SecureStore.setItemAsync(key, value),
-  remove: (key) => SecureStore.deleteItemAsync(key),
+  read: async (key) => {
+    if (Platform.OS === 'web') {
+      try {
+        return typeof window !== 'undefined' && window.localStorage
+          ? window.localStorage.getItem(key)
+          : null;
+      } catch {
+        return null;
+      }
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  write: async (key, value) => {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+        return;
+      } catch (error) {
+        throw error;
+      }
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  remove: async (key) => {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } catch {}
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
 };
 async function digest(value: string): Promise<string> {
   return digestStringAsync(CryptoDigestAlgorithm.SHA256, value);

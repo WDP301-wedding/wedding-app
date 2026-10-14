@@ -5,7 +5,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Wedding Management',
   slug: 'wedding-app',
   version: '0.1.0',
-  platforms: ['android'],
+  platforms: ['android', 'ios', 'web'],
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   scheme: 'weddingapp',
@@ -23,6 +23,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+  },
+  web: {
+    ...config.web,
+    bundler: 'metro',
+    output: 'single',
+    favicon: './assets/images/icon.png',
   },
   plugins: [
     'expo-router',

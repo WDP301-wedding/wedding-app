@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import type { components } from '@/lib/api/generated/schema';
@@ -59,6 +60,42 @@ export function readResetCredential(url: string | null): string | null {
 }
 
 export function createSecureRefreshStore(): RefreshStore {
+  if (Platform.OS === 'web') {
+    return {
+      clear: async () => {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.removeItem(refreshTokenKey);
+          }
+        } catch {}
+      },
+      read: async () => {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            return window.localStorage.getItem(refreshTokenKey);
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      },
+      async replace(refreshToken) {
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(refreshTokenKey, refreshToken);
+          }
+        } catch (error) {
+          try {
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.removeItem(refreshTokenKey);
+            }
+          } catch {}
+          throw error;
+        }
+      },
+    };
+  }
+
   return {
     clear: () => SecureStore.deleteItemAsync(refreshTokenKey),
     read: () => SecureStore.getItemAsync(refreshTokenKey),

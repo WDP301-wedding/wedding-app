@@ -402,18 +402,14 @@ export function NativeAccountSettings({
         experience.updateProfile(token, name.trim(), profile.revision),
       );
       setProfile(updated);
-      setMessage('Đã lưu tên hiển thị thành công.');
+      setMessage('Đã lưu tên hiển thị.');
     } catch (caught) {
       if (caught instanceof ApiClientError && caught.status === 409) {
         try {
           const fresh = await session.authorize((token) => experience.profile(token));
           setProfile(fresh);
-          setError(
-            `Xung đột phiên bản (409): Hồ sơ đã thay đổi từ phiên làm việc khác (Revision #${fresh.revision}). Đã tải lại phiên bản mới nhất, vui lòng xác nhận và bấm Lưu thay đổi lần nữa.`,
-          );
-        } catch {
-          setError('Hồ sơ đã thay đổi trên máy chủ. Vui lòng tải lại trước khi tiếp tục.');
-        }
+        } catch {}
+        setError('Hồ sơ đã thay đổi. Tải lại trước khi tiếp tục.');
       } else {
         setError(
           caught instanceof ApiClientError && caught.message
@@ -426,10 +422,10 @@ export function NativeAccountSettings({
     }
   }
 
-  async function changeRequest() {
+  async function changeRequest(isResend = false) {
     if (pending || remaining > 0) return;
     if (!current) {
-      setError('Vui lòng nhập mật khẩu hiện tại trước khi gửi mã OTP.');
+      setError('Vui lòng nhập mật khẩu hiện tại.');
       return;
     }
     setPending(true);
@@ -442,20 +438,21 @@ export function NativeAccountSettings({
       setChallenge(value);
       setRemaining(value.resendAfterSeconds);
       setCode('');
-      setMessage('Mã OTP xác thực đổi mật khẩu đã được gửi vào email của bạn.');
+      setMessage(
+        isResend
+          ? 'Đã gửi mã OTP mới vào email.'
+          : 'Mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
+      );
     } catch (caught) {
-      if (caught instanceof ApiClientError) {
-        if (caught.code === 'CURRENT_PASSWORD_INVALID' || caught.status === 401) {
-          setError('Mật khẩu hiện tại chưa chính xác.');
-        } else if (caught.status === 429) {
-          setError('Quá nhiều yêu cầu thử lại. Vui lòng đợi trong giây lát.');
-        } else if (caught.status === 503 || caught.code === 'EMAIL_WORKER_DISABLED') {
-          setError('Dịch vụ gửi email OTP tạm thời chưa sẵn sàng (worker đang tắt).');
-        } else {
-          setError(caught.message || 'Chưa gửi được mã OTP. Vui lòng thử lại sau.');
-        }
+      if (
+        caught instanceof ApiClientError &&
+        (caught.code === 'CURRENT_PASSWORD_INVALID' ||
+          caught.status === 400 ||
+          caught.status === 401)
+      ) {
+        setError('Mật khẩu hiện tại chưa chính xác.');
       } else {
-        setError('Chưa gửi được mã OTP. Vui lòng kiểm tra kết nối mạng.');
+        setError('Chưa gửi được mã. Hãy thử lại sau.');
       }
     } finally {
       setPending(false);
@@ -477,11 +474,11 @@ export function NativeAccountSettings({
       return;
     }
     if (!challenge) {
-      await changeRequest();
+      await changeRequest(false);
       return;
     }
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Vui lòng nhập mã OTP gồm chính xác 6 chữ số.');
+      setError('Nhập mã OTP gồm 6 chữ số.');
       return;
     }
 
@@ -503,10 +500,10 @@ export function NativeAccountSettings({
       if (caught instanceof ApiClientError) {
         if (caught.code === 'CURRENT_PASSWORD_INVALID' || caught.status === 401) {
           setError('Mật khẩu hiện tại chưa chính xác.');
-        } else if (caught.code === 'OTP_INVALID' || caught.status === 400) {
-          setError('Mã OTP 6 chữ số chưa chính xác.');
         } else if (caught.code === 'CHALLENGE_EXPIRED') {
           setError('Mã OTP đã hết hiệu lực. Vui lòng gửi lại mã mới.');
+        } else if (caught.code === 'OTP_INVALID' || caught.status === 400) {
+          setError('Mã OTP 6 chữ số chưa chính xác.');
         } else if (caught.status === 429) {
           setError('Quá nhiều lần thử sai. Vui lòng đợi trong giây lát.');
         } else {
@@ -536,14 +533,6 @@ export function NativeAccountSettings({
               setMessage(null);
               try {
                 await session.authorize((token) => experience.revokeSession(token, sessionId));
-                const snap = session.snapshot();
-                const currentSessionId =
-                  snap.status === 'authenticated' ? snap.actor.sessionId : null;
-                if (currentSessionId === sessionId) {
-                  await session.discardRevokedSession();
-                  onSignedOut();
-                  return;
-                }
                 await loadSessions();
                 setMessage('Đã thu hồi phiên làm việc thành công.');
               } catch {
@@ -577,7 +566,7 @@ export function NativeAccountSettings({
   );
 
   const snap = session.snapshot();
-  const currentSessionId = snap.status === 'authenticated' ? snap.actor.sessionId : null;
+  const currentSessionId = snap.status === 'authenticated' ? (snap.actor?.sessionId ?? null) : null;
 
   return (
     <View
@@ -601,8 +590,8 @@ export function NativeAccountSettings({
       {action('Tải lại hồ sơ', () => void load())}
       {profile && (
         <>
-          <Text selectable style={[type.body, { color: colors.label, marginVertical: 4 }]}>
-            Email tài khoản: {profile.displayEmail}
+          <Text selectable style={[type.body, { color: colors.label }]}>
+            {profile.displayEmail}
           </Text>
           <Text style={[type.caption, { color: colors.secondaryLabel, marginBottom: 8 }]}>
             Phiên bản hồ sơ: #{profile.revision}
@@ -612,7 +601,7 @@ export function NativeAccountSettings({
 
           <Text style={[type.title, { color: brand.display, marginTop: 18 }]}>Đổi mật khẩu</Text>
           {field('Mật khẩu hiện tại', current, setCurrent, true)}
-          {field('Mật khẩu mới (12–128 ký tự)', next, setNext, true)}
+          {field('Mật khẩu mới', next, setNext, true)}
           {field('Xác nhận mật khẩu mới', confirm, setConfirm, true)}
           <Text style={[type.caption, { color: colors.secondaryLabel }]}>
             Dùng 12–128 ký tự. Sau khi đổi, hệ thống sẽ thu hồi các phiên và bạn cần đăng nhập lại.
@@ -620,14 +609,11 @@ export function NativeAccountSettings({
           {challenge && (
             <NativeField label="Mã OTP" value={code} onChangeText={setCode} secret={false} otp />
           )}
-          {action(
-            challenge ? 'Xác nhận và cập nhật mật khẩu' : 'Gửi mã OTP đổi mật khẩu',
-            () => void change(),
-          )}
+          {action(challenge ? 'Xác nhận và cập nhật mật khẩu' : 'Gửi mã OTP', () => void change())}
           {challenge &&
             remaining === 0 &&
             action('Gửi lại mã OTP', () => {
-              void changeRequest();
+              void changeRequest(true);
             })}
           {challenge && remaining > 0 && (
             <Text style={[type.caption, { color: colors.secondaryLabel }]}>

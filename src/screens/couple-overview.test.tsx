@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {
+  Alert,
   Pressable as MockPressable,
   Text as MockText,
   TextInput as MockTextInput,
@@ -65,6 +66,8 @@ jest.mock('@/features/identity-access/experience-api', () => {
     changePassword: jest.fn(),
     requestPasswordChange: jest.fn(),
     overview: jest.fn(),
+    listSessions: jest.fn().mockResolvedValue([]),
+    revokeSession: jest.fn().mockResolvedValue(undefined),
   };
   return { createExperienceGateway: () => gateway };
 });
@@ -123,6 +126,7 @@ async function session() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(Alert, 'alert');
   gateway.profile.mockResolvedValue({
     accountId: 'account',
     displayEmail: 'couple@example.com',
@@ -130,6 +134,15 @@ beforeEach(() => {
     revision: 1,
   });
   gateway.overview.mockResolvedValue({ data: [], nextCursor: null });
+  gateway.listSessions.mockResolvedValue({ sessions: [] } as any);
+  gateway.revokeSession.mockResolvedValue(undefined);
+  gateway.requestPasswordChange.mockResolvedValue({
+    accepted: true,
+    challengeId: 'challenge-default',
+    expiresInSeconds: 600,
+    resendAfterSeconds: 60,
+  });
+  gateway.changePassword.mockResolvedValue(undefined);
 });
 afterEach(async () => {
   await cleanup();
@@ -481,6 +494,169 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Xem kế hoạch' }));
     expect(
       await screen.findByText('Không tải được kế hoạch. Hãy kiểm tra quyền truy cập và thử lại.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('handles password validation edge cases and error responses in NativeAccountSettings', async () => {
+    const current = await session();
+    await render(<NativeAccountSettings session={current.value} onSignedOut={jest.fn()} />);
+    await screen.findByText('couple@example.com');
+
+    // Missing current password
+    await fireEvent.press(screen.getByText('Gửi mã OTP'));
+    expect(await screen.findByText('Vui lòng nhập mật khẩu hiện tại.')).toBeOnTheScreen();
+
+    // Short new password
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu hiện tại'), 'initial-password-123');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'short');
+    await fireEvent.press(screen.getByText('Gửi mã OTP'));
+    expect(
+      await screen.findByText('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.'),
+    ).toBeOnTheScreen();
+
+    // Mismatched confirmation
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'valid-password-123');
+    await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu mới'), 'different-123');
+    await fireEvent.press(screen.getByText('Gửi mã OTP'));
+    expect(await screen.findByText('Mật khẩu xác nhận không trùng khớp.')).toBeOnTheScreen();
+
+    // Request change error handling
+    await fireEvent.changeText(
+      screen.getByLabelText('Xác nhận mật khẩu mới'),
+      'valid-password-123',
+    );
+    gateway.requestPasswordChange.mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 400,
+        code: 'CURRENT_PASSWORD_INVALID',
+        message: 'Wrong password',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await fireEvent.press(screen.getByText('Gửi mã OTP'));
+    expect(await screen.findByText('Mật khẩu hiện tại chưa chính xác.')).toBeOnTheScreen();
+
+    // Change password error handling with challenge
+    gateway.requestPasswordChange.mockResolvedValue({
+      accepted: true,
+      challengeId: 'c-1',
+      expiresInSeconds: 600,
+      resendAfterSeconds: 60,
+    });
+    await fireEvent.press(screen.getByText('Gửi mã OTP'));
+    expect(
+      await screen.findByText('Mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.'),
+    ).toBeOnTheScreen();
+    const otpInput = await screen.findByLabelText('Mã OTP');
+    await fireEvent.changeText(otpInput, '123456');
+
+    gateway.changePassword.mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 400,
+        code: 'OTP_INVALID',
+        message: 'Invalid OTP',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await fireEvent.press(screen.getByText('Xác nhận và cập nhật mật khẩu'));
+    expect(await screen.findByText('Mã OTP 6 chữ số chưa chính xác.')).toBeOnTheScreen();
+
+    gateway.changePassword.mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 400,
+        code: 'CHALLENGE_EXPIRED',
+        message: 'Expired',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await fireEvent.press(screen.getByText('Xác nhận và cập nhật mật khẩu'));
+    expect(
+      await screen.findByText('Mã OTP đã hết hiệu lực. Vui lòng gửi lại mã mới.'),
+    ).toBeOnTheScreen();
+
+    gateway.changePassword.mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 429,
+        code: 'RATE_LIMIT',
+        message: 'Too many',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await fireEvent.press(screen.getByText('Xác nhận và cập nhật mật khẩu'));
+    expect(
+      await screen.findByText('Quá nhiều lần thử sai. Vui lòng đợi trong giây lát.'),
+    ).toBeOnTheScreen();
+
+    gateway.changePassword.mockRejectedValueOnce(new Error('Network error'));
+    await fireEvent.press(screen.getByText('Xác nhận và cập nhật mật khẩu'));
+    expect(
+      await screen.findByText('Lỗi kết nối khi đổi mật khẩu. Vui lòng thử lại.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('loads sessions and handles revoke flows in NativeAccountSettings', async () => {
+    const current = await session();
+    const signedOut = jest.fn();
+    gateway.listSessions.mockResolvedValue({
+      sessions: [
+        {
+          sessionId: 'session-other',
+          clientKind: 'WEB',
+          lastSeenAt: '2026-10-14T07:00:00Z',
+          status: 'ACTIVE',
+        },
+        {
+          sessionId: 'session',
+          clientKind: 'ANDROID',
+          lastSeenAt: '2026-10-14T08:00:00Z',
+          status: 'ACTIVE',
+        },
+      ],
+    } as any);
+    gateway.revokeSession.mockResolvedValue(undefined);
+
+    await render(<NativeAccountSettings session={current.value} onSignedOut={signedOut} />);
+    await screen.findByText('couple@example.com');
+
+    await fireEvent.press(screen.getByText('Tải lại danh sách phiên'));
+    expect(await screen.findByText(/Trình duyệt Web/)).toBeOnTheScreen();
+    expect(screen.getByText(/Phiên hiện tại/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Thu hồi phiên này' }));
+    expect(Alert.alert).toHaveBeenCalled();
+    const calls = jest.mocked(Alert.alert).mock.calls;
+    const confirmBtn = calls[calls.length - 1]?.[2]?.find((b) => b.text === 'Thu hồi');
+    await confirmBtn?.onPress?.();
+    expect(gateway.revokeSession).toHaveBeenCalledWith('access', 'session-other');
+
+    // Revoke failure
+    gateway.revokeSession.mockRejectedValueOnce(new Error('Revoke failed'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Thu hồi phiên này' }));
+    const errorCalls = jest.mocked(Alert.alert).mock.calls;
+    const errorConfirmBtn = errorCalls[errorCalls.length - 1]?.[2]?.find(
+      (b) => b.text === 'Thu hồi',
+    );
+    await errorConfirmBtn?.onPress?.();
+    expect(
+      await screen.findByText('Không thể thu hồi phiên. Vui lòng thử lại sau.'),
+    ).toBeOnTheScreen();
+  });
+
+  it('handles general error when updating profile in NativeAccountSettings', async () => {
+    const current = await session();
+    gateway.updateProfile.mockRejectedValueOnce(new Error('Failed'));
+
+    await render(<NativeAccountSettings session={current.value} onSignedOut={jest.fn()} />);
+    await screen.findByText('couple@example.com');
+
+    await fireEvent.changeText(screen.getByLabelText('Tên hiển thị'), 'New Name');
+    await fireEvent.press(screen.getByText('Lưu thay đổi'));
+    expect(
+      await screen.findByText('Chưa lưu được hồ sơ. Nội dung của bạn vẫn được giữ trên màn hình.'),
     ).toBeOnTheScreen();
   });
 });

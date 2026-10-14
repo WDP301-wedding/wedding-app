@@ -339,4 +339,151 @@ describe('HomeScreen', () => {
     expect(api.completePasswordReset).not.toHaveBeenCalled();
     expect(SecureStore.deleteItemAsync).toHaveBeenCalled();
   });
+
+  it('renders access denied screen and logs out when account access is denied', async () => {
+    const api = createApi();
+    jest.mocked(api.getCurrentUser).mockResolvedValue({
+      ...actor,
+      roles: [] as any,
+    });
+    jest.mocked(SecureStore.getItemAsync).mockResolvedValue('wir_initial');
+    const session = new AndroidIdentitySession(api, createSecureRefreshStore());
+    await session.login('staff@example.com', 'sample-password-123');
+
+    await render(<HomeScreen session={session} />);
+    expect(await screen.findByText('TRUY CẬP BỊ TỪ CHỐI')).toBeOnTheScreen();
+    expect(screen.getByText(/Tài khoản chưa có quyền truy cập/)).toBeOnTheScreen();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất' }));
+    await waitFor(() => expect(api.logout).toHaveBeenCalled());
+  });
+
+  it('handles auth error mapping, field validations, and OTP resend in IdentityScreen', async () => {
+    const user = userEvent.setup();
+    const api = createApi();
+    const session = new AndroidIdentitySession(api, createSecureRefreshStore());
+
+    await render(<HomeScreen session={session} initialResetToken="token" />);
+    await screen.findByText('Khôi phục mật khẩu');
+
+    // Return to login
+    await user.press(screen.getByRole('button', { name: 'Quay lại đăng nhập' }));
+    expect(screen.getByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
+
+    // Empty fields error
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(await screen.findByText('Vui lòng nhập đầy đủ email và mật khẩu.')).toBeOnTheScreen();
+
+    // 422 error mapping
+    jest.mocked(api.createSession).mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 422,
+        code: 'UNPROCESSABLE',
+        message: 'Validation',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'test@example.com');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'password123');
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(
+      await screen.findByText('Dữ liệu không hợp lệ. Mật khẩu phải có độ dài từ 12 đến 128 ký tự.'),
+    ).toBeOnTheScreen();
+
+    // 429 error mapping
+    jest.mocked(api.createSession).mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 429,
+        code: 'RATE_LIMIT',
+        message: 'Too many',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(
+      await screen.findByText(
+        'Đã vượt quá số lần thử cho phép. Vui lòng đợi trong giây lát trước khi thử lại.',
+      ),
+    ).toBeOnTheScreen();
+
+    // 503 error mapping
+    jest.mocked(api.createSession).mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'api',
+        status: 503,
+        code: 'EMAIL_WORKER_DISABLED',
+        message: 'Worker off',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(
+      await screen.findByText(
+        'Dịch vụ gửi email OTP tạm thời chưa sẵn sàng (worker đang tắt). Vui lòng liên hệ quản trị viên.',
+      ),
+    ).toBeOnTheScreen();
+
+    // Network error
+    jest.mocked(api.createSession).mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'network',
+        status: 0,
+        code: 'NET',
+        message: 'Net',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(
+      await screen.findByText('Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng.'),
+    ).toBeOnTheScreen();
+
+    // Timeout error
+    jest.mocked(api.createSession).mockRejectedValueOnce(
+      new ApiClientError({
+        kind: 'timeout',
+        status: 0,
+        code: 'TIMEOUT',
+        message: 'Timeout',
+        requestId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
+    expect(
+      await screen.findByText('Yêu cầu quá thời gian chờ (Timeout). Vui lòng thử lại.'),
+    ).toBeOnTheScreen();
+
+    // Go to reset request
+    jest.mocked(createPasswordOtpGateway().request).mockResolvedValueOnce({
+      accepted: true,
+      challengeId: 'c-resend',
+      expiresInSeconds: 600,
+      resendAfterSeconds: 0 as any,
+    });
+    await user.press(screen.getByRole('button', { name: 'Quên mật khẩu?' }));
+    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
+    await screen.findByLabelText('Mã OTP');
+
+    // Resend OTP in reset complete mode
+    await user.press(screen.getByText('Gửi lại mã OTP'));
+    expect(await screen.findByText('Đã yêu cầu gửi lại mã OTP mới.')).toBeOnTheScreen();
+
+    // Invalid OTP format
+    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '12');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'new-password-12345');
+    await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), 'new-password-12345');
+    await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
+    expect(await screen.findByText('Mã OTP phải gồm chính xác 6 chữ số.')).toBeOnTheScreen();
+
+    // Short password
+    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'short');
+    await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), 'short');
+    await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
+    expect(
+      await screen.findByText('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.'),
+    ).toBeOnTheScreen();
+  });
 });

@@ -72,14 +72,20 @@ export function HomeScreen({
     );
   }
 
-  if (snapshot.status === 'anonymous') {
+  const isReset =
+    mode === 'reset-request' ||
+    Boolean(incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
+    (initialResetToken !== undefined && initialResetToken !== null);
+
+  if (isReset || snapshot.status === 'anonymous') {
     return (
       <IdentityScreen
-        key="identity-anon"
+        key={isReset ? 'identity-reset' : 'identity-anon'}
         session={session}
-        initialMode={mode}
+        initialMode={isReset ? 'reset-request' : mode}
         onAuthenticated={(nextSnapshot) => {
           setSnapshot(nextSnapshot);
+          setMode('login');
         }}
       />
     );
@@ -497,7 +503,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
           setMode('reset-complete');
           setCode('');
           setMessage(
-            'Nếu email tồn tại và đủ điều kiện, mã OTP đã được gửi. Lưu ý: thông báo này không chứng minh email đã được gửi thành công nếu dịch vụ gửi thư phía máy chủ chưa kích hoạt.',
+            'Nếu tài khoản đủ điều kiện, mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
           );
         } catch (caught) {
           setError(mapAuthError(caught));
@@ -590,7 +596,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
 
         {mode !== 'reset-request' ? (
           <LabeledInput
-            label={mode === 'login' ? 'Mật khẩu' : 'Mật khẩu mới (12–128 ký tự)'}
+            label={mode === 'login' ? 'Mật khẩu' : 'Mật khẩu mới'}
             value={password}
             onChangeText={setPassword}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -601,7 +607,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
 
         {mode === 'reset-complete' && challenge ? (
           <LabeledInput
-            label="Mã OTP (6 chữ số)"
+            label="Mã OTP"
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -613,7 +619,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
 
         {mode === 'reset-complete' ? (
           <LabeledInput
-            label="Xác nhận mật khẩu mới"
+            label="Xác nhận mật khẩu"
             value={confirmation}
             onChangeText={setConfirmation}
             autoComplete="new-password"
@@ -708,6 +714,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
 
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="Dùng email khác"
               disabled={pending}
               onPress={() => {
                 setChallenge(null);
@@ -719,7 +726,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
               }}
               style={({ pressed }) => [styles.authTextAction, pressed && styles.pressed]}
             >
-              <Text style={[type.subhead, { color: brand.primary }]}>‹ Dùng email khác</Text>
+              <Text style={[type.subhead, { color: brand.primary }]}>Dùng email khác</Text>
             </Pressable>
           </View>
         ) : null}
@@ -741,6 +748,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
         {mode === 'reset-request' ? (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Quay lại đăng nhập"
             onPress={() => {
               setMode('login');
               setError(null);
@@ -748,7 +756,7 @@ function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: Ide
             }}
             style={styles.authTextAction}
           >
-            <Text style={[type.subhead, { color: brand.primary }]}>‹ Quay lại đăng nhập</Text>
+            <Text style={[type.subhead, { color: brand.primary }]}>Quay lại đăng nhập</Text>
           </Pressable>
         ) : null}
       </View>

@@ -151,19 +151,12 @@ export function V0ScheduleSubflow({ activeBooking, facts, onNavigate }: V0Common
 // ====================================================
 // 2. MEDIA SUBFLOW
 // ====================================================
-export function V0MediaSubflow({
-  activeBooking,
-  facts,
-  invitationGateway,
-  onNavigate,
-  session,
-}: V0CommonProps) {
+export function V0MediaSubflow({ activeBooking, facts, onNavigate }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
-  const gateway = invitationGateway ?? createAppInvitationGateway();
 
-  const [uploading, setUploading] = useState(false);
+  const [uploading] = useState(false);
   const [altText, setAltText] = useState('');
-  const [uploadedAssets, setUploadedAssets] = useState<
+  const [uploadedAssets] = useState<
     readonly { assetId: string; previewPath: string; name: string }[]
   >([]);
   const [currentTime] = useState(() => Date.now());
@@ -191,38 +184,11 @@ export function V0MediaSubflow({
       );
       return;
     }
-    if (!session || !activeBooking?.bookingId || uploading) return;
-
-    setUploading(true);
-    try {
-      const mockBlob = new Blob(['sample-private-wedding-media-bytes'], { type: 'image/jpeg' });
-      const asset = await session.authorize((token) =>
-        gateway.uploadWeddingMedia(
-          token,
-          activeBooking.bookingId,
-          activeBooking.revision,
-          mockBlob,
-          altText || 'Ảnh cưới trình chiếu',
-        ),
-      );
-      setUploadedAssets((prev) => [
-        ...prev,
-        {
-          assetId: asset.mediaAssetId,
-          previewPath: asset.previewPath,
-          name: `anh-cuoi-${prev.length + 1}.jpg`,
-        },
-      ]);
-      setAltText('');
-      Alert.alert('Thành công', 'Đã tải ảnh lên kho ảnh tiệc cưới thành công.');
-    } catch (caught) {
-      Alert.alert(
-        'Lỗi tải ảnh',
-        caught instanceof Error ? caught.message : 'Không thể tải ảnh lên kho ảnh.',
-      );
-    } finally {
-      setUploading(false);
-    }
+    Alert.alert(
+      'Tải ảnh cưới riêng tư',
+      'Tính năng chọn tệp ảnh thực tế từ bộ nhớ thiết bị và API liệt kê kho ảnh (media) của tiệc cưới hiện chưa được backend cung cấp cho ứng dụng (Blocker theo Handoff Q6). Vui lòng truy cập phiên bản Web để tải và quản lý kho ảnh tiệc cưới.',
+      [{ text: 'Đã hiểu', style: 'default' }],
+    );
   };
 
   return (
@@ -835,60 +801,6 @@ export function V0PrintSubflow({
 export function V0GuestsSubflow({ facts, onNavigate }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
 
-  // Local Group and Guest state for mobile couple organizer
-  const [groups, setGroups] = useState<
-    readonly {
-      id: string;
-      name: string;
-      targetTables: number;
-      guests: readonly string[];
-    }[]
-  >([
-    {
-      id: 'g-1',
-      name: 'Gia đình nhà trai',
-      targetTables: 4,
-      guests: ['Bác Hai', 'Cô Ba', 'Chú Tư'],
-    },
-    {
-      id: 'g-2',
-      name: 'Gia đình nhà gái',
-      targetTables: 4,
-      guests: ['Bác Cả', 'Dì Năm'],
-    },
-    {
-      id: 'g-3',
-      name: 'Bạn bè & Đồng nghiệp',
-      targetTables: 5,
-      guests: ['Nhóm công ty', 'Bạn đại học'],
-    },
-  ]);
-
-  const [newGroupName, setNewGroupName] = useState('');
-  const [newGuestName, setNewGuestName] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState('g-1');
-
-  const handleAddGroup = () => {
-    if (!newGroupName.trim()) return;
-    const newGroup = {
-      id: `g-${Date.now()}`,
-      name: newGroupName.trim().normalize('NFC'),
-      targetTables: 2,
-      guests: [],
-    };
-    setGroups((prev) => [...prev, newGroup]);
-    setNewGroupName('');
-  };
-
-  const handleAddGuest = () => {
-    if (!newGuestName.trim()) return;
-    const trimmed = newGuestName.trim().normalize('NFC');
-    setGroups((prev) =>
-      prev.map((g) => (g.id === selectedGroupId ? { ...g, guests: [...g.guests, trimmed] } : g)),
-    );
-    setNewGuestName('');
-  };
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: tokens.canvas }]}
@@ -919,7 +831,7 @@ export function V0GuestsSubflow({ facts, onNavigate }: V0CommonProps) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
           <CircleHelpIcon size={16} color={tokens.sage} />
           <Text style={[styles.calloutTitle, { color: tokens.primary }]}>
-            Quy định danh sách & sơ đồ bàn
+            Quy định danh sách & sơ đồ bàn tiệc
           </Text>
         </View>
         <Text style={[styles.calloutSubtitle, { color: tokens.muted }]}>
@@ -939,7 +851,7 @@ export function V0GuestsSubflow({ facts, onNavigate }: V0CommonProps) {
         ]}
       >
         <Text style={[styles.calloutTitle, { color: tokens.text, marginBottom: 8 }]}>
-          Kế hoạch sảnh tiệc & số lượng khách
+          Kế hoạch sảnh tiệc & số lượng khách từ máy chủ
         </Text>
         <View style={styles.factRow}>
           <Text style={{ fontSize: 13, color: tokens.muted }}>Sảnh tiệc đã xác nhận:</Text>
@@ -960,113 +872,17 @@ export function V0GuestsSubflow({ facts, onNavigate }: V0CommonProps) {
           </Text>
         </View>
         <Text style={{ fontSize: 11, color: tokens.earth, marginTop: 4 }}>
-          Số lượng khách kế hoạch do Cặp đôi / Quản lý nhập độc lập, không phụ thuộc và không bị ảnh
-          hưởng bởi số lượng tên khách trong danh sách.
+          Số lượng khách kế hoạch do Cặp đôi / Quản lý nhập độc lập từ hợp đồng, không bị phụ thuộc
+          hoặc suy diễn từ số lượng tên khách trong danh sách.
         </Text>
-      </View>
-
-      {/* Group & Seating Organizer on Mobile */}
-      <View style={{ marginTop: 18 }}>
-        <Text style={[styles.policyTitle, { color: tokens.text, marginBottom: 8 }]}>
-          Tổ chức Nhóm & Khách mời trên di động
-        </Text>
-
-        {groups.map((grp) => (
-          <View
-            key={grp.id}
-            style={[
-              styles.calloutCard,
-              {
-                backgroundColor: tokens.surface,
-                borderColor: selectedGroupId === grp.id ? tokens.primary : tokens.rule,
-                marginBottom: 10,
-              },
-            ]}
-          >
-            <Pressable
-              onPress={() => setSelectedGroupId(grp.id)}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.text }}>
-                {grp.name}
-              </Text>
-              <StatusTag tone="neutral">{grp.targetTables} bàn dự kiến</StatusTag>
-            </Pressable>
-            <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 4 }}>
-              Khách mời tùy chọn ({grp.guests.length} người):{' '}
-              {grp.guests.length > 0 ? grp.guests.join(', ') : 'Chưa có tên cụ thể (xếp theo nhóm)'}
-            </Text>
-          </View>
-        ))}
-
-        {/* Add Group */}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          <TextInput
-            value={newGroupName}
-            onChangeText={setNewGroupName}
-            placeholder="Tên nhóm mới (ví dụ: Bạn cấp 3)"
-            placeholderTextColor={tokens.muted}
-            style={[
-              styles.input,
-              {
-                flex: 1,
-                backgroundColor: tokens.surface,
-                borderColor: tokens.rule,
-                color: tokens.text,
-              },
-            ]}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Thêm nhóm"
-            onPress={handleAddGroup}
-            style={[
-              styles.primaryButton,
-              { backgroundColor: tokens.primary, paddingHorizontal: 14 },
-            ]}
-          >
-            <Text style={[styles.primaryButtonText, { color: tokens.onPrimary }]}>+ Nhóm</Text>
-          </Pressable>
-        </View>
-
-        {/* Add Guest to selected group */}
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-          <TextInput
-            value={newGuestName}
-            onChangeText={setNewGuestName}
-            placeholder="Tên khách mời tùy chọn..."
-            placeholderTextColor={tokens.muted}
-            style={[
-              styles.input,
-              {
-                flex: 1,
-                backgroundColor: tokens.surface,
-                borderColor: tokens.rule,
-                color: tokens.text,
-              },
-            ]}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Thêm khách"
-            onPress={handleAddGuest}
-            style={[styles.outlineButton, { borderColor: tokens.primary, paddingHorizontal: 14 }]}
-          >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: tokens.primary }}>+ Khách</Text>
-          </Pressable>
-        </View>
       </View>
 
       <View style={[styles.policyBlock, { marginTop: 18 }]}>
-        <Text style={[styles.policyTitle, { color: tokens.text }]}>Phân bổ bàn tiệc & Máy chủ</Text>
+        <Text style={[styles.policyTitle, { color: tokens.text }]}>Trạng thái kết nối máy chủ</Text>
         <Text style={[styles.policyText, { color: tokens.muted }]}>
-          Hợp đồng OpenAPI pin 0a77391 chưa cung cấp endpoints máy chủ cho việc quản lý danh sách
-          khách mời (/bookings/{'{id}'}/guests) hay sơ đồ xếp chỗ (/bookings/{'{id}'}/seating)
-          (Blocker).
+          Chức năng quản lý danh sách khách mời (/guests) và gán sơ đồ bàn tiệc (/seating) hiện được
+          quản lý trên phiên bản Web của hệ thống. Ứng dụng di động chỉ hỗ trợ theo dõi kế hoạch
+          tổng thể và sẽ hiển thị danh sách đầy đủ khi API di động được kết nối hoàn tất.
         </Text>
       </View>
     </ScrollView>

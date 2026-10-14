@@ -42,7 +42,7 @@ export interface V0InviteTabProps extends V0CommonProps {
 
 interface ConflictState {
   readonly hasConflict: boolean;
-  readonly serverRevision: number;
+  readonly serverRevision: number | null;
   readonly clientRevision: number;
   readonly serverDesign: AppDesignView | null;
 }
@@ -329,14 +329,14 @@ export function V0InviteTab({
           );
           setConflictState({
             hasConflict: true,
-            serverRevision: Math.max(fresh.revisionNumber, selectedDesign.revisionNumber + 1),
+            serverRevision: fresh.revisionNumber,
             clientRevision: selectedDesign.revisionNumber,
             serverDesign: fresh,
           });
         } catch {
           setConflictState({
             hasConflict: true,
-            serverRevision: selectedDesign.revisionNumber + 1,
+            serverRevision: null,
             clientRevision: selectedDesign.revisionNumber,
             serverDesign: null,
           });
@@ -388,6 +388,18 @@ export function V0InviteTab({
 
   const handleReapplyOnServerVersion = async () => {
     if (!conflictState) return;
+    if (conflictState.serverRevision === null) {
+      if (!session || !activeBooking?.bookingId || !selectedDesign) return;
+      try {
+        const fresh = await session.authorize((token) =>
+          gateway.getDesign(token, activeBooking.bookingId, selectedDesign.designId),
+        );
+        await handleSaveEdit(fresh.revisionNumber);
+      } catch {
+        setEditError('Chưa tải được phiên bản máy chủ mới nhất để lưu đè. Vui lòng thử lại sau.');
+      }
+      return;
+    }
     await handleSaveEdit(conflictState.serverRevision);
   };
 
@@ -549,10 +561,11 @@ export function V0InviteTab({
               Xung đột phiên bản (409 Conflict)
             </Text>
             <Text style={{ color: tokens.text, fontSize: 13, marginTop: 4, lineHeight: 18 }}>
-              Máy chủ hiện đang ở phiên bản #{conflictState.serverRevision} (bản bạn đang sửa dựa
-              trên phiên bản #{conflictState.clientRevision}). Nội dung bạn vừa nhập vẫn được giữ
-              nguyên bên dưới. Bạn có thể xem bản máy chủ hoặc xác nhận lưu đè nội dung của mình lên
-              phiên bản mới.
+              {conflictState.serverRevision !== null
+                ? `Máy chủ hiện đang ở phiên bản #${conflictState.serverRevision} (bản bạn đang sửa dựa trên phiên bản #${conflictState.clientRevision}).`
+                : `Máy chủ đã có phiên bản mới hơn phiên bản #${conflictState.clientRevision} của bạn (chưa thể tải số phiên bản chính xác do kết nối).`}{' '}
+              Nội dung bạn vừa nhập vẫn được giữ nguyên bên dưới. Bạn có thể xem bản máy chủ hoặc
+              xác nhận lưu đè nội dung của mình lên phiên bản mới.
             </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <Pressable

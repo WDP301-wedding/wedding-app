@@ -2,6 +2,8 @@ import { createApiClient, type ApiClient } from '@/lib/api/client';
 import type { components } from '@/lib/api/generated/schema';
 export type Profile = components['schemas']['ProfileResponse']['data'];
 export type Overview = components['schemas']['CoupleOverviewResponse'];
+export type SessionSummary = components['schemas']['SessionSummary'];
+export type SessionInventory = components['schemas']['SessionInventoryResponse']['data'];
 const required = <T>(value: T | undefined) => {
   if (value === undefined) throw new Error('Thiếu dữ liệu phản hồi.');
   return value;
@@ -14,11 +16,17 @@ export function createExperienceGateway(client?: ApiClient) {
     async profile(token: string) {
       return required((await api().GET('/auth/profile', { headers: headers(token) })).data).data;
     },
-    async updateProfile(token: string, displayName: string, expectedRevision: number) {
+    async updateProfile(
+      token: string,
+      displayName: string,
+      expectedRevision: number,
+      idempotencyKey?: string,
+    ) {
+      const key = idempotencyKey ?? `profile:${expectedRevision}:${Date.now()}`;
       return required(
         (
           await api().PATCH('/auth/profile', {
-            headers: headers(token),
+            headers: { ...headers(token), 'Idempotency-Key': key },
             body: { displayName, expectedRevision },
           })
         ).data,
@@ -35,6 +43,19 @@ export function createExperienceGateway(client?: ApiClient) {
       await api().POST('/auth/password-changes', {
         headers: headers(token),
         body: { challengeId, code, newPassword },
+      });
+    },
+    async listSessions(token: string, cursor?: string, limit?: number) {
+      const { data } = await api().GET('/auth/sessions', {
+        headers: headers(token),
+        params: { query: { ...(cursor ? { cursor } : {}), ...(limit ? { limit } : {}) } },
+      });
+      return required(data).data;
+    },
+    async revokeSession(token: string, sessionId: string) {
+      await api().DELETE('/auth/sessions/{sessionId}', {
+        headers: headers(token),
+        params: { path: { sessionId } },
       });
     },
     async overview(token: string, cursor?: string) {

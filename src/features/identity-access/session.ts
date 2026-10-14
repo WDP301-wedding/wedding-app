@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { randomUUID } from 'expo-crypto';
 
 import type { components } from '@/lib/api/generated/schema';
 import { ApiClientError, createApiClient, type ApiClient } from '@/lib/api/client';
@@ -26,6 +27,13 @@ export interface IdentityApi {
   logout(this: void, accessToken: string): Promise<void>;
   refreshSession(this: void, refreshToken: string): Promise<AndroidCredential>;
   requestPasswordReset(this: void, email: string): Promise<void>;
+  listSessions?(
+    this: void,
+    accessToken: string,
+    cursor?: string,
+    limit?: number,
+  ): Promise<components['schemas']['SessionInventoryResponse']['data']>;
+  deleteOwnedSession?(this: void, accessToken: string, sessionId: string): Promise<void>;
 }
 
 export interface RefreshStore {
@@ -115,6 +123,8 @@ export class AndroidIdentitySession {
   private restoreOperation: Promise<AndroidSessionSnapshot> | null = null;
   private state: AndroidSessionSnapshot = anonymousSnapshot;
 
+  private refreshOperation: Promise<AndroidCredential> | null = null;
+
   constructor(
     private readonly api: IdentityApi,
     private readonly refreshStore: RefreshStore,
@@ -140,16 +150,20 @@ export class AndroidIdentitySession {
   }
 
   async refresh(): Promise<AndroidSessionSnapshot> {
-    const refreshToken = await this.refreshStore.read();
-    if (refreshToken === null) {
+    await this.executeSingleFlightRefresh();
+    return this.state;
+  }
+
+  async listSessions(cursor?: string, limit?: number) {
+    if (!this.api.listSessions) throw new Error('Chức năng danh sách phiên chưa được hỗ trợ.');
+    return this.authorize((token) => this.api.listSessions!(token, cursor, limit));
+  }
+
+  async revokeSession(sessionId: string): Promise<void> {
+    if (!this.api.deleteOwnedSession) throw new Error('Chức năng thu hồi phiên chưa được hỗ trợ.');
+    await this.authorize((token) => this.api.deleteOwnedSession!(token, sessionId));
+    if (this.state.status === 'authenticated' && this.state.actor.sessionId === sessionId) {
       await this.clear();
-      return this.state;
-    }
-    try {
-      return await this.installCredential(await this.api.refreshSession(refreshToken));
-    } catch (error) {
-      await this.clear();
-      throw error;
     }
   }
 
@@ -180,7 +194,16 @@ export class AndroidIdentitySession {
       return await operation(this.accessToken);
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) {
-        await this.clear();
+        // Access token might be expired. Single-flight refresh once, then retry
+        try {
+          const fresh = await this.executeSingleFlightRefresh();
+          return await operation(fresh.accessToken);
+        } catch (retryError) {
+          if (retryError instanceof ApiClientError && retryError.status === 401) {
+            await this.clear();
+          }
+          throw retryError;
+        }
       } else if (
         this.state.status === 'authenticated' &&
         error instanceof ApiClientError &&
@@ -190,6 +213,47 @@ export class AndroidIdentitySession {
           ...this.state,
           denial: error.status === 403 ? 'forbidden' : 'not-found',
         };
+      }
+      throw error;
+    }
+  }
+
+  private executeSingleFlightRefresh(): Promise<AndroidCredential> {
+    this.refreshOperation ??= this.doRefresh().finally(() => {
+      this.refreshOperation = null;
+    });
+    return this.refreshOperation;
+  }
+
+  private async doRefresh(): Promise<AndroidCredential> {
+    const refreshToken = await this.refreshStore.read();
+    if (refreshToken === null) {
+      await this.clear();
+      throw new ApiClientError({
+        kind: 'api',
+        code: 'UNAUTHORIZED',
+        message: 'Không tìm thấy phiên làm việc an toàn.',
+        requestId: randomUUID(),
+        status: 401,
+      });
+    }
+    try {
+      const nextCred = await this.api.refreshSession(refreshToken);
+      await this.refreshStore.replace(nextCred.refreshToken);
+      this.accessToken = nextCred.accessToken;
+      if (this.state.status === 'authenticated') {
+        this.state = {
+          ...this.state,
+          actor: {
+            ...this.state.actor,
+            sessionId: nextCred.sessionId,
+          },
+        };
+      }
+      return nextCred;
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 401) {
+        await this.clear();
       }
       throw error;
     }
@@ -274,6 +338,23 @@ export function createIdentityApi(client?: ApiClient): IdentityApi {
     },
     async requestPasswordReset(email) {
       await api().POST('/auth/password-reset-requests', { body: { email } });
+    },
+    async listSessions(accessToken, cursor, limit) {
+      const { data } = await api().GET('/auth/sessions', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { query: { ...(cursor ? { cursor } : {}), ...(limit ? { limit } : {}) } },
+      });
+      const res = requireData(data).data;
+      return {
+        nextCursor: res.nextCursor,
+        sessions: Array.from(res.sessions),
+      };
+    },
+    async deleteOwnedSession(accessToken, sessionId) {
+      await api().DELETE('/auth/sessions/{sessionId}', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        params: { path: { sessionId } },
+      });
     },
   };
 }

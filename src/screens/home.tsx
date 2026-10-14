@@ -15,7 +15,6 @@ import {
   AndroidIdentitySession,
   createIdentityApi,
   createSecureRefreshStore,
-  readResetCredential,
   type AndroidSessionSnapshot,
 } from '@/features/identity-access/session';
 import { semanticColors, type, useWeddingTheme } from '@/theme';
@@ -39,20 +38,17 @@ export function HomeScreen({
   const incomingUrl = Linking.useURL();
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
-  const [resetToken, setResetToken] = useState<string | null>(initialResetToken ?? null);
+  const [mode, setMode] = useState<'login' | 'reset-request'>('login');
 
   useEffect(() => {
     let active = true;
     void (async () => {
-      const token =
-        initialResetToken === undefined
-          ? readResetCredential(incomingUrl ?? (await Linking.getInitialURL()))
-          : initialResetToken;
-      if (!active) return;
-      if (token !== null) {
-        setResetToken(token);
-        setLoading(false);
-        return;
+      const url = incomingUrl ?? (await Linking.getInitialURL());
+      if (url && (url.includes('/reset') || url.includes('#reset'))) {
+        setMode('reset-request');
+      }
+      if (initialResetToken !== undefined && initialResetToken !== null) {
+        setMode('reset-request');
       }
       const nextSnapshot = await session.restore();
       if (!active) return;
@@ -70,23 +66,63 @@ export function HomeScreen({
         <Text style={[styles.sessionEyebrow, { color: brand.primary }]}>WEDDING ESTATE</Text>
         <Text style={[styles.sessionTitle, { color: brand.display }]}>Đang khôi phục phiên</Text>
         <Text selectable style={[type.body, { color: colors.secondaryLabel }]}>
-          Phiên an toàn đang được kiểm tra.
+          Phiên an toàn đang được kiểm tra từ máy chủ.
         </Text>
       </View>
     );
   }
 
-  if (resetToken !== null || snapshot.status === 'anonymous' || snapshot.access === 'denied') {
+  if (snapshot.status === 'anonymous') {
     return (
       <IdentityScreen
-        key={resetToken ?? 'identity'}
+        key="identity-anon"
         session={session}
-        resetToken={resetToken}
+        initialMode={mode}
         onAuthenticated={(nextSnapshot) => {
           setSnapshot(nextSnapshot);
-          setResetToken(null);
         }}
       />
+    );
+  }
+
+  if (snapshot.access === 'denied') {
+    return (
+      <View
+        style={[
+          styles.sessionState,
+          { backgroundColor: colors.background, paddingHorizontal: 24, justifyContent: 'center' },
+        ]}
+      >
+        <Text style={[styles.sessionEyebrow, { color: brand.script }]}>TRUY CẬP BỊ TỪ CHỐI</Text>
+        <Text style={[styles.sessionTitle, { color: brand.display, marginTop: 8 }]}>
+          Tài khoản chưa có quyền truy cập
+        </Text>
+        <Text
+          selectable
+          style={[
+            type.body,
+            { color: colors.secondaryLabel, textAlign: 'center', marginVertical: 16 },
+          ]}
+        >
+          Ứng dụng di động chỉ dành cho Cặp đôi có quyền FULL sau khi hoàn tất đặt cọc. Tài khoản
+          của bạn ({snapshot.actor.displayEmail}) hiện ở trạng thái RESTRICTED hoặc chưa đủ quyền.
+          Vui lòng thao tác trên phiên bản Web.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Đăng xuất"
+          onPress={() => {
+            void session.logout().finally(() => setSnapshot(session.snapshot()));
+          }}
+          style={({ pressed }) => [
+            styles.authPrimaryAction,
+            { backgroundColor: brand.primary, paddingHorizontal: 24 },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>ĐĂNG XUẤT</Text>
+        </Pressable>
+      </View>
     );
   }
 
@@ -376,97 +412,140 @@ function formatDate(value: string): string {
 }
 
 type IdentityScreenProps = Readonly<{
+  initialMode?: 'login' | 'reset-request';
   onAuthenticated: (snapshot: AndroidSessionSnapshot) => void;
-  resetToken: string | null;
   session: AndroidIdentitySession;
 }>;
 
-function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreenProps) {
+function mapAuthError(caught: unknown): string {
+  if (caught instanceof ApiClientError) {
+    if (caught.status === 401) return 'Email hoặc mật khẩu chưa chính xác. Vui lòng thử lại.';
+    if (caught.status === 422)
+      return 'Dữ liệu không hợp lệ. Mật khẩu phải có độ dài từ 12 đến 128 ký tự.';
+    if (caught.status === 429)
+      return 'Đã vượt quá số lần thử cho phép. Vui lòng đợi trong giây lát trước khi thử lại.';
+    if (caught.status === 503 || caught.code === 'EMAIL_WORKER_DISABLED')
+      return 'Dịch vụ gửi email OTP tạm thời chưa sẵn sàng (worker đang tắt). Vui lòng liên hệ quản trị viên.';
+    if (caught.code === 'OTP_INVALID')
+      return 'Mã OTP 6 chữ số chưa chính xác. Vui lòng kiểm tra lại.';
+    if (caught.code === 'CHALLENGE_EXPIRED')
+      return 'Mã OTP đã hết hiệu lực (10 phút). Vui lòng yêu cầu mã mới.';
+    if (caught.kind === 'network') return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng.';
+    if (caught.kind === 'timeout') return 'Yêu cầu quá thời gian chờ (Timeout). Vui lòng thử lại.';
+    if (caught.message) return caught.message;
+  }
+  return 'Không thể hoàn tất yêu cầu. Vui lòng kiểm tra thông tin và thử lại.';
+}
+
+function IdentityScreen({ initialMode = 'login', onAuthenticated, session }: IdentityScreenProps) {
   const { brand, colors } = useWeddingTheme();
-  const [mode, setMode] = useState<'login' | 'reset-complete' | 'reset-request'>(
-    resetToken === null ? 'login' : 'reset-request',
-  );
+  const [mode, setMode] = useState<'login' | 'reset-complete' | 'reset-request'>(initialMode);
   const [email, setEmail] = useState('');
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
   const [code, setCode] = useState('');
   const [remaining, setRemaining] = useState(0);
+
   useEffect(() => {
     if (remaining <= 0) return;
     const timer = setTimeout(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
     return () => clearTimeout(timer);
   }, [remaining]);
+
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (operation: () => Promise<void>) => {
-    setPending(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await operation();
-    } catch {
-      setError('Không thể hoàn tất yêu cầu. Vui lòng kiểm tra thông tin và thử lại.');
-    } finally {
-      setPending(false);
-    }
-  };
-
   const submit = () => {
     if (pending) return;
+
     if (mode === 'login') {
+      if (!email.trim() || !password) {
+        setError('Vui lòng nhập đầy đủ email và mật khẩu.');
+        return;
+      }
       setPending(true);
       setError(null);
       setMessage(null);
       void session
-        .login(email, password)
+        .login(email.trim(), password)
         .then((nextSnapshot) => {
           setPending(false);
           onAuthenticated(nextSnapshot);
         })
-        .catch(() => {
-          setError('Không thể hoàn tất yêu cầu. Vui lòng kiểm tra thông tin và thử lại.');
+        .catch((caught: unknown) => {
+          setError(mapAuthError(caught));
           setPending(false);
         });
       return;
     }
+
     if (mode === 'reset-request') {
-      void run(async () => {
-        const value = await createPasswordOtpGateway().request(email);
-        setChallenge(value);
-        setRemaining(value.resendAfterSeconds);
-        setMode('reset-complete');
-        setCode('');
-        setMessage(
-          'Nếu tài khoản đủ điều kiện, mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
-        );
-      });
+      if (!email.trim() || !email.includes('@')) {
+        setError('Vui lòng nhập địa chỉ email hợp lệ.');
+        return;
+      }
+      setPending(true);
+      setError(null);
+      setMessage(null);
+      void (async () => {
+        try {
+          const value = await createPasswordOtpGateway().request(email.trim());
+          setChallenge(value);
+          setRemaining(value.resendAfterSeconds);
+          setMode('reset-complete');
+          setCode('');
+          setMessage(
+            'Nếu email tồn tại và đủ điều kiện, mã OTP đã được gửi. Lưu ý: thông báo này không chứng minh email đã được gửi thành công nếu dịch vụ gửi thư phía máy chủ chưa kích hoạt.',
+          );
+        } catch (caught) {
+          setError(mapAuthError(caught));
+        } finally {
+          setPending(false);
+        }
+      })();
+      return;
+    }
+
+    // mode === 'reset-complete'
+    if (!challenge) {
+      setMode('reset-request');
+      setError('Phiên yêu cầu mã OTP không tồn tại. Vui lòng yêu cầu mã mới.');
+      return;
+    }
+    if (!/^\d{6}$/.test(code.trim())) {
+      setError('Mã OTP phải gồm chính xác 6 chữ số.');
+      return;
+    }
+    if (password.length < 12 || password.length > 128) {
+      setError('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.');
       return;
     }
     if (password !== confirmation) {
-      setError('Hai mật khẩu chưa trùng khớp.');
+      setError('Mật khẩu xác nhận không trùng khớp.');
       return;
     }
-    void run(async () => {
-      if (!challenge) {
-        setMode('reset-request');
-        setMessage('Hãy yêu cầu mã OTP mới để đặt lại mật khẩu.');
-        return;
+
+    setPending(true);
+    setError(null);
+    setMessage(null);
+    void (async () => {
+      try {
+        await createPasswordOtpGateway().complete(challenge.challengeId, code.trim(), password);
+        setPassword('');
+        setConfirmation('');
+        setCode('');
+        setChallenge(null);
+        await session.discardRevokedSession();
+        setMode('login');
+        setMessage('Mật khẩu đã được cập nhật thành công. Vui lòng đăng nhập với mật khẩu mới.');
+      } catch (caught) {
+        setError(mapAuthError(caught));
+      } finally {
+        setPending(false);
       }
-      if (!/^\d{6}$/.test(code)) {
-        setError('Nhập mã OTP gồm 6 chữ số.');
-        return;
-      }
-      await createPasswordOtpGateway().complete(challenge.challengeId, code, password);
-      setPassword('');
-      setConfirmation('');
-      await session.discardRevokedSession();
-      onAuthenticated(session.snapshot());
-      setMode('login');
-      setMessage('Mật khẩu đã được cập nhật. Hãy đăng nhập lại.');
-    });
+    })();
   };
 
   const title =
@@ -497,6 +576,7 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
         <Text selectable style={[styles.authTitle, { color: brand.display }]}>
           {title}
         </Text>
+
         {mode !== 'reset-complete' ? (
           <LabeledInput
             label="Email"
@@ -504,36 +584,44 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             onChangeText={setEmail}
             autoComplete="email"
             keyboardType="email-address"
+            editable={!pending}
           />
         ) : null}
+
         {mode !== 'reset-request' ? (
           <LabeledInput
-            label={mode === 'login' ? 'Mật khẩu' : 'Mật khẩu mới'}
+            label={mode === 'login' ? 'Mật khẩu' : 'Mật khẩu mới (12–128 ký tự)'}
             value={password}
             onChangeText={setPassword}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             secureTextEntry
+            editable={!pending}
           />
         ) : null}
+
         {mode === 'reset-complete' && challenge ? (
           <LabeledInput
-            label="Mã OTP"
+            label="Mã OTP (6 chữ số)"
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
             autoComplete="one-time-code"
             maxLength={6}
+            editable={!pending}
           />
         ) : null}
+
         {mode === 'reset-complete' ? (
           <LabeledInput
-            label="Xác nhận mật khẩu"
+            label="Xác nhận mật khẩu mới"
             value={confirmation}
             onChangeText={setConfirmation}
             autoComplete="new-password"
             secureTextEntry
+            editable={!pending}
           />
         ) : null}
+
         {error === null ? null : (
           <Text
             selectable
@@ -543,6 +631,7 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             {error}
           </Text>
         )}
+
         {message === null ? null : (
           <Text
             selectable
@@ -552,6 +641,7 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             {message}
           </Text>
         )}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -570,33 +660,52 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
             (pressed || pending) && styles.pressed,
           ]}
         >
-          <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>
-            {pending
-              ? 'ĐANG XỬ LÝ…'
-              : mode === 'login'
+          {pending ? (
+            <ActivityIndicator color={brand.primaryText} />
+          ) : (
+            <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>
+              {mode === 'login'
                 ? 'ĐĂNG NHẬP'
                 : mode === 'reset-request'
                   ? 'GỬI MÃ OTP'
                   : 'CẬP NHẬT MẬT KHẨU'}
-          </Text>
+            </Text>
+          )}
         </Pressable>
+
         {mode === 'reset-complete' && challenge ? (
-          <>
+          <View style={{ marginTop: 12, gap: 8 }}>
             <Pressable
               accessibilityRole="button"
               disabled={pending || remaining > 0}
               onPress={() => {
-                void run(async () => {
-                  const value = await createPasswordOtpGateway().request(email);
-                  setChallenge(value);
-                  setRemaining(value.resendAfterSeconds);
-                  setCode('');
-                  setMessage('Đã yêu cầu mã OTP mới.');
-                });
+                setPending(true);
+                setError(null);
+                void (async () => {
+                  try {
+                    const value = await createPasswordOtpGateway().request(email.trim());
+                    setChallenge(value);
+                    setRemaining(value.resendAfterSeconds);
+                    setCode('');
+                    setMessage('Đã yêu cầu gửi lại mã OTP mới.');
+                  } catch (caught) {
+                    setError(mapAuthError(caught));
+                  } finally {
+                    setPending(false);
+                  }
+                })();
               }}
+              style={({ pressed }) => [
+                styles.authTextAction,
+                (pending || remaining > 0) && { opacity: 0.5 },
+                pressed && styles.pressed,
+              ]}
             >
-              <Text>{remaining > 0 ? 'Gửi lại sau ' + remaining + 's' : 'Gửi lại mã OTP'}</Text>
+              <Text style={[type.subhead, { color: brand.primary }]}>
+                {remaining > 0 ? `Gửi lại mã sau ${remaining}s` : 'Gửi lại mã OTP'}
+              </Text>
             </Pressable>
+
             <Pressable
               accessibilityRole="button"
               disabled={pending}
@@ -604,28 +713,42 @@ function IdentityScreen({ onAuthenticated, resetToken, session }: IdentityScreen
                 setChallenge(null);
                 setMode('reset-request');
                 setRemaining(0);
+                setCode('');
+                setError(null);
+                setMessage(null);
               }}
+              style={({ pressed }) => [styles.authTextAction, pressed && styles.pressed]}
             >
-              <Text>Dùng email khác</Text>
+              <Text style={[type.subhead, { color: brand.primary }]}>‹ Dùng email khác</Text>
             </Pressable>
-          </>
+          </View>
         ) : null}
+
         {mode === 'login' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setMode('reset-request')}
+            onPress={() => {
+              setMode('reset-request');
+              setError(null);
+              setMessage(null);
+            }}
             style={styles.authTextAction}
           >
             <Text style={[type.subhead, { color: brand.primary }]}>Quên mật khẩu?</Text>
           </Pressable>
         ) : null}
+
         {mode === 'reset-request' ? (
           <Pressable
             accessibilityRole="button"
-            onPress={() => setMode('login')}
+            onPress={() => {
+              setMode('login');
+              setError(null);
+              setMessage(null);
+            }}
             style={styles.authTextAction}
           >
-            <Text style={[type.subhead, { color: brand.primary }]}>Quay lại đăng nhập</Text>
+            <Text style={[type.subhead, { color: brand.primary }]}>‹ Quay lại đăng nhập</Text>
           </Pressable>
         ) : null}
       </View>

@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   ArrowRightIcon,
-  CheckIcon,
   ChevronRightIcon,
   ClockIcon,
   FileTextIcon,
@@ -79,16 +78,12 @@ export function V0PlanTab({ activeBooking, facts, onNavigate }: V0CommonProps) {
                     style={[
                       styles.timelineMarker,
                       {
-                        backgroundColor: index === 0 ? tokens.sage : tokens.surfaceMuted,
+                        backgroundColor: tokens.surfaceMuted,
                         borderColor: tokens.champagne,
                       },
                     ]}
                   >
-                    {index === 0 ? (
-                      <CheckIcon size={12} color={tokens.onPrimary} />
-                    ) : (
-                      <ClockIcon size={12} color={tokens.sage} />
-                    )}
+                    <ClockIcon size={12} color={tokens.sage} />
                   </View>
                   {!isLast && (
                     <View style={[styles.timelineLine, { borderColor: tokens.premium }]} />

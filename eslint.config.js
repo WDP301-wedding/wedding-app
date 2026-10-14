@@ -4,6 +4,13 @@ const prettierConfig = require('eslint-config-prettier/flat');
 
 module.exports = defineConfig([
   ...expoConfig,
-  globalIgnores(['.expo/**', 'coverage/**', 'dist/**', 'expo-env.d.ts']),
+  globalIgnores([
+    '.expo/**',
+    'coverage/**',
+    'dist/**',
+    'expo-env.d.ts',
+    '.agents/**',
+    '.claude/**',
+  ]),
   prettierConfig,
 ]);

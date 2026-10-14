@@ -2,6 +2,7 @@ import { createApiClient, type ApiClient } from '@/lib/api/client';
 
 export type ConfirmedPlanningSnapshot = Readonly<{
   bookingId: string;
+  consultationId?: string;
   phase: 'CONFIRMED' | 'COMPLETED';
   revision: number;
   eventDate: string;
@@ -46,6 +47,7 @@ export function createPlanningGateway(client?: ApiClient): PlanningGateway {
         status: 'confirmed',
         snapshot: {
           bookingId: value.bookingId,
+          consultationId: value.consultationId,
           phase: value.phase,
           revision: value.revision,
           eventDate: value.eventDate,

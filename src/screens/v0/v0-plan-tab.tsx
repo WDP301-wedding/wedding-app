@@ -15,7 +15,8 @@ import type { V0CommonProps } from './v0-types';
 export function V0PlanTab({ activeBooking, facts, onNavigate }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
 
-  const revisionNumber = activeBooking?.timelineRevision ?? activeBooking?.revision ?? 1;
+  const timelineRevision = activeBooking?.timelineRevision ?? null;
+  const hasEffectiveTimeline = timelineRevision !== null;
   const timelineItems = activeBooking?.timeline ?? [];
 
   return (
@@ -50,19 +51,26 @@ export function V0PlanTab({ activeBooking, facts, onNavigate }: V0CommonProps) {
           },
         ]}
       >
-        <View style={[styles.revisionDot, { backgroundColor: tokens.champagne }]} />
+        <View
+          style={[
+            styles.revisionDot,
+            { backgroundColor: hasEffectiveTimeline ? tokens.champagne : tokens.muted },
+          ]}
+        />
         <View style={styles.revisionCopy}>
           <Text style={[styles.revisionTitle, { color: tokens.text }]}>
-            Phiên bản {revisionNumber} đang có hiệu lực
+            {hasEffectiveTimeline
+              ? `Phiên bản #${timelineRevision} đang có hiệu lực`
+              : 'Chưa có lịch trình có hiệu lực'}
           </Text>
           <Text style={[styles.revisionSub, { color: tokens.muted }]}>
-            {activeBooking?.phase === 'CONFIRMED'
-              ? 'Kế hoạch đã được hai bên thống nhất.'
-              : 'Đang chuẩn bị đề xuất cùng nhà hàng.'}
+            {hasEffectiveTimeline
+              ? 'Lịch trình chính thức đã được hai bên thống nhất.'
+              : 'Đang trong giai đoạn đề xuất hoặc chờ hai bên phê duyệt.'}
           </Text>
         </View>
-        <StatusTag tone={activeBooking?.phase === 'CONFIRMED' ? 'success' : 'warm'}>
-          {activeBooking?.phase === 'CONFIRMED' ? 'Đã xác nhận' : 'Đang xem'}
+        <StatusTag tone={hasEffectiveTimeline ? 'success' : 'neutral'}>
+          {hasEffectiveTimeline ? 'Đã có hiệu lực' : 'Chưa có hiệu lực'}
         </StatusTag>
       </View>
 
@@ -156,13 +164,70 @@ export function V0PlanTab({ activeBooking, facts, onNavigate }: V0CommonProps) {
           <View style={styles.secondaryRowCopy}>
             <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>Đơn in thiệp</Text>
             <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
-              Quản lý đơn in & duyệt báo giá xưởng in
+              Xem trạng thái & báo giá xưởng in (Chỉ đọc)
             </Text>
           </View>
           <ChevronRightIcon size={17} color={tokens.muted} />
         </Pressable>
 
-        {/* Row 3: Guests & Seating */}
+        {/* Row 3: Contracts & Appendices */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Hợp đồng & Phụ lục"
+          onPress={() => onNavigate('contracts')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Hợp đồng & Phụ lục
+            </Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Xem chi tiết hợp đồng thương mại, PDF & phụ lục
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 4: Incidental Expenses */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Chi phí phát sinh"
+          onPress={() => onNavigate('incidentals')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Chi phí phát sinh
+            </Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Theo dõi các khoản phát sinh trong tiệc (Chỉ đọc)
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 5: Final Invoices */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Hóa đơn cuối"
+          onPress={() => onNavigate('invoices')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Hóa đơn cuối & Quyết toán
+            </Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Hóa đơn chính thức xuất sau tiệc cưới (Chỉ đọc)
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 6: Guests & Seating */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Khách mời & chỗ ngồi"

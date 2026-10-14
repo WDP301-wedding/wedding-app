@@ -1,9 +1,11 @@
 import { createApiClient, type ApiClient } from '@/lib/api/client';
-import type { components } from '@/lib/api/generated/schema';
+import type { components, operations } from '@/lib/api/generated/schema';
 export type Profile = components['schemas']['ProfileResponse']['data'];
 export type Overview = components['schemas']['CoupleOverviewResponse'];
 export type SessionSummary = components['schemas']['SessionSummary'];
 export type SessionInventory = components['schemas']['SessionInventoryResponse']['data'];
+export type CoupleProfile =
+  operations['readCoupleProfile']['responses'][200]['content']['application/json']['data'];
 const required = <T>(value: T | undefined) => {
   if (value === undefined) throw new Error('Thiếu dữ liệu phản hồi.');
   return value;
@@ -15,6 +17,13 @@ export function createExperienceGateway(client?: ApiClient) {
   return {
     async profile(token: string) {
       return required((await api().GET('/auth/profile', { headers: headers(token) })).data).data;
+    },
+    async coupleProfile(token: string, consultationId: string): Promise<CoupleProfile> {
+      const response = await api().GET('/consultations/{consultationId}/couple-profile', {
+        headers: headers(token),
+        params: { path: { consultationId } },
+      });
+      return required(response.data).data;
     },
     async updateProfile(
       token: string,

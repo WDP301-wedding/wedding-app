@@ -30,19 +30,11 @@ export function InvitationQuickEditScreen({
   initialOrders = [],
 }: InvitationQuickEditScreenProps) {
   const [design, setDesign] = useState<AppDesignView | null>(initialDesign);
-  const [brideName, setBrideName] = useState(
-    initialDesign?.textFields?.brideName ?? 'Nguyễn Thị Mai',
-  );
-  const [groomName, setGroomName] = useState(initialDesign?.textFields?.groomName ?? 'Trần Văn An');
-  const [greeting, setGreeting] = useState(
-    initialDesign?.textFields?.greeting ?? 'Trân trọng kính mời',
-  );
-  const [message, setMessage] = useState(
-    initialDesign?.textFields?.message ?? 'Tới dự buổi tiệc chung vui cùng chúng tôi',
-  );
-  const [footer, setFooter] = useState(
-    initialDesign?.textFields?.footer ?? 'Rất hân hạnh được đón tiếp',
-  );
+  const [brideName, setBrideName] = useState(initialDesign?.textFields?.brideName ?? '');
+  const [groomName, setGroomName] = useState(initialDesign?.textFields?.groomName ?? '');
+  const [greeting, setGreeting] = useState(initialDesign?.textFields?.greeting ?? '');
+  const [message, setMessage] = useState(initialDesign?.textFields?.message ?? '');
+  const [footer, setFooter] = useState(initialDesign?.textFields?.footer ?? '');
 
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);

@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
-  BellIcon,
-  CalendarIcon,
-  ChevronRightIcon,
-  FileTextIcon,
-  LockIcon,
-} from '@/components/v0-primitives';
+import { CalendarIcon, ChevronRightIcon, FileTextIcon, LockIcon } from '@/components/v0-primitives';
 import { deriveInitials, NativeAccountSettings } from '@/screens/couple-overview';
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from './v0-types';
@@ -70,43 +64,94 @@ export function V0AccountTab({ facts, onLogout, onNavigate, profile, session }: 
 
       {/* Account Rows */}
       <View style={styles.accountList}>
-        {/* Row 1: Notifications */}
+        {/* Row 1: Commercial Contracts */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Thông báo"
-          onPress={() =>
-            Alert.alert(
-              'Thông báo hệ thống',
-              'Hợp đồng OpenAPI pin 0a77391 chưa cung cấp endpoint cho tính năng thông báo (/notifications). Tính năng sẽ được kích hoạt khi backend hỗ trợ.',
-              [{ text: 'Đã hiểu', style: 'default' }],
-            )
-          }
+          accessibilityLabel="Hợp đồng tiệc cưới"
+          onPress={() => onNavigate('contracts')}
           style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
         >
-          <BellIcon size={18} color={tokens.sage} />
+          <FileTextIcon size={18} color={tokens.sage} />
           <View style={styles.secondaryRowCopy}>
-            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>Thông báo</Text>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Hợp đồng tiệc cưới
+            </Text>
             <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
-              Chưa tích hợp API (Pin 0a77391 - Blocker)
+              Xem các phiên bản hợp đồng & tải tệp PDF bảo mật
             </Text>
           </View>
           <ChevronRightIcon size={17} color={tokens.muted} />
         </Pressable>
 
-        {/* Row 2: Billing & Invoices */}
+        {/* Row 2: Appendices */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Thanh toán & Hóa đơn"
+          accessibilityLabel="Phụ lục hợp đồng"
+          onPress={() => onNavigate('appendices')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>Phụ lục hợp đồng</Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Xem điều chỉnh phát sinh & phụ lục đã duyệt
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 3: Incidental Expenses */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Chi phí phát sinh"
+          onPress={() => onNavigate('incidentals')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Chi phí phát sinh
+            </Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Chi tiết đồ uống, dịch vụ phát sinh thực tế trong tiệc
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 4: Final Invoices */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Hóa đơn quyết toán cuối"
+          onPress={() => onNavigate('invoices')}
+          style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+        >
+          <FileTextIcon size={18} color={tokens.sage} />
+          <View style={styles.secondaryRowCopy}>
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
+              Hóa đơn quyết toán cuối
+            </Text>
+            <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
+              Hóa đơn quyết toán chính thức sau nghiệm thu tiệc
+            </Text>
+          </View>
+          <ChevronRightIcon size={17} color={tokens.muted} />
+        </Pressable>
+
+        {/* Row 5: Balance & Payment Ledger */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Thanh toán & Sổ cái số dư"
           onPress={() => onNavigate('billing')}
           style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
         >
           <FileTextIcon size={18} color={tokens.sage} />
           <View style={styles.secondaryRowCopy}>
             <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>
-              Thanh toán & Hóa đơn
+              Thanh toán & Sổ cái số dư
             </Text>
             <Text style={[styles.secondaryRowSub, { color: tokens.muted }]}>
-              Xem số dư, cọc đã xác nhận & lịch sử
+              Xem số dư, thanh toán online VNPay & lịch sử giao dịch
             </Text>
           </View>
           <ChevronRightIcon size={17} color={tokens.muted} />

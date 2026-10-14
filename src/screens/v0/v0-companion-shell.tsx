@@ -14,7 +14,16 @@ import { V0AccountTab } from './v0-account-tab';
 import { V0InviteTab } from './v0-invite-tab';
 import { V0OverviewTab } from './v0-overview-tab';
 import { V0PlanTab } from './v0-plan-tab';
-import { V0GuestsSubflow, V0MediaSubflow, V0PrintSubflow, V0ScheduleSubflow } from './v0-subflows';
+import {
+  V0AppendicesSubflow,
+  V0ContractsSubflow,
+  V0GuestsSubflow,
+  V0IncidentalsSubflow,
+  V0InvoicesSubflow,
+  V0MediaSubflow,
+  V0PrintSubflow,
+  V0ScheduleSubflow,
+} from './v0-subflows';
 import type { V0CommonProps, V0Screen } from './v0-types';
 
 const NAV_TABS: readonly TabItem[] = [
@@ -54,7 +63,9 @@ export function V0CompanionShell({
   // Hardware back handling bounded to subflows/parent tabs
   useEffect(() => {
     const handleHardwareBack = () => {
-      if (currentScreen === 'billing') {
+      if (
+        ['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen)
+      ) {
         handleNavigate('account');
         return true;
       }
@@ -80,7 +91,8 @@ export function V0CompanionShell({
   const activeTabId = (() => {
     if (['schedule', 'media', 'print', 'guests', 'seating'].includes(currentScreen)) return 'plan';
     if (['edit', 'share'].includes(currentScreen)) return 'invite';
-    if (currentScreen === 'billing') return 'account';
+    if (['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen))
+      return 'account';
     return currentScreen;
   })();
 
@@ -95,7 +107,10 @@ export function V0CompanionShell({
       onLogout,
       onSwitchBooking,
       onBack: () => {
-        if (currentScreen === 'billing') handleNavigate('account');
+        if (
+          ['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen)
+        )
+          handleNavigate('account');
         else if (['schedule', 'media', 'print', 'guests', 'seating'].includes(currentScreen))
           handleNavigate('plan');
         else if (['edit', 'share'].includes(currentScreen)) handleNavigate('invite');
@@ -128,6 +143,14 @@ export function V0CompanionShell({
       case 'guests':
       case 'seating':
         return <V0GuestsSubflow {...commonProps} />;
+      case 'contracts':
+        return <V0ContractsSubflow {...commonProps} />;
+      case 'appendices':
+        return <V0AppendicesSubflow {...commonProps} />;
+      case 'incidentals':
+        return <V0IncidentalsSubflow {...commonProps} />;
+      case 'invoices':
+        return <V0InvoicesSubflow {...commonProps} />;
       case 'billing':
         return (
           <View style={{ flex: 1 }}>

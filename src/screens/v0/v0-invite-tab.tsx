@@ -81,11 +81,9 @@ export function V0InviteTab({
   // Text fields state
   const [groomName, setGroomName] = useState(facts.groomName);
   const [brideName, setBrideName] = useState(facts.brideName);
-  const [greeting, setGreeting] = useState('Trân trọng kính mời');
-  const [message, setMessage] = useState(
-    'Mong bạn đến chung vui cùng gia đình chúng tôi trong ngày hạnh phúc.',
-  );
-  const [footer, setFooter] = useState('Rất mong được đón tiếp bạn');
+  const [greeting, setGreeting] = useState('');
+  const [message, setMessage] = useState('');
+  const [footer, setFooter] = useState('');
 
   // Persistence and feedback state
   const [saving, setSaving] = useState(false);
@@ -133,12 +131,9 @@ export function V0InviteTab({
           setSelectedDesign(detail);
           setGroomName(detail.textFields?.groomName ?? '');
           setBrideName(detail.textFields?.brideName ?? '');
-          setGreeting(detail.textFields?.greeting ?? 'Trân trọng kính mời');
-          setMessage(
-            detail.textFields?.message ??
-              'Mong bạn đến chung vui cùng gia đình chúng tôi trong ngày hạnh phúc.',
-          );
-          setFooter(detail.textFields?.footer ?? 'Rất mong được đón tiếp bạn');
+          setGreeting(detail.textFields?.greeting ?? '');
+          setMessage(detail.textFields?.message ?? '');
+          setFooter(detail.textFields?.footer ?? '');
         }
       } catch (caught) {
         if (reqId === activeRequestCounterRef.current) {
@@ -188,7 +183,7 @@ export function V0InviteTab({
               if (selectedDesign?.textFields) {
                 setGroomName(selectedDesign.textFields.groomName ?? '');
                 setBrideName(selectedDesign.textFields.brideName ?? '');
-                setGreeting(selectedDesign.textFields.greeting ?? 'Trân trọng kính mời');
+                setGreeting(selectedDesign.textFields.greeting ?? '');
                 setMessage(selectedDesign.textFields.message ?? '');
                 setFooter(selectedDesign.textFields.footer ?? '');
               }
@@ -241,15 +236,13 @@ export function V0InviteTab({
       );
       if (reqId !== activeRequestCounterRef.current) return;
       setSelectedDesign(detail);
+      setPublication(null);
       // Clear fields not present on new design
       setGroomName(detail.textFields?.groomName ?? '');
       setBrideName(detail.textFields?.brideName ?? '');
-      setGreeting(detail.textFields?.greeting ?? 'Trân trọng kính mời');
-      setMessage(
-        detail.textFields?.message ??
-          'Mong bạn đến chung vui cùng gia đình chúng tôi trong ngày hạnh phúc.',
-      );
-      setFooter(detail.textFields?.footer ?? 'Rất mong được đón tiếp bạn');
+      setGreeting(detail.textFields?.greeting ?? '');
+      setMessage(detail.textFields?.message ?? '');
+      setFooter(detail.textFields?.footer ?? '');
     } catch (caught) {
       if (reqId === activeRequestCounterRef.current) {
         setLoadError(
@@ -375,12 +368,9 @@ export function V0InviteTab({
     setSelectedDesign(fresh);
     setGroomName(fresh.textFields?.groomName ?? '');
     setBrideName(fresh.textFields?.brideName ?? '');
-    setGreeting(fresh.textFields?.greeting ?? 'Trân trọng kính mời');
-    setMessage(
-      fresh.textFields?.message ??
-        'Mong bạn đến chung vui cùng gia đình chúng tôi trong ngày hạnh phúc.',
-    );
-    setFooter(fresh.textFields?.footer ?? 'Rất mong được đón tiếp bạn');
+    setGreeting(fresh.textFields?.greeting ?? '');
+    setMessage(fresh.textFields?.message ?? '');
+    setFooter(fresh.textFields?.footer ?? '');
     setConflictState(null);
     setEditError(null);
     setToastMessage(`Đã cập nhật theo phiên bản mới nhất (#${fresh.revisionNumber})`);
@@ -966,8 +956,8 @@ export function V0InviteTab({
           ) : null}
 
           <Text style={[styles.simulatedLabel, { color: tokens.earth, marginTop: 12 }]}>
-            Hợp đồng OpenAPI pin 0a77391 không hỗ trợ GET đọc lại xuất bản (Blocker) · Trạng thái
-            được duy trì trong phiên
+            Máy chủ chưa hỗ trợ endpoint đọc lại trạng thái xuất bản (GET /publication) · Trạng thái
+            được duy trì trong phiên làm việc hiện tại
           </Text>
         </View>
 
@@ -1076,15 +1066,28 @@ export function V0InviteTab({
             },
           ]}
         >
-          {/* Subtle Decorative Floral/Leaf Lines */}
-          <View style={[styles.leafLine, styles.leafOne, { borderColor: tokens.champagne }]} />
-          <View style={[styles.leafLine, styles.leafTwo, { borderColor: tokens.champagne }]} />
-
           <Text style={[styles.previewScript, { color: tokens.primary }]}>{coupleDisplay}</Text>
 
           <View style={[styles.previewRule, { borderTopColor: tokens.champagne }]} />
 
-          <Text style={[styles.previewSmall, { color: tokens.earth }]}>{greeting}</Text>
+          {greeting ? (
+            <Text style={[styles.previewSmall, { color: tokens.earth }]}>{greeting}</Text>
+          ) : null}
+          {message ? (
+            <Text
+              style={[
+                styles.previewSmall,
+                {
+                  color: tokens.muted,
+                  textAlign: 'center',
+                  marginVertical: 4,
+                  paddingHorizontal: 12,
+                },
+              ]}
+            >
+              {message}
+            </Text>
+          ) : null}
           <Text style={[styles.previewDate, { color: tokens.earth }]}>{facts.formattedDate}</Text>
           <Text style={[styles.previewVenue, { color: tokens.primary }]}>
             {facts.venueName}
@@ -1093,6 +1096,11 @@ export function V0InviteTab({
               {facts.hallName} · {facts.shiftTime}
             </Text>
           </Text>
+          {footer ? (
+            <Text style={[styles.previewSmall, { color: tokens.earth, marginTop: 6 }]}>
+              {footer}
+            </Text>
+          ) : null}
         </View>
 
         <View style={styles.previewFooter}>
@@ -1320,22 +1328,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
-  },
-  leafLine: {
-    position: 'absolute',
-    width: 60,
-    height: 60,
-    borderWidth: 1,
-    borderRadius: 30,
-    opacity: 0.35,
-  },
-  leafOne: {
-    top: -20,
-    left: -20,
-  },
-  leafTwo: {
-    bottom: -20,
-    right: -20,
   },
   previewScript: {
     fontSize: 24,

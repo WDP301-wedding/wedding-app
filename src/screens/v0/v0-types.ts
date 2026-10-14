@@ -15,7 +15,11 @@ export type V0Screen =
   | 'print'
   | 'guests'
   | 'seating'
-  | 'billing';
+  | 'billing'
+  | 'contracts'
+  | 'appendices'
+  | 'incidentals'
+  | 'invoices';
 
 export interface V0EventFacts {
   readonly brideName: string;

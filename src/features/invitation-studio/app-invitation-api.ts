@@ -1,4 +1,4 @@
-import { createApiClient, type ApiClient } from '../../lib/api/client';
+import { createApiClient, ApiClientError, type ApiClient } from '../../lib/api/client';
 import type { operations } from '../../lib/api/generated/schema';
 import { readPublicEnv } from '../../lib/env';
 
@@ -332,10 +332,25 @@ export function createAppInvitationGateway(client?: ApiClient): AppInvitationGat
       });
 
       if (!res.ok) {
-        throw new Error('Không thể tải ảnh lên kho ảnh tiệc.');
+        let errMessage = 'Không thể tải ảnh lên kho ảnh tiệc.';
+        let code = '';
+        try {
+          const errorJson = (await res.json()) as { error?: { message?: string; code?: string } };
+          if (errorJson.error?.message) errMessage = errorJson.error.message;
+          if (errorJson.error?.code) code = errorJson.error.code;
+        } catch {
+          // Response body might not be JSON
+        }
+        throw new ApiClientError({
+          kind: 'api',
+          code: code || 'HTTP_ERROR',
+          message: errMessage,
+          requestId: res.headers.get('x-request-id') || 'media-upload',
+          status: res.status,
+        });
       }
-      const json = await res.json();
-      return json.data as { mediaAssetId: string; previewPath: string };
+      const json = (await res.json()) as { data: { mediaAssetId: string; previewPath: string } };
+      return json.data;
     },
   };
 }

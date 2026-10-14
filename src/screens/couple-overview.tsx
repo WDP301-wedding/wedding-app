@@ -16,10 +16,8 @@ import {
 import { ApiClientError } from '@/lib/api/client';
 import { useWeddingTheme, type as typeTokens } from '@/theme';
 import { styles } from './home.styles';
-import {
-  createAppInvitationGateway,
-  type AppTextFields,
-} from '@/features/invitation-studio/app-invitation-api';
+import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
+import { createCoupleBillingGateway } from '@/features/payments-billing/billing-api';
 import { V0CompanionShell } from './v0/v0-companion-shell';
 import type { V0EventFacts } from './v0/v0-types';
 
@@ -51,6 +49,7 @@ export function deriveInitials(
 const experience = createExperienceGateway();
 const planning = createPlanningGateway();
 const invitation = createAppInvitationGateway();
+const billing = createCoupleBillingGateway();
 
 function ActionButton({
   label,
@@ -88,7 +87,8 @@ export function CoupleOverviewScreen({
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<ConfirmedPlanningSnapshot | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [designFields, setDesignFields] = useState<AppTextFields | null>(null);
+  const [canonicalBride, setCanonicalBride] = useState<string>('');
+  const [canonicalGroom, setCanonicalGroom] = useState<string>('');
   const [venueName, setVenueName] = useState<string>('Chưa cung cấp');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,16 +137,28 @@ export function CoupleOverviewScreen({
         if (reqId !== currentBookingRequestIdRef.current) return;
         if (result.status === 'confirmed') {
           setPlan(result.snapshot);
-          // Pre-fetch invitation details to derive canonical couple names if available
+          // Load canonical couple names from consultation profile or contract snapshot
           try {
-            const designs = await session.authorize((token) => invitation.listDesigns(token, id));
+            const consultationId = result.snapshot.consultationId;
+            if (consultationId) {
+              const cProfile = await session.authorize((token) =>
+                experience.coupleProfile(token, consultationId),
+              );
+              if (reqId !== currentBookingRequestIdRef.current) return;
+              if (cProfile.brideName) setCanonicalBride(cProfile.brideName.trim());
+              if (cProfile.groomName) setCanonicalGroom(cProfile.groomName.trim());
+            }
+
+            const contracts = await session.authorize((token) => billing.loadContracts(token, id));
             if (reqId !== currentBookingRequestIdRef.current) return;
-            const firstDesign = designs[0];
-            if (firstDesign?.textFields) {
-              setDesignFields(firstDesign.textFields);
+            const latestContract = contracts.revisions[0]?.document;
+            if (latestContract) {
+              if (latestContract.brideName) setCanonicalBride(latestContract.brideName.trim());
+              if (latestContract.groomName) setCanonicalGroom(latestContract.groomName.trim());
+              if (latestContract.restaurantName) setVenueName(latestContract.restaurantName.trim());
             }
           } catch {
-            // Non-blocking
+            // Non-blocking fallback
           }
         } else {
           setPlan(null);
@@ -169,13 +181,14 @@ export function CoupleOverviewScreen({
   const handleSwitchBooking = useCallback(() => {
     currentBookingRequestIdRef.current += 1;
     setPlan(null);
-    setDesignFields(null);
+    setCanonicalBride('');
+    setCanonicalGroom('');
     setError(null);
     void load();
   }, [load]);
 
-  const brideName = designFields?.brideName?.trim() ?? '';
-  const groomName = designFields?.groomName?.trim() ?? '';
+  const brideName = canonicalBride;
+  const groomName = canonicalGroom;
   const coupleDisplay =
     brideName && groomName
       ? `${brideName} & ${groomName}`

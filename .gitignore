@@ -39,6 +39,7 @@ yarn-error.*
 *.tsbuildinfo
 coverage/
 test-results/
+output/
 
 # generated native folders
 /ios

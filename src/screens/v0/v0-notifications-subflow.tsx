@@ -77,9 +77,7 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       setInstallations(insts);
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Chưa tải được dữ liệu thông báo từ máy chủ.',
+        caught instanceof Error ? caught.message : 'Chưa tải được dữ liệu thông báo từ máy chủ.',
       );
     } finally {
       setLoading(false);
@@ -107,7 +105,10 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       setInbox((prev) => [...prev, ...more.items]);
       setNextCursor(more.nextCursor ?? null);
     } catch (caught) {
-      Alert.alert('Lỗi tải thêm', caught instanceof Error ? caught.message : 'Không thể tải thêm thông báo.');
+      Alert.alert(
+        'Lỗi tải thêm',
+        caught instanceof Error ? caught.message : 'Không thể tải thêm thông báo.',
+      );
     } finally {
       setLoadingMore(false);
     }
@@ -135,17 +136,21 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       await session.authorize((token) =>
         notificationGateway.readAllNotifications(token, latestDate),
       );
-      setInbox((prev) =>
-        prev.map((i) => ({ ...i, readAt: i.readAt || new Date().toISOString() })),
-      );
+      setInbox((prev) => prev.map((i) => ({ ...i, readAt: i.readAt || new Date().toISOString() })));
       setUnreadCount(0);
       Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc.');
     } catch (caught) {
-      Alert.alert('Lỗi', caught instanceof Error ? caught.message : 'Không thể đánh dấu tất cả đã đọc.');
+      Alert.alert(
+        'Lỗi',
+        caught instanceof Error ? caught.message : 'Không thể đánh dấu tất cả đã đọc.',
+      );
     }
   };
 
-  const handleTogglePreference = async (field: 'reminderEmail' | 'reminderPush', value: boolean) => {
+  const handleTogglePreference = async (
+    field: 'reminderEmail' | 'reminderPush',
+    value: boolean,
+  ) => {
     if (!session || !preferences) return;
     const oldPrefs = { ...preferences };
     const updated = { ...preferences, [field]: value };
@@ -256,13 +261,19 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Hộp thư thông báo"
           onPress={() => setTab('inbox')}
-          style={[styles.tabButton, tab === 'inbox' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'inbox' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text
               style={[
                 styles.tabText,
-                { color: tab === 'inbox' ? tokens.primary : tokens.muted, fontWeight: tab === 'inbox' ? '700' : '500' },
+                {
+                  color: tab === 'inbox' ? tokens.primary : tokens.muted,
+                  fontWeight: tab === 'inbox' ? '700' : '500',
+                },
               ]}
             >
               Hộp thư
@@ -279,12 +290,18 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Thiết bị FCM"
           onPress={() => setTab('devices')}
-          style={[styles.tabButton, tab === 'devices' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'devices' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
           <Text
             style={[
               styles.tabText,
-              { color: tab === 'devices' ? tokens.primary : tokens.muted, fontWeight: tab === 'devices' ? '700' : '500' },
+              {
+                color: tab === 'devices' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'devices' ? '700' : '500',
+              },
             ]}
           >
             Thiết bị ({installations.length})
@@ -295,12 +312,18 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Tùy chọn nhận tin"
           onPress={() => setTab('preferences')}
-          style={[styles.tabButton, tab === 'preferences' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'preferences' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
           <Text
             style={[
               styles.tabText,
-              { color: tab === 'preferences' ? tokens.primary : tokens.muted, fontWeight: tab === 'preferences' ? '700' : '500' },
+              {
+                color: tab === 'preferences' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'preferences' ? '700' : '500',
+              },
             ]}
           >
             Tùy chọn
@@ -320,7 +343,14 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       {tab === 'inbox' && (
         <View style={{ gap: 12 }}>
           {inbox.length > 0 ? (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}
+            >
               <Text style={{ fontSize: 13, color: tokens.muted }}>
                 {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Đã đọc tất cả thông báo'}
               </Text>
@@ -357,8 +387,21 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                     },
                   ]}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Text style={{ fontSize: 13, fontWeight: isUnread ? '700' : '500', color: tokens.text, flex: 1 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isUnread ? '700' : '500',
+                        color: tokens.text,
+                        flex: 1,
+                      }}
+                    >
                       {item.message}
                     </Text>
                     {isUnread ? (
@@ -376,9 +419,7 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                       {new Date(item.createdAt).toLocaleString('vi-VN')}
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 10, color: tokens.sage }}>
-                        {item.purpose}
-                      </Text>
+                      <Text style={{ fontSize: 10, color: tokens.sage }}>{item.purpose}</Text>
                       {getDestinationScreen(item.purpose) && (
                         <Pressable
                           accessibilityRole="button"
@@ -388,7 +429,12 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                             const dest = getDestinationScreen(item.purpose);
                             if (dest) onNavigate(dest);
                           }}
-                          style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: tokens.surfaceMuted }}
+                          style={{
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4,
+                            backgroundColor: tokens.surfaceMuted,
+                          }}
                         >
                           <Text style={{ fontSize: 10, color: tokens.primary, fontWeight: '600' }}>
                             Xem chi tiết ›
@@ -403,7 +449,9 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
           ) : !loading ? (
             <View style={styles.emptyCard}>
               <BellIcon size={24} color={tokens.sage} />
-              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>Hộp thư thông báo trống</Text>
+              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
+                Hộp thư thông báo trống
+              </Text>
               <Text style={[styles.emptyCardDesc, { color: tokens.muted }]}>
                 Các cập nhật lịch trình, hợp đồng, đơn in và thanh toán sẽ xuất hiện tại đây.
               </Text>
@@ -418,7 +466,10 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                 accessibilityLabel="Tải thêm thông báo cũ hơn"
                 disabled={loadingMore}
                 onPress={handleLoadMoreInbox}
-                style={[styles.outlineButton, { borderColor: tokens.primary, paddingHorizontal: 16 }]}
+                style={[
+                  styles.outlineButton,
+                  { borderColor: tokens.primary, paddingHorizontal: 16 },
+                ]}
               >
                 {loadingMore ? (
                   <ActivityIndicator size="small" color={tokens.primary} />
@@ -437,33 +488,68 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       {tab === 'devices' && (
         <View style={{ gap: 14 }}>
           {/* Honest Device Installation Status & Blocker Diagnostics (Finding 6) */}
-          <View style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <View
+            style={[
+              styles.calloutCard,
+              { backgroundColor: tokens.surface, borderColor: tokens.rule },
+            ]}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 4,
+              }}
+            >
               <Text style={[styles.calloutTitle, { color: tokens.text }]}>
                 Định danh thiết bị Android & Push FCM
               </Text>
               <StatusTag tone="warm">Native FCM Blocker</StatusTag>
             </View>
             <Text style={[styles.calloutSubtitle, { color: tokens.muted, marginBottom: 8 }]}>
-              Thiết bị sử dụng định danh cài đặt ổn định lưu trữ bảo mật (SecureStore). Hoạt động nhận push notification từ xa qua FCM hiện đang bị chặn bởi các rào cản kỹ thuật bên dưới.
+              Thiết bị sử dụng định danh cài đặt ổn định lưu trữ bảo mật (SecureStore). Hoạt động
+              nhận push notification từ xa qua FCM hiện đang bị chặn bởi các rào cản kỹ thuật bên
+              dưới.
             </Text>
 
             <View style={[styles.factRow, { marginTop: 6 }]}>
               <Text style={{ fontSize: 11, color: tokens.muted }}>Mã cài đặt thiết bị này:</Text>
-              <Text selectable style={{ fontSize: 11, fontFamily: 'monospace', color: stableInstallationId ? tokens.primary : tokens.tagWarmText, fontWeight: '700' }}>
-                {stableInstallationId ? `${stableInstallationId.slice(0, 18)}…` : 'Chưa sẵn sàng (SecureStore lỗi/chưa khởi tạo)'}
+              <Text
+                selectable
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  color: stableInstallationId ? tokens.primary : tokens.tagWarmText,
+                  fontWeight: '700',
+                }}
+              >
+                {stableInstallationId
+                  ? `${stableInstallationId.slice(0, 18)}…`
+                  : 'Chưa sẵn sàng (SecureStore lỗi/chưa khởi tạo)'}
               </Text>
             </View>
 
-            <View style={{ marginTop: 8, padding: 8, backgroundColor: tokens.canvas, borderRadius: 6, gap: 4 }}>
+            <View
+              style={{
+                marginTop: 8,
+                padding: 8,
+                backgroundColor: tokens.canvas,
+                borderRadius: 6,
+                gap: 4,
+              }}
+            >
               <Text style={{ fontSize: 11, fontWeight: '700', color: tokens.text }}>
                 Chi tiết 4 rào cản tích hợp FCM:
               </Text>
               <Text style={{ fontSize: 11, color: tokens.muted }}>
-                1. Cấu hình: google-services.json có sẵn tại thư mục gốc (com.wdp301.wedding.staging) nhưng chưa liên kết trong app.config.ts (android.googleServicesFile).
+                1. Cấu hình: google-services.json có sẵn tại thư mục gốc
+                (com.wdp301.wedding.staging) nhưng chưa liên kết trong app.config.ts
+                (android.googleServicesFile).
               </Text>
               <Text style={{ fontSize: 11, color: tokens.muted }}>
-                2. SDK Client: Thư viện Push FCM (expo-notifications / react-native-firebase) chưa được cài đặt trong package.json.
+                2. SDK Client: Thư viện Push FCM (expo-notifications / react-native-firebase) chưa
+                được cài đặt trong package.json.
               </Text>
               <Text style={{ fontSize: 11, color: tokens.muted }}>
                 3. Build Native: Chưa biên dịch Android Gradle native plugin cho Firebase.
@@ -482,9 +568,18 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
             installations.map((inst) => (
               <View
                 key={inst.id}
-                style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
+                style={[
+                  styles.calloutCard,
+                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
+                ]}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Text style={{ fontSize: 13, fontWeight: '700', color: tokens.text }}>
                     Android #{inst.id.slice(0, 8)}
                   </Text>
@@ -516,7 +611,9 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
             ))
           ) : !loading ? (
             <View style={styles.emptyCard}>
-              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>Chưa có thiết bị nào</Text>
+              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
+                Chưa có thiết bị nào
+              </Text>
             </View>
           ) : null}
         </View>
@@ -526,18 +623,29 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       {tab === 'preferences' && (
         <View style={{ gap: 14 }}>
           {preferences ? (
-            <View style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}>
+            <View
+              style={[
+                styles.calloutCard,
+                { backgroundColor: tokens.surface, borderColor: tokens.rule },
+              ]}
+            >
               <Text style={[styles.calloutTitle, { color: tokens.text, marginBottom: 12 }]}>
                 Kênh nhận nhắc nhở & thông báo
               </Text>
 
-              <View style={[styles.prefRow, { borderBottomColor: tokens.rule, borderBottomWidth: 1, paddingBottom: 12 }]}>
+              <View
+                style={[
+                  styles.prefRow,
+                  { borderBottomColor: tokens.rule, borderBottomWidth: 1, paddingBottom: 12 },
+                ]}
+              >
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.text }}>
                     Nhắc nhở qua Email
                   </Text>
                   <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
-                    Nhận thông báo cập nhật hợp đồng, phụ lục và xác nhận thanh toán qua thư điện tử.
+                    Nhận thông báo cập nhật hợp đồng, phụ lục và xác nhận thanh toán qua thư điện
+                    tử.
                   </Text>
                 </View>
                 <Switch
@@ -553,7 +661,8 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                     Thông báo đẩy (Push Notification)
                   </Text>
                   <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
-                    Nhận thông báo trực tiếp trên màn hình thiết bị Android khi có thay đổi trạng thái.
+                    Nhận thông báo trực tiếp trên màn hình thiết bị Android khi có thay đổi trạng
+                    thái.
                   </Text>
                 </View>
                 <Switch

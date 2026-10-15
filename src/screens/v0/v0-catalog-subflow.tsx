@@ -81,9 +81,7 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       }
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Chưa tải được danh mục dịch vụ từ máy chủ.',
+        caught instanceof Error ? caught.message : 'Chưa tải được danh mục dịch vụ từ máy chủ.',
       );
     } finally {
       setLoading(false);
@@ -114,9 +112,7 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       setSelectedHall(detail);
     } catch (caught) {
       setDetailError(
-        caught instanceof Error
-          ? caught.message
-          : 'Không thể tải chi tiết sảnh tiệc.',
+        caught instanceof Error ? caught.message : 'Không thể tải chi tiết sảnh tiệc.',
       );
     } finally {
       setLoadingDetail(false);
@@ -166,9 +162,20 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Nhà hàng"
           onPress={() => setTab('restaurant')}
-          style={[styles.tabButton, tab === 'restaurant' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'restaurant' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
-          <Text style={[styles.tabText, { color: tab === 'restaurant' ? tokens.primary : tokens.muted, fontWeight: tab === 'restaurant' ? '700' : '500' }]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color: tab === 'restaurant' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'restaurant' ? '700' : '500',
+              },
+            ]}
+          >
             Nhà hàng
           </Text>
         </Pressable>
@@ -177,9 +184,20 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Sảnh tiệc"
           onPress={() => setTab('halls')}
-          style={[styles.tabButton, tab === 'halls' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'halls' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
-          <Text style={[styles.tabText, { color: tab === 'halls' ? tokens.primary : tokens.muted, fontWeight: tab === 'halls' ? '700' : '500' }]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color: tab === 'halls' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'halls' ? '700' : '500',
+              },
+            ]}
+          >
             Sảnh tiệc ({halls.length})
           </Text>
         </Pressable>
@@ -188,9 +206,20 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Gói thực đơn"
           onPress={() => setTab('menus')}
-          style={[styles.tabButton, tab === 'menus' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'menus' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
-          <Text style={[styles.tabText, { color: tab === 'menus' ? tokens.primary : tokens.muted, fontWeight: tab === 'menus' ? '700' : '500' }]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color: tab === 'menus' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'menus' ? '700' : '500',
+              },
+            ]}
+          >
             Gói menu ({menuPackages.length})
           </Text>
         </Pressable>
@@ -199,9 +228,20 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
           accessibilityRole="button"
           accessibilityLabel="Món ăn"
           onPress={() => setTab('dishes')}
-          style={[styles.tabButton, tab === 'dishes' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 }]}
+          style={[
+            styles.tabButton,
+            tab === 'dishes' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
+          ]}
         >
-          <Text style={[styles.tabText, { color: tab === 'dishes' ? tokens.primary : tokens.muted, fontWeight: tab === 'dishes' ? '700' : '500' }]}>
+          <Text
+            style={[
+              styles.tabText,
+              {
+                color: tab === 'dishes' ? tokens.primary : tokens.muted,
+                fontWeight: tab === 'dishes' ? '700' : '500',
+              },
+            ]}
+          >
             Món ăn ({dishes.length})
           </Text>
         </Pressable>
@@ -219,7 +259,12 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       {tab === 'restaurant' && (
         <View style={{ gap: 14 }}>
           {restaurant ? (
-            <View style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.champagne }]}>
+            <View
+              style={[
+                styles.calloutCard,
+                { backgroundColor: tokens.surface, borderColor: tokens.champagne },
+              ]}
+            >
               <Text style={[styles.calloutTitle, { color: tokens.primary, fontSize: 18 }]}>
                 {restaurant.displayName}
               </Text>
@@ -241,7 +286,9 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
 
               {restaurant.shifts && restaurant.shifts.length > 0 ? (
                 <View style={{ marginTop: 8 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.text }}>Ca phục vụ:</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.text }}>
+                    Ca phục vụ:
+                  </Text>
                   {restaurant.shifts.map((sh, idx) => (
                     <Text key={idx} style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
                       • Ca {sh.code === 'LUNCH' ? 'Trưa' : 'Tối'}: {sh.startTime} – {sh.endTime}
@@ -251,7 +298,14 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
               ) : null}
 
               {restaurant.description ? (
-                <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: tokens.rule, paddingTop: 10 }}>
+                <View
+                  style={{
+                    marginTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: tokens.rule,
+                    paddingTop: 10,
+                  }}
+                >
                   <Text style={{ fontSize: 12, color: tokens.muted, lineHeight: 18 }}>
                     {restaurant.description}
                   </Text>
@@ -286,7 +340,13 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
                     },
                   ]}
                 >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
                     <Text style={{ fontSize: 15, fontWeight: '700', color: tokens.text }}>
                       {hall.name}
                     </Text>
@@ -294,7 +354,9 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
                   </View>
 
                   {hall.description ? (
-                    <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 4, lineHeight: 17 }}>
+                    <Text
+                      style={{ fontSize: 12, color: tokens.muted, marginTop: 4, lineHeight: 17 }}
+                    >
                       {hall.description}
                     </Text>
                   ) : null}
@@ -314,24 +376,42 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
 
                   {/* Expanded Detail (A68-66) */}
                   {isSelected && (
-                    <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: tokens.rule, paddingTop: 10 }}>
+                    <View
+                      style={{
+                        marginTop: 12,
+                        borderTopWidth: 1,
+                        borderTopColor: tokens.rule,
+                        paddingTop: 10,
+                      }}
+                    >
                       {loadingDetail ? (
                         <ActivityIndicator size="small" color={tokens.primary} />
                       ) : detailError ? (
-                        <Text style={{ fontSize: 12, color: tokens.tagWarmText }}>{detailError}</Text>
+                        <Text style={{ fontSize: 12, color: tokens.tagWarmText }}>
+                          {detailError}
+                        </Text>
                       ) : selectedHall ? (
                         <View style={{ gap: 6 }}>
                           <Text style={{ fontSize: 12, fontWeight: '700', color: tokens.primary }}>
                             Thông tin sảnh:
                           </Text>
                           <View style={styles.factRow}>
-                            <Text style={{ fontSize: 12, color: tokens.muted }}>Sức chứa tối đa:</Text>
+                            <Text style={{ fontSize: 12, color: tokens.muted }}>
+                              Sức chứa tối đa:
+                            </Text>
                             <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.text }}>
                               {selectedHall.maxGuests} khách
                             </Text>
                           </View>
                           {selectedHall.description ? (
-                            <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 4, lineHeight: 17 }}>
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                color: tokens.muted,
+                                marginTop: 4,
+                                lineHeight: 17,
+                              }}
+                            >
                               {selectedHall.description}
                             </Text>
                           ) : null}
@@ -344,7 +424,9 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
             })
           ) : !loading ? (
             <View style={styles.emptyCard}>
-              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>Không có sảnh tiệc nào</Text>
+              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
+                Không có sảnh tiệc nào
+              </Text>
             </View>
           ) : null}
         </View>
@@ -357,9 +439,18 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
             menuPackages.map((pkg) => (
               <View
                 key={pkg.id}
-                style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
+                style={[
+                  styles.calloutCard,
+                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
+                ]}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Text style={{ fontSize: 15, fontWeight: '700', color: tokens.text }}>
                     {pkg.name}
                   </Text>
@@ -375,14 +466,20 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
                 ) : null}
 
                 <View style={[styles.factRow, { marginTop: 8 }]}>
-                  <Text style={{ fontSize: 11, color: tokens.sage }}>Mã: #{pkg.id.slice(0, 8)}</Text>
-                  <Text style={{ fontSize: 11, color: tokens.earth }}>Phiên bản #{pkg.versionNumber} ({pkg.items?.length ?? 0} món)</Text>
+                  <Text style={{ fontSize: 11, color: tokens.sage }}>
+                    Mã: #{pkg.id.slice(0, 8)}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: tokens.earth }}>
+                    Phiên bản #{pkg.versionNumber} ({pkg.items?.length ?? 0} món)
+                  </Text>
                 </View>
               </View>
             ))
           ) : !loading ? (
             <View style={styles.emptyCard}>
-              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>Chưa có gói menu nào</Text>
+              <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
+                Chưa có gói menu nào
+              </Text>
             </View>
           ) : null}
         </View>
@@ -392,7 +489,10 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       {tab === 'dishes' && (
         <View style={{ gap: 12 }}>
           <TextInput
-            style={[styles.input, { borderColor: tokens.rule, color: tokens.text, backgroundColor: tokens.canvas }]}
+            style={[
+              styles.input,
+              { borderColor: tokens.rule, color: tokens.text, backgroundColor: tokens.canvas },
+            ]}
             placeholder="Tìm kiếm món ăn, danh mục..."
             placeholderTextColor={tokens.muted}
             value={dishSearch}
@@ -403,9 +503,18 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
             filteredDishes.map((dish) => (
               <View
                 key={dish.id}
-                style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
+                style={[
+                  styles.calloutCard,
+                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
+                ]}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.text }}>
                     {dish.name}
                   </Text>
@@ -413,7 +522,9 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
                 </View>
 
                 {dish.priceVnd ? (
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: tokens.primary, marginTop: 4 }}>
+                  <Text
+                    style={{ fontSize: 13, fontWeight: '600', color: tokens.primary, marginTop: 4 }}
+                  >
                     Đơn giá: {money(dish.priceVnd)}
                   </Text>
                 ) : null}

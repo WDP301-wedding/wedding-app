@@ -120,7 +120,12 @@ export function createNotificationGateway(client?: ApiClient): NotificationGatew
           header: {
             'Idempotency-Key':
               idempotencyKey ??
-              createDeterministicIdempotencyKey('notif-pref', 'account', body.expectedRevision, body),
+              createDeterministicIdempotencyKey(
+                'notif-pref',
+                'account',
+                body.expectedRevision,
+                body,
+              ),
           },
         },
         body,
@@ -133,7 +138,8 @@ export function createNotificationGateway(client?: ApiClient): NotificationGatew
       const { data, error } = await api().GET('/notifications/android-installations', {
         headers: headers(accessToken),
       });
-      if (error !== undefined) throw new Error('Không thể tải danh sách thiết bị Android đã đăng ký.');
+      if (error !== undefined)
+        throw new Error('Không thể tải danh sách thiết bị Android đã đăng ký.');
       return required(data).data as unknown as AndroidInstallationView;
     },
 
@@ -154,7 +160,8 @@ export function createNotificationGateway(client?: ApiClient): NotificationGatew
         },
         body,
       });
-      if (error !== undefined) throw new Error('Không thể đăng ký thiết bị Android nhận thông báo.');
+      if (error !== undefined)
+        throw new Error('Không thể đăng ký thiết bị Android nhận thông báo.');
     },
 
     async revokeInstallation(accessToken, id, expectedRevision, idempotencyKey) {

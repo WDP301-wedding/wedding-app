@@ -9,25 +9,26 @@
 
 ## I. Bảng Tổng Hợp Kết Quả Thẩm Định 11 Phát Hiện
 
-| STT | Phát hiện Codex | Kết quả Thẩm định | Bằng chứng Source / DTO / Handoff | Trạng thái Xử lý |
-|:---:|:---|:---:|:---|:---:|
-| 1 | Bảng 68 API và Hướng dẫn test sai | **Confirmed** | File 06 có 48/68 dòng sai method/path so với danh mục chuẩn; File 07 hướng dẫn login OTP số điện thoại không tồn tại. | Đã tái sinh toàn bộ 06 và 07 theo danh mục 68 chuẩn và code thực tế. |
-| 2 | Tạo hợp đồng chưa hợp lệ (`v0-subflows.tsx`) | **Confirmed** | Code cũ gửi `lines: []`, `expectedRevision: 1`, `timelineRevisionId` fallback UUID 0000. Schema yêu cầu `lines >= 1` và có menu. | Đã sửa `handleCreateDraft`: đọc `proposal.menu`, lấy đúng `bookingRevision`, `timelineRevisionId` thật, `predecessorRevisionId` hợp lệ. |
-| 3 | Phụ lục sai (`v0-subflows.tsx`) | **Confirmed** | Code cũ gửi `lines: []`, `expectedRevision: 1`, `predecessorRevisionId: revisions[0]` hoặc UUID 0000. | Đã sửa `handleCreateAppendix`: dùng `effectiveRevisionId` của appendix, truyền `afterLines` hoặc menu proposal, chặn sau quyết toán. |
-| 4 | Dùng nhầm revision thương mại | **Confirmed** | Các action hợp đồng/phụ lục truyền `rev.revisionNumber` (thứ tự bản in 1, 2) thay vì `contract.bookingRevision` / `appendixData.bookingRevision`. | Đã sửa truyền đúng `bookingRevision`, bổ sung xử lý xung đột 409 Conflict, hiển thị chữ ký kép (COUPLE & MANAGER). |
-| 5 | Timeline sai bản (`v0-subflows.tsx`) | **Confirmed** | Code duyệt/rút duyệt dùng `proposal.effectiveTimeline` thay vì bản đề xuất `proposal.timeline`. | Đã tách bạch `effectiveTimeline` và `timeline`, tôn trọng `canApproveTimeline`, `canWithdrawApproval`. |
-| 6 | Đặt cọc chưa có đường UI (`billing.tsx`) | **Confirmed** | `gateway.startDeposit` (A68-53) có trong gateway nhưng màn hình `billing.tsx` chỉ có `startBalance`, bị gate chặn ở phase `AWAITING_DEPOSIT`. | Đã mở luồng hiển thị thông tin cọc, checklist điều kiện, nút gọi `startDeposit` và ghi rõ thông báo `BLOCKED_BY_BACKEND` cho RESTRICTED. |
-| 7 | FCM chưa phải native flow | **Confirmed** | Form nhập push token thủ công, random UUID mỗi lần, không có token lifecycle và thiếu `google-services.json`. | Đã dùng stable installation ID qua `SecureStore`, phân trang `nextCursor`, chuyển hướng thông báo, ghi nhận blocker cấu hình FCM. |
-| 8 | Nuốt lỗi thành rỗng / 0 | **Confirmed** | `v0-notifications-subflow.tsx`, `v0-subflows.tsx` (Guest) và `v0-catalog-subflow.tsx` dùng `.catch(() => [])` / `.catch(() => null)` nuốt 401/403/503. | Đã chuyển sang `Promise.allSettled`, cho phép 401 nảy ra ngoài để refresh session, hiển thị lỗi trung thực, không giả lập 0. |
-| 9 | Health DTO sai (`experience-api.ts`, `v0-account-tab.tsx`) | **Confirmed** | Response trả `{ data: { status: 'live' \| 'ready', requestId } }` nhưng UI đọc `res.status` so với `UP`/`ok`/`200`. | Đã unwrap strict DTO `HealthLiveView` & `HealthReadyView`, kiểm tra HTTP status và `data.status`, hiển thị độc lập hai dịch vụ. |
-| 10 | PDF / Printable file chưa thực mở/lưu | **Confirmed** | `handleDownloadPdf` và `handleDownloadPrintableFile` chỉ nhận Blob rồi Alert thông báo dung lượng, không lưu/mở. | Đã tạo helper `saveOrShareDownloadedFile` dùng `Share.share` native (Data URL) và `URL.createObjectURL` trên Web. |
-| 11 | Idempotency / Unknown outcomes | **Confirmed** | Các gateway planning, billing, notification tự sinh `Date.now()` trong `Idempotency-Key` mặc định, làm mất tính bất biến khi retry mất mạng. | Đã sửa key mặc định thành chuỗi tất định dựa trên resource ID và expectedRevision, đảm bảo cùng một ý định có cùng key. |
+| STT | Phát hiện Codex                                            | Kết quả Thẩm định | Bằng chứng Source / DTO / Handoff                                                                                                                      |                                                             Trạng thái Xử lý                                                             |
+| :-: | :--------------------------------------------------------- | :---------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------: |
+|  1  | Bảng 68 API và Hướng dẫn test sai                          |   **Confirmed**   | File 06 có 48/68 dòng sai method/path so với danh mục chuẩn; File 07 hướng dẫn login OTP số điện thoại không tồn tại.                                  |                                   Đã tái sinh toàn bộ 06 và 07 theo danh mục 68 chuẩn và code thực tế.                                   |
+|  2  | Tạo hợp đồng chưa hợp lệ (`v0-subflows.tsx`)               |   **Confirmed**   | Code cũ gửi `lines: []`, `expectedRevision: 1`, `timelineRevisionId` fallback UUID 0000. Schema yêu cầu `lines >= 1` và có menu.                       | Đã sửa `handleCreateDraft`: đọc `proposal.menu`, lấy đúng `bookingRevision`, `timelineRevisionId` thật, `predecessorRevisionId` hợp lệ.  |
+|  3  | Phụ lục sai (`v0-subflows.tsx`)                            |   **Confirmed**   | Code cũ gửi `lines: []`, `expectedRevision: 1`, `predecessorRevisionId: revisions[0]` hoặc UUID 0000.                                                  |   Đã sửa `handleCreateAppendix`: dùng `effectiveRevisionId` của appendix, truyền `afterLines` hoặc menu proposal, chặn sau quyết toán.   |
+|  4  | Dùng nhầm revision thương mại                              |   **Confirmed**   | Các action hợp đồng/phụ lục truyền `rev.revisionNumber` (thứ tự bản in 1, 2) thay vì `contract.bookingRevision` / `appendixData.bookingRevision`.      |            Đã sửa truyền đúng `bookingRevision`, bổ sung xử lý xung đột 409 Conflict, hiển thị chữ ký kép (COUPLE & MANAGER).            |
+|  5  | Timeline sai bản (`v0-subflows.tsx`)                       |   **Confirmed**   | Code duyệt/rút duyệt dùng `proposal.effectiveTimeline` thay vì bản đề xuất `proposal.timeline`.                                                        |                  Đã tách bạch `effectiveTimeline` và `timeline`, tôn trọng `canApproveTimeline`, `canWithdrawApproval`.                  |
+|  6  | Đặt cọc chưa có đường UI (`billing.tsx`)                   |   **Confirmed**   | `gateway.startDeposit` (A68-53) có trong gateway nhưng màn hình `billing.tsx` chỉ có `startBalance`, bị gate chặn ở phase `AWAITING_DEPOSIT`.          | Đã mở luồng hiển thị thông tin cọc, checklist điều kiện, nút gọi `startDeposit` và ghi rõ thông báo `BLOCKED_BY_BACKEND` cho RESTRICTED. |
+|  7  | FCM chưa phải native flow                                  |   **Confirmed**   | Form nhập push token thủ công, random UUID mỗi lần, không có token lifecycle và thiếu `google-services.json`.                                          |    Đã dùng stable installation ID qua `SecureStore`, phân trang `nextCursor`, chuyển hướng thông báo, ghi nhận blocker cấu hình FCM.     |
+|  8  | Nuốt lỗi thành rỗng / 0                                    |   **Confirmed**   | `v0-notifications-subflow.tsx`, `v0-subflows.tsx` (Guest) và `v0-catalog-subflow.tsx` dùng `.catch(() => [])` / `.catch(() => null)` nuốt 401/403/503. |       Đã chuyển sang `Promise.allSettled`, cho phép 401 nảy ra ngoài để refresh session, hiển thị lỗi trung thực, không giả lập 0.       |
+|  9  | Health DTO sai (`experience-api.ts`, `v0-account-tab.tsx`) |   **Confirmed**   | Response trả `{ data: { status: 'live' \| 'ready', requestId } }` nhưng UI đọc `res.status` so với `UP`/`ok`/`200`.                                    |     Đã unwrap strict DTO `HealthLiveView` & `HealthReadyView`, kiểm tra HTTP status và `data.status`, hiển thị độc lập hai dịch vụ.      |
+| 10  | PDF / Printable file chưa thực mở/lưu                      |   **Confirmed**   | `handleDownloadPdf` và `handleDownloadPrintableFile` chỉ nhận Blob rồi Alert thông báo dung lượng, không lưu/mở.                                       |            Đã tạo helper `saveOrShareDownloadedFile` dùng `Share.share` native (Data URL) và `URL.createObjectURL` trên Web.             |
+| 11  | Idempotency / Unknown outcomes                             |   **Confirmed**   | Các gateway planning, billing, notification tự sinh `Date.now()` trong `Idempotency-Key` mặc định, làm mất tính bất biến khi retry mất mạng.           |         Đã sửa key mặc định thành chuỗi tất định dựa trên resource ID và expectedRevision, đảm bảo cùng một ý định có cùng key.          |
 
 ---
 
 ## II. Chi Tiết Thẩm Định & Khắc Phục Từng Phát Hiện
 
 ### 1. Bảng 68 API và Hướng Dẫn Test Sai
+
 - **Thẩm định:** `Confirmed`. File `docs/mobile/06-android-68-api-implementation-map.md` trước đó bị sai 48/68 dòng: đổi `GET /bookings/{id}/proposal` thành `/couple/.../proposal`, đổi `PATCH` profile thành `PUT`, dùng các endpoint không có trong schema như `/auth/phone/otp/request`, `/auth/logout`, `/auth/roles`. File `07` hướng dẫn đăng nhập số điện thoại + OTP `123456` trong khi backend chỉ hỗ trợ email + password (`POST /auth/android-sessions`).
 - **Khắc phục:**
   - Viết lại toàn bộ `docs/mobile/06-android-68-api-implementation-map.md` với 68 dòng canonical chính xác A68-01 đến A68-68 theo danh mục chủ dự án bàn giao.
@@ -37,6 +38,7 @@
 ---
 
 ### 2. Tạo Hợp Đồng Chưa Hợp Lệ (`v0-subflows.tsx`)
+
 - **Thẩm định:** `Confirmed`. Tại `handleCreateDraft` (dòng ~1937 cũ): gửi payload `{ expectedRevision: 1, lines: [], timelineRevisionId: '00000000-0000-0000-0000-000000000000', predecessorRevisionId: contract.currentRevisionId ?? null }`. Schema OpenAPI `createCommercialContractRevision` định nghĩa `lines` có `minItems: 1` và yêu cầu danh mục gói menu hợp lệ (`sourceId`, `sourceRevisionId`, `quantity`). UUID 0000 và mảng rỗng bị server từ chối 400/422.
 - **Khắc phục:**
   - Nạp thêm `proposal` trong `fetchContractData` qua `planningGateway.loadProposal`.
@@ -50,6 +52,7 @@
 ---
 
 ### 3. Phụ Lục Sai (`v0-subflows.tsx`)
+
 - **Thẩm định:** `Confirmed`. Tại `handleCreateAppendix` (dòng ~2420 cũ): gửi `expectedRevision: 1`, `lines: []`, `predecessorRevisionId: activeAppendix?.revisionId ?? '00000000-...'`. Theo schema `createCommercialAppendix`, `predecessorRevisionId` bắt buộc phải là `effectiveRevisionId` của hợp đồng/phụ lục thương mại đang có hiệu lực; `lines` phải có ít nhất 1 dòng; không được tạo sau khi hóa đơn đã quyết toán.
 - **Khắc phục:**
   - Kiểm tra `proposal.phase === 'COMPLETED'` hoặc hóa đơn đã quyết toán: thông báo từ chối lập phụ lục.
@@ -62,6 +65,7 @@
 ---
 
 ### 4. Dùng Nhầm Revision Thương Mại
+
 - **Thẩm định:** `Confirmed`. Trong `handleSubmitContract`, `handleApproveContract`, `handleWithdrawApproval`, `handleSubmitAppendix`, `handleApproveAppendix`: tham số truyền vào là `rev.revisionNumber` (số thứ tự bản tài liệu: 1, 2, 3...) thay vì revision của hồ sơ tiệc (`bookingRevision`). Đồng thời, UI chưa thể hiện chữ ký kép của Cặp đôi (`COUPLE`) và Nhà hàng (`MANAGER`), và chưa xử lý xung đột 409.
 - **Khắc phục:**
   - Đổi toàn bộ tham số `expectedRevision` sang `contract.bookingRevision` và `appendixData.bookingRevision`.
@@ -74,6 +78,7 @@
 ---
 
 ### 5. Timeline Sai Bản (`v0-subflows.tsx`)
+
 - **Thẩm định:** `Confirmed`. Tại dòng ~317 cũ: `const pendingTimeline = proposal?.effectiveTimeline`. Việc gán `pendingTimeline` bằng bản đã có hiệu lực dẫn đến các thao tác duyệt/rút duyệt bị nhầm giữa bản dự thảo đang chờ duyệt (`proposal.timeline`) và bản đã ký kết (`proposal.effectiveTimeline`).
 - **Khắc phục:**
   - Phân tách rõ ràng: `effectiveTimeline = proposal?.effectiveTimeline` và `pendingTimeline = proposal?.timeline`.
@@ -84,6 +89,7 @@
 ---
 
 ### 6. Đặt Cọc Chưa Có Đường UI (`billing.tsx`)
+
 - **Thẩm định:** `Confirmed`. Hàm `gateway.startDeposit` (A68-53) có trong gateway nhưng trong `src/screens/billing.tsx` không hề có nút bấm nào gọi nó; màn hình này chỉ gọi `gateway.startBalance`. Đồng thời, màn billing chặn toàn bộ nếu `accessLevel !== 'FULL'`.
 - **Khắc phục:**
   - Lưu trạng thái `billingContext` khi tải dữ liệu.
@@ -99,6 +105,7 @@
 ---
 
 ### 7. FCM Chưa Phải Native Flow (`v0-notifications-subflow.tsx`)
+
 - **Thẩm định:** `Confirmed`. Giao diện cũ có ô nhập thủ công FCM token, bấm nút đăng ký thì tự sinh UUID ngẫu nhiên làm `installationId` và truyền `expectedRevision: 1`. Chưa có cơ chế lưu trữ định danh thiết bị ổn định, thiếu cấu hình native Firebase (`google-services.json`).
 - **Khắc phục:**
   - Lưu trữ và tái sử dụng `installationId` ổn định thông qua `SecureStore` (`wedding.notifications.installation-id`).
@@ -111,6 +118,7 @@
 ---
 
 ### 8. Nuốt Lỗi Thành Rỗng / 0
+
 - **Thẩm định:** `Confirmed`. Trong `v0-notifications-subflow.tsx`, `v0-subflows.tsx` (Guest) và `v0-catalog-subflow.tsx`, nhiều vị trí dùng `.catch(() => [])` hoặc `.catch(() => null)`. Việc này nuốt sạch lỗi 401 Unauthorized (khiến session không kích hoạt refresh token), biến lỗi 403/503 thành danh sách rỗng khiến người dùng tưởng hệ thống có 0 bản ghi.
 - **Khắc phục:**
   - Trong `v0-notifications-subflow.tsx`: Bỏ các khối `.catch(() => [])` nuốt lỗi bên trong `session.authorize`.
@@ -121,6 +129,7 @@
 ---
 
 ### 9. Health DTO Sai (`experience-api.ts`, `v0-account-tab.tsx`)
+
 - **Thẩm định:** `Confirmed`. OpenAPI schema của `GET /health/live` và `GET /health/ready` trả về object: `{ data: { status: 'live' | 'ready', requestId: string } }`. Nhưng `experience-api.ts` trả về thô, và UI so sánh `liveRes.status === 'UP'` hoặc `readyRes.status === 'ok'`, dẫn đến hiển thị sai trạng thái hoặc hiển thị lỗi dù server trả 200.
 - **Khắc phục:**
   - Định nghĩa strict DTO `HealthLiveView` và `HealthReadyView` từ `components['schemas']['HealthLiveResponse']['data']` và `HealthReadyResponse['data']`.
@@ -131,6 +140,7 @@
 ---
 
 ### 10. PDF / Printable File Chưa Thực Mở/Lưu
+
 - **Thẩm định:** `Confirmed`. Tại `handleDownloadPdf` (hợp đồng) và `handleDownloadPrintableFile` (thiệp in): sau khi nhận Blob nhị phân, code chỉ gọi `Alert.alert('Tải file thành công', ...)` và thông báo kích thước, người dùng không thể xem, mở hay lưu file vào bộ nhớ máy.
 - **Khắc phục:**
   - Viết helper chung `saveOrShareDownloadedFile(blob, filename, title)`:
@@ -142,6 +152,7 @@
 ---
 
 ### 11. Idempotency / Unknown Outcomes
+
 - **Thẩm định:** `Confirmed`. Các gateway `planning-api.ts`, `billing-api.ts`, `notification-api.ts`, `experience-api.ts` đều fallback `Idempotency-Key` dạng `${action}:${resource}:${Date.now()}`. Khi người dùng gặp sự cố mạng chập chờn hoặc timeout, thao tác retry tự sinh key mới làm mất khả năng chống trùng lặp của backend.
 - **Khắc phục:**
   - Loại bỏ hoàn toàn `Date.now()` khỏi các key tự sinh mặc định.
@@ -162,14 +173,17 @@
 ## III. Bằng Chứng Kiểm Định Hai Cổng Cho Phép
 
 Theo đúng chỉ thị nghiêm ngặt của chủ dự án:
+
 > "Chỉ chạy npm run lint và npm run typecheck rồi xử lý lỗi đúng hai gate đó; KHÔNG chạy npm test/Jest/coverage/E2E/Playwright/smoke/API thử nghiệm/live mutation, format/format:check/api:check/expo-doctor/build/export/audit."
 
 ### 1. Kết quả kiểm tra kiểu dữ liệu (`npm run typecheck`)
+
 - **Lệnh thực thi:** `npm run typecheck` (`tsc --noEmit`)
 - **Exit code:** `0`
 - **Kết quả:** Không có bất kỳ lỗi biên dịch TypeScript nào trên toàn bộ workspace `wedding-app`.
 
 ### 2. Kết quả kiểm tra chuẩn mã nguồn (`npm run lint`)
+
 - **Lệnh thực thi:** `npm run lint` (`eslint . --max-warnings 0`)
 - **Exit code:** `0`
 - **Kết quả:** 0 lỗi, 0 cảnh báo (max-warnings: 0).

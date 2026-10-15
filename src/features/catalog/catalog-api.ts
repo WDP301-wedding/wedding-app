@@ -22,10 +22,7 @@ export interface CatalogGateway {
       search?: string;
     },
   ): Promise<PublicDishesView>;
-  listHalls(
-    this: void,
-    query?: { cursor?: string; limit?: number },
-  ): Promise<PublicHallsView>;
+  listHalls(this: void, query?: { cursor?: string; limit?: number }): Promise<PublicHallsView>;
   getHall(this: void, hallId: string): Promise<PublicHallDetailView>;
   listMenuPackages(
     this: void,

@@ -9,7 +9,10 @@ import {
   View,
 } from 'react-native';
 import { LockIcon, RotateCcwIcon, StatusTag } from '@/components/v0-primitives';
-import { createExperienceGateway, type SessionInventory } from '@/features/identity-access/experience-api';
+import {
+  createExperienceGateway,
+  type SessionInventory,
+} from '@/features/identity-access/experience-api';
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from './v0-types';
 
@@ -198,7 +201,14 @@ export function V0SessionsSubflow({ onLogout, onNavigate, session }: V0CommonPro
                   </View>
                 ) : null}
 
-                <View style={{ marginTop: 12, flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+                <View
+                  style={{
+                    marginTop: 12,
+                    flexDirection: 'row',
+                    justifyContent: 'flex-end',
+                    gap: 10,
+                  }}
+                >
                   {isCurrent ? (
                     <Pressable
                       accessibilityRole="button"
@@ -224,7 +234,9 @@ export function V0SessionsSubflow({ onLogout, onNavigate, session }: V0CommonPro
                       {isRevoking ? (
                         <ActivityIndicator size="small" color={tokens.tagWarmText} />
                       ) : (
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.tagWarmText }}>
+                        <Text
+                          style={{ fontSize: 12, fontWeight: '600', color: tokens.tagWarmText }}
+                        >
                           Thu hồi quyền truy cập
                         </Text>
                       )}

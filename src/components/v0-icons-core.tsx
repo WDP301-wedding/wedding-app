@@ -58,7 +58,7 @@ export function ChevronRightIcon({ size = 18, color = '#62645F' }: IconProps) {
 }
 
 /** Arrow right icon */
-export function ArrowRightIcon({ size = 18, color = '#334537' }: IconProps) {
+export function ArrowRightIcon({ size = 18, color = '#7A1F3D' }: IconProps) {
   return (
     <View
       style={{
@@ -94,7 +94,7 @@ export function ArrowRightIcon({ size = 18, color = '#334537' }: IconProps) {
 }
 
 /** Calendar icon */
-export function CalendarIcon({ size = 20, color = '#334537' }: IconProps) {
+export function CalendarIcon({ size = 20, color = '#7A1F3D' }: IconProps) {
   return (
     <View
       style={{
@@ -102,7 +102,7 @@ export function CalendarIcon({ size = 20, color = '#334537' }: IconProps) {
         height: size,
         borderWidth: Math.max(1.5, size * 0.09),
         borderColor: color,
-        borderRadius: 4,
+        borderRadius: 12,
         paddingTop: size * 0.25,
         alignItems: 'center',
         justifyContent: 'space-around',
@@ -134,7 +134,7 @@ export function CalendarIcon({ size = 20, color = '#334537' }: IconProps) {
 }
 
 /** File / Document text icon */
-export function FileTextIcon({ size = 20, color = '#334537' }: IconProps) {
+export function FileTextIcon({ size = 20, color = '#7A1F3D' }: IconProps) {
   return (
     <View
       style={{
@@ -156,7 +156,7 @@ export function FileTextIcon({ size = 20, color = '#334537' }: IconProps) {
 }
 
 /** Bell icon with notification dot */
-export function BellIcon({ size = 20, color = '#334537', hasDot = false }: IconProps) {
+export function BellIcon({ size = 20, color = '#7A1F3D', hasDot = false }: IconProps) {
   return (
     <View
       style={{
@@ -204,7 +204,7 @@ export function BellIcon({ size = 20, color = '#334537', hasDot = false }: IconP
             right: 1,
             width: 7,
             height: 7,
-            borderRadius: 4,
+            borderRadius: 12,
             backgroundColor: '#8C6D62',
             borderWidth: 1,
             borderColor: '#FAF8F5',
@@ -216,7 +216,7 @@ export function BellIcon({ size = 20, color = '#334537', hasDot = false }: IconP
 }
 
 /** Menu / hamburger icon */
-export function MenuIcon({ size = 20, color = '#334537' }: IconProps) {
+export function MenuIcon({ size = 20, color = '#7A1F3D' }: IconProps) {
   return (
     <View
       style={{
@@ -240,7 +240,7 @@ export function MenuIcon({ size = 20, color = '#334537' }: IconProps) {
 }
 
 /** Share icon */
-export function ShareIcon({ size = 18, color = '#334537' }: IconProps) {
+export function ShareIcon({ size = 18, color = '#7A1F3D' }: IconProps) {
   return (
     <View
       style={{

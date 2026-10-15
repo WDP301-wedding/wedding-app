@@ -149,9 +149,7 @@ afterEach(async () => {
 });
 it('opens the actual empty overview without requiring a booking code', async () => {
   const current = await session();
-  await render(
-    <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-  );
+  await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
   expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
   expect(screen.queryByLabelText('Mã booking')).toBeNull();
   expect(gateway.overview).toHaveBeenCalledWith('access', undefined);
@@ -260,9 +258,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     ]);
 
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     expect(await screen.findByText('Sảnh Lavender')).toBeOnTheScreen();
     expect(await screen.findByText('ĐÃ XÁC NHẬN')).toBeOnTheScreen();
@@ -290,9 +286,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     );
 
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     expect(
       await screen.findByText('Chưa tải được kế hoạch. Kiểm tra kết nối và thử lại.'),
@@ -305,9 +299,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
 
   it('switches between Overview and Account views without crashing', async () => {
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
     await fireEvent.press(screen.getByRole('button', { name: 'Tài khoản' }));
@@ -415,9 +407,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     );
 
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     expect(
       await screen.findByText('Chưa tải được kế hoạch. Kiểm tra kết nối và thử lại.'),
@@ -452,9 +442,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     });
 
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Xem kế hoạch' }));
     expect(
@@ -487,9 +475,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     planningGateway.loadConfirmed.mockRejectedValueOnce(new Error('Network error'));
 
     const current = await session();
-    await render(
-      <CoupleOverviewScreen session={current.value} onLogout={jest.fn()} renderPlan={() => null} />,
-    );
+    await render(<CoupleOverviewScreen session={current.value} onLogout={jest.fn()} />);
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Xem kế hoạch' }));
     expect(

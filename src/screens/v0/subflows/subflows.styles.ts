@@ -5,45 +5,13 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 96,
-  },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 8,
-  },
-  backButton: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 4,
-  },
-  backGlyph: {
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: '300',
-  },
-  headerTitleWrap: {
-    flex: 1,
-  },
-  eyebrow: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  heading: {
-    fontSize: 21,
-    lineHeight: 27,
-    fontWeight: '600',
+    paddingBottom: 32,
   },
   calloutCard: {
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 16,
   },
@@ -95,7 +63,7 @@ export const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 18,
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(74, 93, 78, 0.14)',
     alignItems: 'flex-start',
@@ -112,7 +80,7 @@ export const styles = StyleSheet.create({
   },
   policyBlock: {
     padding: 14,
-    borderRadius: 8,
+    borderRadius: 16,
     backgroundColor: 'rgba(74, 93, 78, 0.06)',
     marginTop: 10,
   },
@@ -133,16 +101,16 @@ export const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   input: {
-    minHeight: 44,
+    minHeight: 56,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     fontSize: 13,
   },
   primaryButton: {
-    minHeight: 44,
+    minHeight: 56,
     paddingHorizontal: 18,
-    borderRadius: 8,
+    borderRadius: 28,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -151,13 +119,5 @@ export const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  outlineButton: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

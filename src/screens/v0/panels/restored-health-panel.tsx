@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+
+import { HyText as Text } from '@/components/hy-ui';
 import { api, message, Button, ErrorNote, Panel } from './panels-common';
 
 export function RestoredHealthPanel() {

@@ -1,5 +1,7 @@
-import { Button, Host } from '@expo/ui';
-import { Text, TextInput, View } from 'react-native';
+import { HyButton, HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
+
+import { View } from 'react-native';
+
 import { ApiClientError } from '@/lib/api/client';
 import type {
   AttemptView,
@@ -73,17 +75,13 @@ export function Action({
   onPress,
   secondary = false,
 }: Readonly<{ label: string; disabled?: boolean; onPress: () => void; secondary?: boolean }>) {
-  const { brand } = useWeddingTheme();
   return (
-    <Host matchContents seedColor={brand.primary}>
-      <Button
-        label={label}
-        disabled={disabled}
-        onPress={onPress}
-        variant={secondary ? 'outlined' : 'filled'}
-        style={{ paddingVertical: 12, borderRadius: 4 }}
-      />
-    </Host>
+    <HyButton
+      label={label}
+      onPress={onPress}
+      disabled={disabled}
+      variant={secondary ? 'outline' : 'primary'}
+    />
   );
 }
 

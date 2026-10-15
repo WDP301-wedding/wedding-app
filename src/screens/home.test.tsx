@@ -19,10 +19,9 @@ import {
   readResetCredential,
   type IdentityApi,
 } from '@/features/identity-access/session';
-import type { PlanningGateway } from '@/features/booking-lifecycle/planning-api';
 import { ApiClientError } from '@/lib/api/client';
 
-import { ConfirmedPlanningScreen, HomeScreen } from './home';
+import { HomeScreen } from './home';
 
 jest.mock('@/features/identity-access/password-otp-api', () => {
   const gateway = {
@@ -205,66 +204,6 @@ describe('HomeScreen', () => {
 
     expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
     expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
-  });
-
-  it('renders only a server-confirmed planning summary and timeline', async () => {
-    const user = userEvent.setup();
-    const api = createApi();
-    const session = new AndroidIdentitySession(api, createSecureRefreshStore());
-    await session.login('minhanh@example.com', 'sample-password-123');
-    const gateway: PlanningGateway = {
-      loadConfirmed: jest.fn().mockResolvedValue({
-        status: 'confirmed',
-        snapshot: {
-          bookingId: '00000000-0000-4000-8000-000000000101',
-          phase: 'CONFIRMED',
-          revision: 8,
-          eventDate: '2026-11-15',
-          planningHeadcount: 280,
-          hallName: 'Sảnh Ánh Dương',
-          shift: { startTime: '17:00', endTime: '22:00' },
-          timelineRevision: 3,
-          timeline: [
-            {
-              itemId: '00000000-0000-4000-8000-000000000201',
-              startTime: '17:30',
-              title: 'Đón khách',
-              description: 'Chụp ảnh cùng gia đình',
-            },
-          ],
-        },
-      }),
-    };
-
-    await render(
-      <ConfirmedPlanningScreen session={session} gateway={gateway} onLogout={jest.fn()} />,
-    );
-    await fireEvent.changeText(screen.getByLabelText('Mã booking'), 'booking-101');
-    await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
-
-    expect(await screen.findByText('Sảnh Ánh Dương')).toBeOnTheScreen();
-    expect(screen.getByText('Đón khách')).toBeOnTheScreen();
-    expect(screen.getByText('17:30')).toHaveProp('numberOfLines', 1);
-    expect(screen.getByText('280 khách')).toBeOnTheScreen();
-    expect(gateway.loadConfirmed).toHaveBeenCalledWith('wia_access', 'booking-101');
-    for (const status of [403, 404, 401]) {
-      jest.mocked(gateway.loadConfirmed).mockRejectedValueOnce(
-        new ApiClientError({
-          kind: 'api',
-          status,
-          code: 'BOOKING_NOT_FOUND',
-          message: 'Access denied',
-          requestId: actor.accountId,
-        }),
-      );
-      await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
-      expect(await screen.findByText('Không thể tải kế hoạch')).toBeOnTheScreen();
-      expect(screen.queryByText('Sảnh Ánh Dương')).not.toBeOnTheScreen();
-      expect(screen.queryByText('Đón khách')).not.toBeOnTheScreen();
-      if (status === 401) await session.login('minhanh@example.com', 'sample-password-123');
-      await user.press(screen.getByRole('button', { name: 'MỞ KẾ HOẠCH' }));
-      expect(await screen.findByText('Sảnh Ánh Dương')).toBeOnTheScreen();
-    }
   });
 
   it('shows a recoverable error when login is rejected', async () => {

@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
 import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
 import { createBillingIntents } from '@/features/payments-billing/billing-intents';

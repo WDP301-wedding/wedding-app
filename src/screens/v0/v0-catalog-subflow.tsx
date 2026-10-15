@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { RotateCcwIcon } from '@/components/v0-primitives';
 import {
   createCatalogGateway,

@@ -5,6 +5,7 @@ import type { AndroidIdentitySession } from '@/features/identity-access/session'
 
 export type V0Screen =
   | 'overview'
+  | 'finance'
   | 'plan'
   | 'invite'
   | 'account'

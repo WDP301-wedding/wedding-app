@@ -1,13 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { LockIcon, RotateCcwIcon, StatusTag } from '@/components/v0-primitives';
 import {
   createExperienceGateway,
@@ -300,7 +293,7 @@ const styles = StyleSheet.create({
   },
   calloutCard: {
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 20,
     borderWidth: 1,
   },
   calloutTitle: {
@@ -314,7 +307,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 24,
-    borderRadius: 10,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     gap: 8,

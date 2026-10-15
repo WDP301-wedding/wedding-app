@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
 import { RestoredCommercialPanel } from '../restored-flow-controls';
@@ -7,7 +8,7 @@ import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { money, coupleBilling, type CommercialAppendixView } from './subflows-common';
 
-export function V0AppendicesSubflow({ activeBooking, onNavigate, session }: V0CommonProps) {
+export function V0AppendicesSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [appendixData, setAppendixData] = useState<CommercialAppendixView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,20 +47,6 @@ export function V0AppendicesSubflow({ activeBooking, onNavigate, session }: V0Co
       showsVerticalScrollIndicator={false}
     >
       <RestoredCommercialPanel mode="appendix" activeBooking={activeBooking} session={session} />
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về tài khoản"
-          onPress={() => onNavigate('account')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Thương mại & Pháp lý</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Phụ lục hợp đồng</Text>
-        </View>
-      </View>
 
       {loading && <ActivityIndicator color={tokens.primary} style={{ marginVertical: 16 }} />}
 

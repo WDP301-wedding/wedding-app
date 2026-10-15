@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
   backButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -24,14 +24,14 @@ export const styles = StyleSheet.create({
   refreshButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   eyebrow: {
     fontSize: 11,
     fontWeight: '600',
-    textTransform: 'uppercase',
+
     letterSpacing: 0.5,
   },
   heading: {
@@ -54,7 +54,7 @@ export const styles = StyleSheet.create({
   },
   calloutCard: {
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
   },
   calloutTitle: {
@@ -64,7 +64,7 @@ export const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 24,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
     gap: 8,
@@ -82,14 +82,14 @@ export const styles = StyleSheet.create({
   input: {
     minHeight: 40,
     paddingHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
     fontSize: 13,
   },
   outlineButton: {
     minHeight: 32,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 28,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

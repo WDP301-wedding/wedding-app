@@ -1,6 +1,8 @@
+import type { V0Screen } from './v0/v0-types';
 import * as Linking from 'expo-linking';
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 
 import {
   AndroidIdentitySession,
@@ -12,18 +14,21 @@ import { type, useWeddingTheme } from '@/theme';
 
 import { CoupleOverviewScreen } from './couple-overview';
 import { styles } from './home.styles';
-import { ConfirmedPlanningScreen, PlanningContent, formatDate } from './confirmed-planning-screen';
-import { IdentityScreen, VENUE_IMAGE } from './identity-screen';
+import { IdentityScreen } from './identity-screen';
 
-export { ConfirmedPlanningScreen, PlanningContent, IdentityScreen, VENUE_IMAGE, formatDate };
+export { IdentityScreen };
 
 const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
 
 export function HomeScreen({
   initialResetToken,
+  initialBookingId,
+  initialScreen,
   session = deviceSession,
 }: Readonly<{
   initialResetToken?: string | null;
+  initialBookingId?: string | undefined;
+  initialScreen?: V0Screen | undefined;
   session?: AndroidIdentitySession;
 }>) {
   const { brand, colors } = useWeddingTheme();
@@ -55,7 +60,7 @@ export function HomeScreen({
   if (loading) {
     return (
       <View style={[styles.sessionState, { backgroundColor: colors.background }]}>
-        <Text style={[styles.sessionEyebrow, { color: brand.primary }]}>WEDDING ESTATE</Text>
+        <Text style={[styles.sessionEyebrow, { color: brand.primary }]}>Hỷ Yến</Text>
         <Text style={[styles.sessionTitle, { color: brand.display }]}>Đang khôi phục phiên</Text>
         <Text selectable style={[type.body, { color: colors.secondaryLabel }]}>
           Phiên an toàn đang được kiểm tra từ máy chủ.
@@ -127,7 +132,8 @@ export function HomeScreen({
 
   return (
     <CoupleOverviewScreen
-      renderPlan={(value) => <PlanningContent snapshot={value} />}
+      initialBookingId={initialBookingId}
+      initialScreen={initialScreen}
       session={session}
       onLogout={() => {
         void session.logout().finally(() => setSnapshot(session.snapshot()));

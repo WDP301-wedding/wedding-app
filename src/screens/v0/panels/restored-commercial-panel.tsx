@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import type {
   CommercialAppendixView,
   CommercialContractView,

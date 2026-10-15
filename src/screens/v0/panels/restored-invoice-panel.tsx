@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+
+import { HyText as Text } from '@/components/hy-ui';
 import { api, message, money, Button, ErrorNote, Panel, type ContextProps } from './panels-common';
 
 export function RestoredInvoicePanel({ activeBooking, session }: ContextProps) {

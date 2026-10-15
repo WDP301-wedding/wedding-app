@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { money, coupleBilling, type IncidentalExpensesView } from './subflows-common';
 
-export function V0IncidentalsSubflow({ activeBooking, onNavigate, session }: V0CommonProps) {
+export function V0IncidentalsSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [sheet, setSheet] = useState<IncidentalExpensesView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,21 +48,6 @@ export function V0IncidentalsSubflow({ activeBooking, onNavigate, session }: V0C
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về tài khoản"
-          onPress={() => onNavigate('account')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Thương mại & Pháp lý</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Chi phí phát sinh</Text>
-        </View>
-      </View>
-
       <View
         style={[
           styles.calloutCard,

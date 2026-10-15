@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
 import { RestoredInvoicePanel } from '../restored-flow-controls';
@@ -7,7 +8,7 @@ import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { money, coupleBilling, type CommercialInvoiceView } from './subflows-common';
 
-export function V0InvoicesSubflow({ activeBooking, onNavigate, session }: V0CommonProps) {
+export function V0InvoicesSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [invoicesData, setInvoicesData] = useState<CommercialInvoiceView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,20 +51,6 @@ export function V0InvoicesSubflow({ activeBooking, onNavigate, session }: V0Comm
       showsVerticalScrollIndicator={false}
     >
       <RestoredInvoicePanel activeBooking={activeBooking} session={session} />
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về tài khoản"
-          onPress={() => onNavigate('account')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Thương mại & Pháp lý</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Hóa đơn quyết toán cuối</Text>
-        </View>
-      </View>
 
       <View
         style={[

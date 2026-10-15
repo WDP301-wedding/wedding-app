@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { StatusTag } from '@/components/v0-primitives';
 import type {
   PublicDishesView,

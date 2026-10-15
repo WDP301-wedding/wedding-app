@@ -2,25 +2,24 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Wedding Management',
+  name: 'Hỷ Yến',
   slug: 'wedding-app',
   version: '0.1.0',
   platforms: ['android', 'ios', 'web'],
   orientation: 'portrait',
-  icon: './assets/images/icon.png',
+  icon: './assets/images/hy-yen-icon.png',
   scheme: 'weddingapp',
-  userInterfaceStyle: 'automatic',
+  userInterfaceStyle: 'light',
   ios: {
     ...config.ios,
-    icon: './assets/expo.icon',
+    icon: './assets/images/hy-yen-icon.png',
   },
   android: {
     ...config.android,
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
-      foregroundImage: './assets/images/android-icon-foreground.png',
-      backgroundImage: './assets/images/android-icon-background.png',
-      monochromeImage: './assets/images/android-icon-monochrome.png',
+      backgroundColor: '#FFF8F1',
+      foregroundImage: './assets/images/hy-yen-foreground.png',
+      monochromeImage: './assets/images/hy-yen-foreground.png',
     },
     predictiveBackGestureEnabled: false,
   },
@@ -28,7 +27,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ...config.web,
     bundler: 'metro',
     output: 'single',
-    favicon: './assets/images/icon.png',
+    favicon: './assets/images/hy-yen-icon.png',
   },
   plugins: [
     'expo-router',
@@ -36,8 +35,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#208AEF',
-        image: './assets/images/splash-icon.png',
+        backgroundColor: '#FFF8F1',
+        image: './assets/images/hy-yen-foreground.png',
         imageWidth: 76,
       },
     ],

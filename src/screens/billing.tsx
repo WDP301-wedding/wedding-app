@@ -1,6 +1,7 @@
 import { openBrowserAsync } from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   AndroidIdentitySession,

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Pressable, Switch, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Animated, PanResponder, Pressable, Switch, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { CheckIcon, StatusTag } from '@/components/v0-primitives';
 import type {
   AndroidInstallationItem,
@@ -10,6 +11,41 @@ import { useWeddingTheme } from '@/theme';
 import type { V0Screen } from '../v0-types';
 import { styles } from '../v0-notifications-subflow.styles';
 
+function ReadSwipe({
+  unread,
+  onRead,
+  children,
+}: React.PropsWithChildren<{ unread: boolean; onRead: () => void }>) {
+  const [offset] = useState(() => new Animated.Value(0));
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) =>
+          unread && g.dx < -12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderMove: (_, g) => offset.setValue(Math.max(-100, Math.min(0, g.dx))),
+        onPanResponderRelease: (_, g) => {
+          if (g.dx < -80) onRead();
+          Animated.timing(offset, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.timing(offset, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+        },
+      }),
+    [unread, onRead, offset],
+  );
+  return (
+    <View
+      style={{ backgroundColor: '#7A1F3D', borderRadius: 20, overflow: 'hidden', marginBottom: 12 }}
+    >
+      <View pointerEvents="none" style={{ position: 'absolute', right: 16, top: 32 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 12 }}>Đánh dấu đã đọc</Text>
+      </View>
+      <Animated.View {...pan.panHandlers} style={{ transform: [{ translateX: offset }] }}>
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
 export function NotificationInboxCard({
   item,
   onMarkRead,
@@ -25,72 +61,78 @@ export function NotificationInboxCard({
   const isUnread = !item.readAt;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={item.message || 'Thông báo'}
-      onPress={onMarkRead}
-      style={[
-        styles.calloutCard,
-        {
-          backgroundColor: isUnread ? tokens.surface : tokens.canvas,
-          borderColor: isUnread ? tokens.primary : tokens.rule,
-          borderLeftWidth: isUnread ? 4 : 1,
-        },
-      ]}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}
+    <ReadSwipe unread={isUnread} onRead={onMarkRead}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={item.message || 'Thông báo'}
+        onPress={onMarkRead}
+        style={[
+          styles.calloutCard,
+          {
+            backgroundColor: isUnread ? tokens.calloutBg : tokens.surface,
+            borderColor: tokens.rule,
+            borderLeftWidth: 1,
+            borderRadius: 20,
+            padding: 16,
+            minHeight: 96,
+            marginBottom: 0,
+          },
+        ]}
       >
-        <Text
+        <View
           style={{
-            fontSize: 13,
-            fontWeight: isUnread ? '700' : '500',
-            color: tokens.text,
-            flex: 1,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
           }}
         >
-          {item.message}
-        </Text>
-        {isUnread ? (
-          <StatusTag tone="warm">Mới</StatusTag>
-        ) : (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <CheckIcon size={12} color={tokens.sage} />
-            <Text style={{ fontSize: 11, color: tokens.sage }}>Đã đọc</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={[styles.factRow, { marginTop: 8 }]}>
-        <Text style={{ fontSize: 10, color: tokens.earth }}>
-          {new Date(item.createdAt).toLocaleString('vi-VN')}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 10, color: tokens.sage }}>{item.purpose}</Text>
-          {destination && onNavigateDetail && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Xem chi tiết nội dung"
-              onPress={onNavigateDetail}
-              style={{
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 4,
-                backgroundColor: tokens.surfaceMuted,
-              }}
-            >
-              <Text style={{ fontSize: 10, color: tokens.primary, fontWeight: '600' }}>
-                Xem chi tiết ›
-              </Text>
-            </Pressable>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: isUnread ? '700' : '500',
+              color: tokens.text,
+              flex: 1,
+            }}
+          >
+            {item.message}
+          </Text>
+          {isUnread ? (
+            <StatusTag tone="warm">Mới</StatusTag>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <CheckIcon size={12} color={tokens.sage} />
+              <Text style={{ fontSize: 11, color: tokens.sage }}>Đã đọc</Text>
+            </View>
           )}
         </View>
-      </View>
-    </Pressable>
+
+        <View style={[styles.factRow, { marginTop: 8 }]}>
+          <Text style={{ fontSize: 10, color: tokens.earth }}>
+            {new Date(item.createdAt).toLocaleString('vi-VN')}
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 10, color: tokens.sage }}>{item.purpose}</Text>
+            {destination && onNavigateDetail && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Xem chi tiết nội dung"
+                onPress={onNavigateDetail}
+                style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 12,
+                  backgroundColor: tokens.surfaceMuted,
+                }}
+              >
+                <Text style={{ fontSize: 10, color: tokens.primary, fontWeight: '600' }}>
+                  Xem chi tiết ›
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </Pressable>
+    </ReadSwipe>
   );
 }
 

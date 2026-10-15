@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
 import { BellIcon, RotateCcwIcon } from '@/components/v0-primitives';
@@ -204,6 +212,16 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: tokens.canvas }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={loading}
+          onRefresh={() => {
+            setLoading(true);
+            void loadData();
+          }}
+          tintColor={tokens.primary}
+        />
+      }
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >

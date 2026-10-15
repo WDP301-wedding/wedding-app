@@ -1,7 +1,9 @@
+import { HyText as Text, HyButton } from '@/components/hy-ui';
 import '@/lib/alert';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
-import { Button, Host } from '@expo/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+
 import {
   createExperienceGateway,
   type Overview,
@@ -18,7 +20,7 @@ import { styles } from './home.styles';
 import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
 import { createCoupleBillingGateway } from '@/features/payments-billing/billing-api';
 import { V0CompanionShell } from './v0/v0-companion-shell';
-import type { V0EventFacts } from './v0/v0-types';
+import type { V0EventFacts, V0Screen } from './v0/v0-types';
 
 const type = typeTokens;
 
@@ -59,29 +61,22 @@ function ActionButton({
   readonly action: () => void;
   readonly disabled?: boolean;
 }) {
-  return (
-    <Host matchContents>
-      <Button
-        label={label}
-        variant="text"
-        {...(disabled !== undefined ? { disabled } : {})}
-        onPress={action}
-        style={{ height: 48 }}
-      />
-    </Host>
-  );
+  return <HyButton label={label} onPress={action} disabled={disabled ?? false} variant="outline" />;
 }
 
 export function CoupleOverviewScreen({
   session,
   onLogout,
-  renderPlan,
+  initialBookingId,
+  initialScreen,
 }: Readonly<{
   session: AndroidIdentitySession;
   onLogout: () => void;
-  renderPlan: (snapshot: ConfirmedPlanningSnapshot) => ReactNode;
+  initialBookingId?: string | undefined;
+  initialScreen?: V0Screen | undefined;
 }>) {
   const { brand, colors } = useWeddingTheme();
+  const insets = useSafeAreaInsets();
   const [view, setView] = useState<'selector' | 'overview' | 'account'>('selector');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<ConfirmedPlanningSnapshot | null>(null);
@@ -196,6 +191,12 @@ export function CoupleOverviewScreen({
     [session],
   );
 
+  useEffect(() => {
+    if (!initialBookingId) return;
+    const timer = setTimeout(() => void open(initialBookingId), 0);
+    return () => clearTimeout(timer);
+  }, [initialBookingId, open]);
+
   const handleSwitchBooking = useCallback(() => {
     currentBookingRequestIdRef.current += 1;
     setPlan(null);
@@ -249,7 +250,7 @@ export function CoupleOverviewScreen({
     return (
       <V0CompanionShell
         facts={currentFacts}
-        initialScreen={view === 'account' ? 'account' : 'overview'}
+        initialScreen={view === 'account' ? 'account' : (initialScreen ?? 'overview')}
         session={session}
         profile={profile}
         activeBooking={plan}
@@ -264,15 +265,22 @@ export function CoupleOverviewScreen({
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}
+      contentContainerStyle={[
+        styles.content,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: Math.max(insets.bottom, 24),
+        },
+      ]}
     >
       <View style={styles.topBar}>
-        <Text style={[type.headline, { color: brand.display }]}>WEDDING ESTATE</Text>
+        <Text style={[type.largeTitle, { color: brand.primary }]}>Hỷ Yến</Text>
         <ActionButton label="Đăng xuất" action={onLogout} />
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingHorizontal: 16 }}>
         <ActionButton
-          label="Tổng quan"
+          label="Chọn tiệc"
           action={() => {
             setView('overview');
             setError(null);

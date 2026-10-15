@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import {
   createAppInvitationGateway,
@@ -11,12 +12,7 @@ import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { money, printStatusMeta } from './subflows-common';
 
-export function V0PrintSubflow({
-  activeBooking,
-  invitationGateway,
-  onNavigate,
-  session,
-}: V0CommonProps) {
+export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const gateway = invitationGateway ?? createAppInvitationGateway();
 
@@ -59,20 +55,6 @@ export function V0PrintSubflow({
       showsVerticalScrollIndicator={false}
     >
       <RestoredPrintPanel activeBooking={activeBooking} session={session} />
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về kế hoạch"
-          onPress={() => onNavigate('plan')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Kế hoạch</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Đơn in thiệp cưới</Text>
-        </View>
-      </View>
 
       {/* Read-Only MVP Notice */}
       <View
@@ -215,7 +197,7 @@ export function V0PrintSubflow({
                 <View
                   style={{
                     backgroundColor: tokens.surfaceMuted,
-                    borderRadius: 8,
+                    borderRadius: 16,
                     padding: 12,
                     marginTop: 12,
                     borderWidth: 1,

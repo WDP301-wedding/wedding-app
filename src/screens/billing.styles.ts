@@ -7,9 +7,9 @@ export const billingStyles = StyleSheet.create({
   row: { gap: spacing.xs, paddingVertical: spacing.sm, borderBottomWidth: 1 },
   totals: { gap: spacing.md, padding: spacing.lg, borderWidth: 1, borderRadius: 4 },
   input: {
-    minHeight: 48,
+    minHeight: 56,
     borderWidth: 1,
-    borderRadius: 4,
+    borderRadius: 12,
     paddingHorizontal: spacing.md,
     fontSize: 16,
   },

@@ -1,0 +1,78 @@
+import '@/lib/alert';
+import React, { useState } from 'react';
+import { Alert, View } from 'react-native';
+import { HyText as Text, HyCard, HyRow, HyScreen, HySheet, HyButton } from '@/components/hy-ui';
+import { hy } from '@/theme';
+import { NativeAccountSettings } from '../couple-overview';
+import { RestoredHealthPanel } from '../v0/restored-flow-controls';
+import type { V0CommonProps } from '../v0/v0-types';
+export function HyProfile({ profile, session, onLogout, onNavigate }: V0CommonProps) {
+  const [security, setSecurity] = useState(false);
+  const [health, setHealth] = useState(false);
+  return (
+    <HyScreen>
+      <HyCard>
+        <View
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: 36,
+            backgroundColor: hy.primarySoft,
+            alignSelf: 'center',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ fontFamily: hy.display, fontSize: 28, color: hy.primary }}>HY</Text>
+        </View>
+        <Text style={{ textAlign: 'center', fontFamily: hy.display, fontSize: 26 }}>
+          {profile?.displayName || 'Hồ sơ cặp đôi'}
+        </Text>
+        {profile?.displayEmail && (
+          <Text style={{ textAlign: 'center', color: hy.muted }}>{profile.displayEmail}</Text>
+        )}
+      </HyCard>
+      <HyRow
+        title="Hồ sơ & bảo mật"
+        subtitle="Thông tin cá nhân, đổi mật khẩu và OTP"
+        onPress={() => setSecurity(true)}
+      />
+      <HyRow
+        title="Thông báo"
+        subtitle="Hộp thư, tùy chọn và thiết bị"
+        onPress={() => onNavigate('notifications')}
+      />
+      <HyRow
+        title="Phiên đăng nhập"
+        subtitle="Quản lý các thiết bị được cấp quyền"
+        onPress={() => onNavigate('sessions')}
+      />
+      <HyRow
+        title="Nhà hàng"
+        subtitle="Thông tin, sảnh tiệc và thực đơn"
+        onPress={() => onNavigate('catalog')}
+      />
+      <HyRow title="Thông tin kết nối" onPress={() => setHealth(true)} />
+      <HyButton
+        label="Đăng xuất"
+        variant="outline"
+        onPress={() =>
+          Alert.alert('Đăng xuất', 'Bạn muốn đăng xuất trên thiết bị này?', [
+            { text: 'Ở lại', style: 'cancel' },
+            { text: 'Đăng xuất', style: 'destructive', onPress: onLogout },
+          ])
+        }
+      />
+      <HySheet visible={security} title="Hồ sơ & bảo mật" onClose={() => setSecurity(false)}>
+        {session && onLogout ? (
+          <NativeAccountSettings session={session} onSignedOut={onLogout} />
+        ) : (
+          <Text>Phiên đăng nhập không còn khả dụng.</Text>
+        )}
+      </HySheet>
+      <HySheet visible={health} title="Thông tin kết nối" onClose={() => setHealth(false)}>
+        {health && <RestoredHealthPanel />}
+      </HySheet>
+    </HyScreen>
+  );
+}

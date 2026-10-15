@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { CircleHelpIcon, StatusTag, UsersIcon } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
 import { RestoredGuestPanel } from '../restored-flow-controls';
@@ -7,7 +8,7 @@ import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { coupleBilling, type GuestGroupView, type NamedGuestView } from './subflows-common';
 
-export function V0GuestsSubflow({ activeBooking, facts, onNavigate, session }: V0CommonProps) {
+export function V0GuestsSubflow({ activeBooking, facts, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [groups, setGroups] = useState<GuestGroupView>([]);
   const [guests, setGuests] = useState<NamedGuestView['items']>([]);
@@ -55,20 +56,6 @@ export function V0GuestsSubflow({ activeBooking, facts, onNavigate, session }: V
       showsVerticalScrollIndicator={false}
     >
       <RestoredGuestPanel activeBooking={activeBooking} session={session} />
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về kế hoạch"
-          onPress={() => onNavigate('plan')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Kế hoạch</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Khách mời & chỗ ngồi</Text>
-        </View>
-      </View>
 
       <View
         style={[

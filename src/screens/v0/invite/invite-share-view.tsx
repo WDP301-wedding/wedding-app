@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -21,7 +22,6 @@ export function InviteShareView({
   publishError,
   copied,
   publishing,
-  onBack,
   onCopyLink,
   onOpenShare,
   onPublish,
@@ -48,21 +48,6 @@ export function InviteShareView({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Quay lại thiệp"
-          onPress={onBack}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Chia sẻ</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Gửi thiệp đi</Text>
-        </View>
-      </View>
-
       <View
         style={[
           styles.shareCard,
@@ -107,8 +92,8 @@ export function InviteShareView({
         </Text>
         <Text style={[styles.shareCardDesc, { color: tokens.muted }]}>
           {publicUrl
-            ? `Mã QR và liên kết mã hóa canonical payload do máy chủ cung cấp (Phiên bản xuất bản #${publication?.publicationRevision ?? 1}). Khách mời có thể xem thiệp trực tuyến.`
-            : 'Thiệp chưa được xuất bản. Vui lòng bấm "Xuất bản thiệp cưới" bên dưới để nhận liên kết canonical và kích hoạt mã QR thật từ máy chủ.'}
+            ? `Quét mã QR hoặc gửi liên kết này cho khách mời (Phiên bản xuất bản #${publication?.publicationRevision ?? 1}). Khách mời có thể xem thiệp trực tuyến.`
+            : 'Thiệp chưa được xuất bản. Vui lòng bấm "Xuất bản thiệp cưới" bên dưới để nhận liên kết chính thức và kích hoạt mã QR thật từ máy chủ.'}
         </Text>
 
         {publishError ? (

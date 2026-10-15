@@ -1,5 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { HySheet, HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { LockIcon, RotateCcwIcon } from '@/components/v0-primitives';
 import type { AppDesignView } from '@/features/invitation-studio/app-invitation-api';
 import { useWeddingTheme } from '@/theme';
@@ -13,7 +14,6 @@ export interface ConflictState {
 }
 
 export function InviteEditView({
-  selectedDesign,
   conflictState,
   editError,
   groomName,
@@ -54,27 +54,33 @@ export function InviteEditView({
   const { tokens } = useWeddingTheme();
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: tokens.canvas }]}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Quay lại thiệp"
-          onPress={onBack}
-          style={styles.backButton}
+    <HySheet visible title="Sửa nhanh thiệp" onClose={onBack}>
+      <View
+        style={{
+          backgroundColor: tokens.primary,
+          borderRadius: 20,
+          padding: 24,
+          gap: 8,
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          style={{
+            fontFamily: 'HyDisplay',
+            fontSize: 26,
+            lineHeight: 36,
+            color: tokens.onPrimary,
+            textAlign: 'center',
+          }}
         >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>
-            Phiên bản {selectedDesign?.revisionNumber ?? 1}
-          </Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Chỉnh sửa nội dung</Text>
-        </View>
+          {[brideName, groomName].filter(Boolean).join(' & ')}
+        </Text>
+        <Text style={{ fontSize: 13, color: tokens.onPrimary, textAlign: 'center' }}>
+          {greeting}
+        </Text>
+        <Text style={{ fontSize: 13, color: tokens.onPrimary, textAlign: 'center' }}>
+          {message}
+        </Text>
       </View>
 
       {conflictState?.hasConflict ? (
@@ -84,7 +90,7 @@ export function InviteEditView({
               backgroundColor: tokens.tagWarmBg,
               borderColor: tokens.tagWarmText,
               padding: 16,
-              borderRadius: 8,
+              borderRadius: 16,
               borderWidth: 1,
               marginBottom: 16,
             },
@@ -305,6 +311,6 @@ export function InviteEditView({
           </Text>
         )}
       </Pressable>
-    </ScrollView>
+    </HySheet>
   );
 }

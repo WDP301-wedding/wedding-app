@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import type {
   AppDesignView,
   AppPrintOrderView,

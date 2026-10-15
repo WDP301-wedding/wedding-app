@@ -1,14 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { ImageIcon, LockIcon } from '@/components/v0-primitives';
 import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
 import { ApiClientError } from '@/lib/api/client';
@@ -20,7 +13,6 @@ export function V0MediaSubflow({
   activeBooking,
   facts,
   invitationGateway,
-  onNavigate,
   session,
 }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
@@ -185,21 +177,6 @@ export function V0MediaSubflow({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về kế hoạch"
-          onPress={() => onNavigate('plan')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Kế hoạch</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Ảnh trình chiếu</Text>
-        </View>
-      </View>
-
       <View
         style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
       >

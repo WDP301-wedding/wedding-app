@@ -1,12 +1,13 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
+import { HyText as Text } from '@/components/hy-ui';
 import { ClockIcon } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
 import { RestoredTimelinePanel } from '../restored-flow-controls';
 import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 
-export function V0ScheduleSubflow({ activeBooking, facts, onNavigate, session }: V0CommonProps) {
+export function V0ScheduleSubflow({ activeBooking, facts, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const timelineItems = activeBooking?.timeline ?? [];
   const timelineRevision = activeBooking?.timelineRevision;
@@ -19,20 +20,6 @@ export function V0ScheduleSubflow({ activeBooking, facts, onNavigate, session }:
       showsVerticalScrollIndicator={false}
     >
       <RestoredTimelinePanel activeBooking={activeBooking} session={session} />
-      <View style={styles.pageHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Về kế hoạch"
-          onPress={() => onNavigate('plan')}
-          style={styles.backButton}
-        >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
-        </Pressable>
-        <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Kế hoạch</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Lịch trình buổi tiệc</Text>
-        </View>
-      </View>
 
       <View
         style={[

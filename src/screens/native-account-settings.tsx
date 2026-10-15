@@ -1,7 +1,8 @@
+import { HyText as Text, HyButton, HyInput } from '@/components/hy-ui';
 import '@/lib/alert';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
-import { Button, Host, TextInput, useNativeState } from '@expo/ui';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+
 import {
   createExperienceGateway,
   type Profile,
@@ -235,14 +236,7 @@ export function NativeAccountSettings({
   ) => <NativeField label={label} value={value} onChangeText={onChangeText} secret={secret} />;
 
   const action = (label: string, onPress: () => void) => (
-    <Host matchContents>
-      <Button
-        label={label}
-        disabled={pending}
-        onPress={onPress}
-        style={{ height: 48, backgroundColor: brand.primary, borderRadius: 4 }}
-      />
-    </Host>
+    <HyButton label={label} disabled={pending} onPress={onPress} />
   );
 
   const snap = session.snapshot();
@@ -375,37 +369,32 @@ function NativeField({
   secret: boolean;
   otp?: boolean;
 }>) {
-  const state = useNativeState(value);
   const { colors } = useWeddingTheme();
-  useEffect(() => {
-    state.set(value);
-  }, [state, value]);
+
   return (
     <View style={styles.authField}>
       <Text style={[type.subhead, { color: colors.label }]}>{label}</Text>
-      <Host matchContents>
-        <TextInput
-          value={state}
-          onChangeText={(text) => {
-            state.set(text);
-            onChangeText(text);
-          }}
-          placeholder={label}
-          secureTextEntry={secret}
-          autoComplete={otp ? 'one-time-code' : secret ? 'off' : 'name'}
-          keyboardType={otp ? 'number-pad' : 'default'}
-          maxLength={otp ? 6 : secret ? 512 : 120}
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={{
-            height: 52,
-            borderWidth: 1,
-            borderColor: '#C5A880',
-            borderRadius: 4,
-            padding: 12,
-          }}
-        />
-      </Host>
+
+      <HyInput
+        value={value}
+        onChangeText={(text) => {
+          onChangeText(text);
+        }}
+        placeholder={label}
+        secureTextEntry={secret}
+        autoComplete={otp ? 'one-time-code' : secret ? 'off' : 'name'}
+        keyboardType={otp ? 'number-pad' : 'default'}
+        maxLength={otp ? 6 : secret ? 512 : 120}
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={{
+          minHeight: 56,
+          borderWidth: 1,
+          borderColor: '#9A877F',
+          borderRadius: 12,
+          padding: 12,
+        }}
+      />
     </View>
   );
 }

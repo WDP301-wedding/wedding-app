@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
+
 import {
   createPasswordOtpGateway,
   type OtpChallenge,
@@ -12,9 +14,6 @@ import {
 import { ApiClientError } from '@/lib/api/client';
 import { type, useWeddingTheme } from '@/theme';
 import { styles } from './home.styles';
-
-export const VENUE_IMAGE =
-  'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85';
 
 export type IdentityScreenProps = Readonly<{
   initialMode?: 'login' | 'reset-request';
@@ -48,6 +47,7 @@ export function IdentityScreen({
   session,
 }: IdentityScreenProps) {
   const { brand, colors } = useWeddingTheme();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'login' | 'reset-complete' | 'reset-request'>(initialMode);
   const [email, setEmail] = useState('');
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
@@ -61,6 +61,7 @@ export function IdentityScreen({
   }, [remaining]);
 
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [confirmation, setConfirmation] = useState('');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -168,19 +169,44 @@ export function IdentityScreen({
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[styles.authContent, { backgroundColor: colors.background }]}
+      contentContainerStyle={[
+        styles.authContent,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: Math.max(insets.bottom, 24),
+        },
+      ]}
     >
-      <View style={styles.authBrand} accessibilityLabel="The Wedding Estate">
-        <Text style={[styles.brandPrelude, { color: brand.gold }]}>THE</Text>
-        <Text style={[styles.brandName, { color: brand.display }]}>WEDDING ESTATE</Text>
+      <View style={styles.authBrand} accessibilityLabel="Hỷ Yến">
+        <View
+          style={{
+            height: 72,
+            width: 72,
+            borderRadius: 36,
+            backgroundColor: '#7A1F3D',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 16,
+          }}
+        >
+          <Text style={{ fontFamily: 'HyDisplay', fontSize: 28, lineHeight: 38, color: '#FFF8F1' }}>
+            HY
+          </Text>
+        </View>
+        <Text style={{ fontFamily: 'HyDisplay', fontSize: 32, lineHeight: 42, color: '#7A1F3D' }}>
+          Hỷ Yến
+        </Text>
+        <Text style={{ fontSize: 14, color: '#6E5D63', marginTop: 8 }}>
+          Cùng bạn chuẩn bị ngày chung đôi
+        </Text>
       </View>
-      <Image
-        source={{ uri: VENUE_IMAGE }}
-        style={styles.authImage}
-        contentFit="cover"
-        accessibilityLabel="Hoa cưới trong khu vườn ấm áp"
-      />
-      <View style={[styles.authPanel, { backgroundColor: brand.powder, borderColor: brand.gold }]}>
+      <View
+        style={[
+          styles.authPanel,
+          { backgroundColor: colors.background, borderColor: colors.background },
+        ]}
+      >
         <Text style={[styles.scriptTitle, { color: brand.script }]}>Hành trình của hai bạn</Text>
         <Text selectable style={[styles.authTitle, { color: brand.display }]}>
           {title}
@@ -203,11 +229,23 @@ export function IdentityScreen({
             value={password}
             onChangeText={setPassword}
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             editable={!pending}
           />
         ) : null}
 
+        {mode !== 'reset-request' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            onPress={() => setShowPassword((v) => !v)}
+            style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-end' }}
+          >
+            <Text style={{ color: brand.primary, fontWeight: '600' }}>
+              {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            </Text>
+          </Pressable>
+        )}
         {mode === 'reset-complete' && challenge ? (
           <LabeledInput
             label="Mã OTP"
@@ -282,6 +320,18 @@ export function IdentityScreen({
           )}
         </Pressable>
 
+        {mode !== 'reset-request' && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            onPress={() => setShowPassword((v) => !v)}
+            style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-end' }}
+          >
+            <Text style={{ color: brand.primary, fontWeight: '600' }}>
+              {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+            </Text>
+          </Pressable>
+        )}
         {mode === 'reset-complete' && challenge ? (
           <View style={{ marginTop: 12, gap: 8 }}>
             <Pressable

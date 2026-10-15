@@ -6,11 +6,11 @@ import type { ConfirmedPlanningSnapshot } from '@/features/booking-lifecycle/pla
 import type { AppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
 import type { AndroidIdentitySession } from '@/features/identity-access/session';
 import { ApiClientError } from '@/lib/api/client';
-import { V0AccountTab } from './v0-account-tab';
+import { HyProfile as V0AccountTab } from '../hy/hy-profile';
 import { V0CompanionShell } from './v0-companion-shell';
 import { V0InviteTab } from './v0-invite-tab';
-import { V0OverviewTab } from './v0-overview-tab';
-import { V0PlanTab } from './v0-plan-tab';
+import { HyParty as V0OverviewTab } from '../hy/hy-party';
+import { HyPartyDetail as V0PlanTab } from '../hy/hy-detail';
 import { V0GuestsSubflow, V0MediaSubflow, V0PrintSubflow, V0ScheduleSubflow } from './v0-subflows';
 import type { V0EventFacts } from './v0-types';
 

@@ -1,3 +1,4 @@
+import { canonicalSerialize } from '@/lib/idempotency';
 import { Platform } from 'react-native';
 import { z } from 'zod';
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from 'expo-crypto';
@@ -113,7 +114,7 @@ export function createBillingIntents(
             : { timelineRevisionId: payload.timelineRevisionId }),
         });
       const stableBody = { ...body, ...metadata };
-      const fingerprint = await hash(JSON.stringify(stableBody, Object.keys(stableBody).sort()));
+      const fingerprint = await hash(canonicalSerialize(stableBody));
       const record = previous ?? { key: randomUUID(), hash: fingerprint, metadata };
       if (record.hash !== fingerprint)
         throw new Error(

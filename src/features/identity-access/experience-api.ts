@@ -1,3 +1,5 @@
+import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
+import { createDeterministicIdempotencyKey } from '@/lib/idempotency';
 import { createApiClient, type ApiClient } from '@/lib/api/client';
 import type { components, operations } from '@/lib/api/generated/schema';
 export type Profile = components['schemas']['ProfileResponse']['data'];
@@ -15,6 +17,7 @@ export function createExperienceGateway(client?: ApiClient) {
   const api = () => (resolved ??= createApiClient());
   const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
   return {
+    ...createRestoredFlowsGateway(client),
     async profile(token: string) {
       return required((await api().GET('/auth/profile', { headers: headers(token) })).data).data;
     },
@@ -31,7 +34,12 @@ export function createExperienceGateway(client?: ApiClient) {
       expectedRevision: number,
       idempotencyKey?: string,
     ) {
-      const key = idempotencyKey ?? `profile:${expectedRevision}:${Date.now()}`;
+      const key =
+        idempotencyKey ??
+        createDeterministicIdempotencyKey('profile', 'account', expectedRevision, {
+          displayName,
+          expectedRevision,
+        });
       return required(
         (
           await api().PATCH('/auth/profile', {
@@ -59,7 +67,7 @@ export function createExperienceGateway(client?: ApiClient) {
         headers: headers(token),
         params: { query: { ...(cursor ? { cursor } : {}), ...(limit ? { limit } : {}) } },
       });
-      return required(data).data;
+      return required(data).data as SessionInventory;
     },
     async revokeSession(token: string, sessionId: string) {
       await api().DELETE('/auth/sessions/{sessionId}', {

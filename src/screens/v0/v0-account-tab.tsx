@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { CalendarIcon, ChevronRightIcon, FileTextIcon, LockIcon } from '@/components/v0-primitives';
 import { deriveInitials, NativeAccountSettings } from '@/screens/couple-overview';
 import { useWeddingTheme } from '@/theme';
+import { RestoredHealthPanel } from './restored-flow-controls';
 import type { V0CommonProps } from './v0-types';
 
 export function V0AccountTab({ facts, onLogout, onNavigate, profile, session }: V0CommonProps) {
@@ -64,6 +65,23 @@ export function V0AccountTab({ facts, onLogout, onNavigate, profile, session }: 
 
       {/* Account Rows */}
       <View style={styles.accountList}>
+        {(
+          [
+            ['catalog', 'Nhà hàng, sảnh và thực đơn'],
+            ['notifications', 'Thông báo và thiết bị'],
+            ['sessions', 'Các phiên đăng nhập'],
+          ] as const
+        ).map(([screen, label]) => (
+          <Pressable
+            key={screen}
+            accessibilityRole="button"
+            onPress={() => onNavigate(screen)}
+            style={[styles.secondaryRow, { borderBottomColor: tokens.rule }]}
+          >
+            <Text style={[styles.secondaryRowTitle, { color: tokens.text }]}>{label}</Text>
+          </Pressable>
+        ))}
+        <RestoredHealthPanel />
         {/* Row 1: Commercial Contracts */}
         <Pressable
           accessibilityRole="button"

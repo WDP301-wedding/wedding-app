@@ -10,6 +10,9 @@ import {
 } from '@/components/v0-primitives';
 import { AndroidBillingPage } from '@/screens/billing';
 import { useWeddingTheme } from '@/theme';
+import { V0CatalogSubflow } from './v0-catalog-subflow';
+import { V0NotificationsSubflow } from './v0-notifications-subflow';
+import { V0SessionsSubflow } from './v0-sessions-subflow';
 import { V0AccountTab } from './v0-account-tab';
 import { V0InviteTab } from './v0-invite-tab';
 import { V0OverviewTab } from './v0-overview-tab';
@@ -64,7 +67,16 @@ export function V0CompanionShell({
   useEffect(() => {
     const handleHardwareBack = () => {
       if (
-        ['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen)
+        [
+          'billing',
+          'contracts',
+          'appendices',
+          'incidentals',
+          'invoices',
+          'catalog',
+          'notifications',
+          'sessions',
+        ].includes(currentScreen)
       ) {
         handleNavigate('account');
         return true;
@@ -91,7 +103,18 @@ export function V0CompanionShell({
   const activeTabId = (() => {
     if (['schedule', 'media', 'print', 'guests', 'seating'].includes(currentScreen)) return 'plan';
     if (['edit', 'share'].includes(currentScreen)) return 'invite';
-    if (['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen))
+    if (
+      [
+        'billing',
+        'contracts',
+        'appendices',
+        'incidentals',
+        'invoices',
+        'catalog',
+        'notifications',
+        'sessions',
+      ].includes(currentScreen)
+    )
       return 'account';
     return currentScreen;
   })();
@@ -108,7 +131,16 @@ export function V0CompanionShell({
       onSwitchBooking,
       onBack: () => {
         if (
-          ['billing', 'contracts', 'appendices', 'incidentals', 'invoices'].includes(currentScreen)
+          [
+            'billing',
+            'contracts',
+            'appendices',
+            'incidentals',
+            'invoices',
+            'catalog',
+            'notifications',
+            'sessions',
+          ].includes(currentScreen)
         )
           handleNavigate('account');
         else if (['schedule', 'media', 'print', 'guests', 'seating'].includes(currentScreen))
@@ -132,6 +164,12 @@ export function V0CompanionShell({
         );
       case 'plan':
         return <V0PlanTab {...commonProps} />;
+      case 'catalog':
+        return <V0CatalogSubflow {...commonProps} />;
+      case 'notifications':
+        return <V0NotificationsSubflow {...commonProps} />;
+      case 'sessions':
+        return <V0SessionsSubflow {...commonProps} />;
       case 'account':
         return <V0AccountTab {...commonProps} />;
       case 'schedule':

@@ -34,6 +34,14 @@ import {
 } from '@/features/payments-billing/billing-api';
 import { ApiClientError } from '@/lib/api/client';
 import { useWeddingTheme } from '@/theme';
+import {
+  RestoredInvoicePanel,
+  RestoredTimelinePanel,
+  RestoredCommercialPanel,
+  RestoredGuestPanel,
+  RestoredPrintPanel,
+} from './restored-flow-controls';
+import { saveOrShareDownloadedFile } from '@/lib/save-downloaded-file';
 import type { V0CommonProps } from './v0-types';
 
 const money = (value: number) =>
@@ -65,7 +73,7 @@ function printStatusMeta(status: AppPrintOrderView['status']) {
 // ====================================================
 // 1. SCHEDULE SUBFLOW
 // ====================================================
-export function V0ScheduleSubflow({ activeBooking, facts, onNavigate }: V0CommonProps) {
+export function V0ScheduleSubflow({ activeBooking, facts, onNavigate, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const timelineItems = activeBooking?.timeline ?? [];
   const timelineRevision = activeBooking?.timelineRevision;
@@ -77,6 +85,7 @@ export function V0ScheduleSubflow({ activeBooking, facts, onNavigate }: V0Common
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredTimelinePanel activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
@@ -535,6 +544,7 @@ export function V0PrintSubflow({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredPrintPanel activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
@@ -558,12 +568,11 @@ export function V0PrintSubflow({
         ]}
       >
         <Text style={[styles.calloutTitle, { color: tokens.primary, marginBottom: 4 }]}>
-          Chế độ Chỉ Xem (Mobile MVP - Mục 9.3)
+          Thông tin đơn in và thao tác theo trạng thái
         </Text>
         <Text style={[styles.calloutSubtitle, { color: tokens.muted }]}>
-          Theo tài liệu bàn giao handoff 9.3, ứng dụng di động hiển thị chi tiết tiến độ và báo giá
-          đơn in ở chế độ Chỉ Xem. Để tạo đơn in mới hoặc xác nhận/hủy báo giá, vui lòng truy cập
-          Cổng quản lý Web.
+          Chỉ thao tác khi máy chủ cho phép. Báo giá, phiên bản và thời hạn được lấy từ dữ liệu thực
+          tế của đơn in.
         </Text>
       </View>
 
@@ -755,12 +764,8 @@ export function V0GuestsSubflow({ activeBooking, facts, onNavigate, session }: V
       setError(null);
       try {
         const [loadedGroups, loadedGuests] = await session.authorize(async (token) => {
-          const gGroups = await coupleBilling
-            .loadGuestGroups(token, activeBooking.bookingId)
-            .catch(() => []);
-          const gGuests = await coupleBilling
-            .loadGuests(token, activeBooking.bookingId)
-            .catch(() => ({ items: [], nextCursor: null, sourceSequence: 0 }));
+          const gGroups = await coupleBilling.loadGuestGroups(token, activeBooking.bookingId);
+          const gGuests = await coupleBilling.loadGuests(token, activeBooking.bookingId);
           return [gGroups, gGuests.items] as const;
         });
         if (active) {
@@ -791,6 +796,7 @@ export function V0GuestsSubflow({ activeBooking, facts, onNavigate, session }: V
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredGuestPanel activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
@@ -972,10 +978,7 @@ export function V0ContractsSubflow({ activeBooking, onNavigate, session }: V0Com
       const blob = await session.authorize((token) =>
         coupleBilling.downloadContractPdf(token, activeBooking.bookingId, revisionId),
       );
-      Alert.alert(
-        'Tải tệp thành công',
-        `Tệp PDF hợp đồng (${(blob.size / 1024).toFixed(0)} KB) đã được tải về thiết bị an toàn qua kết nối bảo mật.`,
-      );
+      await saveOrShareDownloadedFile(blob, `hop-dong-${revisionId}.pdf`, 'application/pdf');
     } catch (caught) {
       Alert.alert(
         'Lỗi tải tệp PDF',
@@ -992,6 +995,7 @@ export function V0ContractsSubflow({ activeBooking, onNavigate, session }: V0Com
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredCommercialPanel mode="contract" activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
@@ -1180,6 +1184,7 @@ export function V0AppendicesSubflow({ activeBooking, onNavigate, session }: V0Co
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredCommercialPanel mode="appendix" activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
@@ -1476,6 +1481,7 @@ export function V0InvoicesSubflow({ activeBooking, onNavigate, session }: V0Comm
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <RestoredInvoicePanel activeBooking={activeBooking} session={session} />
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"

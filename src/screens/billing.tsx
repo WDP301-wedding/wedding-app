@@ -18,6 +18,7 @@ import {
   type BalanceBody,
 } from '@/features/payments-billing/billing-api';
 import { createBillingIntents } from '@/features/payments-billing/billing-intents';
+import { readPublicEnv } from '@/lib/env';
 import { ApiClientError } from '@/lib/api/client';
 import { type, useWeddingTheme } from '@/theme';
 import { billingStyles as styles } from './billing.styles';
@@ -369,11 +370,28 @@ export function AndroidBillingScreen({
       )}
       {gated && (
         <View style={[styles.notice, { borderColor: brand.gold }]}>
-          <Text style={[styles.title, { color: colors.label }]}>Chưa thể xem thanh toán</Text>
+          <Text style={[styles.title, { color: colors.label }]}>
+            Đặt cọc trên cổng thông tin Web
+          </Text>
           <Text style={[type.body, { color: colors.label }]}>
             Bạn cần quyền xem đầy đủ và hồ sơ đặt tiệc đã được xác nhận. Hãy tiếp tục đặt cọc và
-            hoàn thiện đề xuất trên website.
+            hoàn thiện đề xuất trên website. Việc đặt cọc cho tài khoản Android bị giới hạn theo
+            quyền máy chủ.
           </Text>
+          <Action
+            label="Mở cổng thông tin Web"
+            disabled={pending}
+            onPress={() =>
+              void run(async () => {
+                const portal = readPublicEnv().EXPO_PUBLIC_WEB_PORTAL_URL;
+                if (!portal)
+                  throw new Error(
+                    'Chưa cấu hình EXPO_PUBLIC_WEB_PORTAL_URL. Vui lòng liên hệ nhà hàng.',
+                  );
+                await openBrowserAsync(portal);
+              })
+            }
+          />
         </View>
       )}
       {view !== null && (

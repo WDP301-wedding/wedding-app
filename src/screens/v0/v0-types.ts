@@ -19,7 +19,10 @@ export type V0Screen =
   | 'contracts'
   | 'appendices'
   | 'incidentals'
-  | 'invoices';
+  | 'invoices'
+  | 'catalog'
+  | 'notifications'
+  | 'sessions';
 
 export interface V0EventFacts {
   readonly brideName: string;

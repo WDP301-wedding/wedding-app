@@ -1,9 +1,10 @@
+import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
 import { createApiClient, type ApiClient } from '@/lib/api/client';
 
 export type ConfirmedPlanningSnapshot = Readonly<{
   bookingId: string;
   consultationId?: string;
-  phase: 'CONFIRMED' | 'COMPLETED';
+  phase: 'DRAFT' | 'AWAITING_DEPOSIT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   revision: number;
   eventDate: string;
   planningHeadcount: number;
@@ -26,10 +27,13 @@ export interface PlanningGateway {
   loadConfirmed(this: void, accessToken: string, bookingId: string): Promise<PlanningResult>;
 }
 
-export function createPlanningGateway(client?: ApiClient): PlanningGateway {
+export function createPlanningGateway(
+  client?: ApiClient,
+): PlanningGateway & ReturnType<typeof createRestoredFlowsGateway> {
   let resolved = client;
   const api = () => (resolved ??= createApiClient());
   return {
+    ...createRestoredFlowsGateway(client),
     async loadConfirmed(accessToken, bookingId) {
       const { data } = await api().GET('/bookings/{bookingId}/proposal', {
         params: { path: { bookingId } },
@@ -37,10 +41,7 @@ export function createPlanningGateway(client?: ApiClient): PlanningGateway {
       });
       if (data === undefined) throw new Error('The planning response did not include data.');
       const value = data.data;
-      if (value.capabilities.accessLevel !== 'FULL') {
-        return { status: 'not-confirmed', snapshot: null };
-      }
-      if (value.phase !== 'CONFIRMED' && value.phase !== 'COMPLETED') {
+      if (value.phase === 'CANCELLED') {
         return { status: 'not-confirmed', snapshot: null };
       }
       return {

@@ -116,6 +116,9 @@ export function V0InviteTab({
       setEditError(null);
       setLoading(true);
       setLoadError(null);
+      setSelectedDesign(null);
+      setPublication(null);
+      setPublishError(null);
       try {
         const items = await session.authorize((token) =>
           gateway.listDesigns(token, activeBooking.bookingId),

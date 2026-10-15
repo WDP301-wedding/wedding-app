@@ -225,10 +225,11 @@ export function CoupleOverviewScreen({
       };
 
   // Render V0 companion shell as the primary native experience once a confirmed booking is loaded
-  if (plan) {
+  if (plan || view === 'account') {
     return (
       <V0CompanionShell
         facts={currentFacts}
+        initialScreen={plan ? 'overview' : 'account'}
         session={session}
         profile={profile}
         activeBooking={plan}
@@ -266,84 +267,75 @@ export function CoupleOverviewScreen({
         />
       </View>
 
-      {view === 'account' ? (
-        <NativeAccountSettings session={session} onSignedOut={onLogout} />
-      ) : (
-        <>
-          <View style={[styles.planningHero, { backgroundColor: brand.primary }]}>
-            <Text style={[styles.countdownEyebrow, { color: brand.goldSoft }]}>
-              HÀNH TRÌNH CỦA HAI BẠN
+      <>
+        <View style={[styles.planningHero, { backgroundColor: brand.primary }]}>
+          <Text style={[styles.countdownEyebrow, { color: brand.goldSoft }]}>
+            HÀNH TRÌNH CỦA HAI BẠN
+          </Text>
+          <Text style={[type.largeTitle, { color: brand.primaryText }]}>
+            Cùng chuẩn bị ngày chung đôi
+          </Text>
+          <Text style={[type.body, { color: brand.primaryText }]}>
+            Thông tin đã được nhà hàng xác nhận, luôn sẵn sàng để hai bạn theo dõi.
+          </Text>
+        </View>
+        {pending && <ActivityIndicator accessibilityLabel="Đang tải" color={brand.primary} />}
+        {error && (
+          <View style={styles.planningNotice}>
+            <Text accessibilityRole="alert" style={[type.body, { color: brand.script }]}>
+              {error}
             </Text>
-            <Text style={[type.largeTitle, { color: brand.primaryText }]}>
-              Cùng chuẩn bị ngày chung đôi
-            </Text>
-            <Text style={[type.body, { color: brand.primaryText }]}>
-              Thông tin đã được nhà hàng xác nhận, luôn sẵn sàng để hai bạn theo dõi.
+            <ActionButton label="Thử lại" action={() => void load()} />
+          </View>
+        )}
+        {!overview && !pending && !error && (
+          <ActionButton label="Tải kế hoạch" action={() => void load()} />
+        )}
+        {overview?.data.length === 0 && (
+          <View style={styles.planningNotice}>
+            <Text style={[type.title, { color: brand.display }]}>Chưa có kế hoạch đã xác nhận</Text>
+            <Text style={[type.body, { color: colors.secondaryLabel }]}>
+              Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp tục
+              trao đổi với nhà hàng trên Web.
             </Text>
           </View>
-          {pending && <ActivityIndicator accessibilityLabel="Đang tải" color={brand.primary} />}
-          {error && (
-            <View style={styles.planningNotice}>
-              <Text accessibilityRole="alert" style={[type.body, { color: brand.script }]}>
-                {error}
-              </Text>
-              <ActionButton label="Thử lại" action={() => void load()} />
-            </View>
-          )}
-          {!overview && !pending && !error && (
-            <ActionButton label="Tải kế hoạch" action={() => void load()} />
-          )}
-          {overview?.data.length === 0 && (
-            <View style={styles.planningNotice}>
-              <Text style={[type.title, { color: brand.display }]}>
-                Chưa có kế hoạch đã xác nhận
-              </Text>
-              <Text style={[type.body, { color: colors.secondaryLabel }]}>
-                Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp tục
-                trao đổi với nhà hàng trên Web.
-              </Text>
-            </View>
-          )}
-          {overview?.data.map((item) => (
-            <View
-              key={item.bookingId}
-              style={[
-                styles.planningNotice,
-                { borderColor: brand.gold, backgroundColor: brand.powder },
-              ]}
-            >
-              <Text style={[type.caption, { color: brand.script }]}>
-                {item.phase === 'COMPLETED' ? 'ĐÃ HOÀN THÀNH' : 'ĐÃ XÁC NHẬN'}
-              </Text>
-              <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
-              <Text style={[type.body, { color: colors.label }]}>
-                {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
-                {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} · {item.planningHeadcount}{' '}
-                khách
-              </Text>
-              <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
-                {!item.hasTimeline
-                  ? 'Kịch bản đang được chuẩn bị'
-                  : item.coupleApproved && item.managerApproved
-                    ? 'Kịch bản đã được hai bên thống nhất'
-                    : 'Kịch bản cần được thống nhất'}
-              </Text>
-              <ActionButton
-                label="Xem kế hoạch"
-                action={() => void open(item.bookingId)}
-                disabled={pending}
-              />
-            </View>
-          ))}
-          {overview?.nextCursor && (
+        )}
+        {overview?.data.map((item) => (
+          <View
+            key={item.bookingId}
+            style={[
+              styles.planningNotice,
+              { borderColor: brand.gold, backgroundColor: brand.powder },
+            ]}
+          >
+            <Text style={[type.caption, { color: brand.script }]}>
+              {item.phase === 'COMPLETED' ? 'ĐÃ HOÀN THÀNH' : 'ĐÃ XÁC NHẬN'}
+            </Text>
+            <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
+            <Text style={[type.body, { color: colors.label }]}>
+              {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
+              {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} · {item.planningHeadcount}{' '}
+              khách
+            </Text>
+            <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
+              {!item.hasTimeline
+                ? 'Kịch bản đang được chuẩn bị'
+                : item.coupleApproved && item.managerApproved
+                  ? 'Kịch bản đã được hai bên thống nhất'
+                  : 'Kịch bản cần được thống nhất'}
+            </Text>
             <ActionButton
-              label="Xem thêm kế hoạch"
-              action={() => void load(overview.nextCursor!)}
+              label="Xem kế hoạch"
+              action={() => void open(item.bookingId)}
+              disabled={pending}
             />
-          )}
-          {overview && <ActionButton label="Cập nhật tổng quan" action={() => void load()} />}
-        </>
-      )}
+          </View>
+        ))}
+        {overview?.nextCursor && (
+          <ActionButton label="Xem thêm kế hoạch" action={() => void load(overview.nextCursor!)} />
+        )}
+        {overview && <ActionButton label="Cập nhật tổng quan" action={() => void load()} />}
+      </>
     </ScrollView>
   );
 }

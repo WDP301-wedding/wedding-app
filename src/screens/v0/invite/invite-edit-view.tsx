@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { LockIcon, RotateCcwIcon } from '@/components/v0-primitives';
 import type { AppDesignView } from '@/features/invitation-studio/app-invitation-api';
 import { useWeddingTheme } from '@/theme';
@@ -104,8 +97,8 @@ export function InviteEditView({
             {conflictState.serverRevision !== null
               ? `Máy chủ hiện đang ở phiên bản #${conflictState.serverRevision} (bản bạn đang sửa dựa trên phiên bản #${conflictState.clientRevision}).`
               : `Máy chủ đã có phiên bản mới hơn phiên bản #${conflictState.clientRevision} của bạn (chưa thể tải số phiên bản chính xác do kết nối).`}{' '}
-            Nội dung bạn vừa nhập vẫn được giữ nguyên bên dưới. Bạn có thể xem bản máy chủ hoặc
-            xác nhận lưu đè nội dung của mình lên phiên bản mới.
+            Nội dung bạn vừa nhập vẫn được giữ nguyên bên dưới. Bạn có thể xem bản máy chủ hoặc xác
+            nhận lưu đè nội dung của mình lên phiên bản mới.
           </Text>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
             <Pressable
@@ -176,9 +169,7 @@ export function InviteEditView({
       >
         <RotateCcwIcon size={18} color={tokens.sage} />
         <View style={styles.revisionAlertText}>
-          <Text style={[styles.revisionAlertTitle, { color: tokens.sage }]}>
-            Chỉnh sửa văn bản
-          </Text>
+          <Text style={[styles.revisionAlertTitle, { color: tokens.sage }]}>Chỉnh sửa văn bản</Text>
           <Text style={[styles.revisionAlertDesc, { color: tokens.muted }]}>
             Thiết kế và bố cục được giữ nguyên theo chuẩn xưởng in.
           </Text>

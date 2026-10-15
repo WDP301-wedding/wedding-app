@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
-import type { CommercialAppendixView, CommercialContractView } from '@/features/payments-billing/billing-api';
+import type {
+  CommercialAppendixView,
+  CommercialContractView,
+} from '@/features/payments-billing/billing-api';
 import { saveOrShareDownloadedFile } from '@/lib/save-downloaded-file';
 import {
   api,

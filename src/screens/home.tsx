@@ -12,20 +12,10 @@ import { type, useWeddingTheme } from '@/theme';
 
 import { CoupleOverviewScreen } from './couple-overview';
 import { styles } from './home.styles';
-import {
-  ConfirmedPlanningScreen,
-  PlanningContent,
-  formatDate,
-} from './confirmed-planning-screen';
+import { ConfirmedPlanningScreen, PlanningContent, formatDate } from './confirmed-planning-screen';
 import { IdentityScreen, VENUE_IMAGE } from './identity-screen';
 
-export {
-  ConfirmedPlanningScreen,
-  PlanningContent,
-  IdentityScreen,
-  VENUE_IMAGE,
-  formatDate,
-};
+export { ConfirmedPlanningScreen, PlanningContent, IdentityScreen, VENUE_IMAGE, formatDate };
 
 const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
 

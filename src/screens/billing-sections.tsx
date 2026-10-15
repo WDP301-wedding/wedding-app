@@ -252,12 +252,7 @@ export function BillingIntentSection({
         disabled={pending}
         onPress={onStart}
       />
-      <Action
-        label="Quay lại"
-        secondary
-        disabled={pending || retry}
-        onPress={onCancel}
-      />
+      <Action label="Quay lại" secondary disabled={pending || retry} onPress={onCancel} />
     </View>
   );
 }
@@ -277,22 +272,16 @@ export function BillingCheckoutSection({
   const status = attempt?.status ?? checkout.status;
   return (
     <View style={[styles.notice, { borderColor: brand.gold }]}>
-      <Text style={[styles.title, { color: colors.label }]}>
-        Đường dẫn thanh toán đã được tạo
-      </Text>
+      <Text style={[styles.title, { color: colors.label }]}>Đường dẫn thanh toán đã được tạo</Text>
       <Text selectable style={[type.body, { color: colors.label }]}>
         {checkout.paymentAttemptId}
       </Text>
       <Text style={[type.body, { color: colors.secondaryLabel }]}>
-        Hết hạn: {new Date(checkout.expiresAt).toLocaleString('vi-VN')}. Hết hạn không chứng
-        minh thất bại.
+        Hết hạn: {new Date(checkout.expiresAt).toLocaleString('vi-VN')}. Hết hạn không chứng minh
+        thất bại.
       </Text>
       {(status === 'CREATED' || status === 'PENDING') && (
-        <Action
-          label="Tiếp tục trên VNPay"
-          disabled={pending}
-          onPress={onContinue}
-        />
+        <Action label="Tiếp tục trên VNPay" disabled={pending} onPress={onContinue} />
       )}
     </View>
   );

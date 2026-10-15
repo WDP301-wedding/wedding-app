@@ -1,12 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { RotateCcwIcon } from '@/components/v0-primitives';
 import {
   createCatalogGateway,
@@ -19,12 +12,7 @@ import {
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from './v0-types';
 import { styles } from './v0-catalog-subflow.styles';
-import {
-  DishCard,
-  HallItemCard,
-  MenuPackageCard,
-  money,
-} from './catalog/v0-catalog-cards';
+import { DishCard, HallItemCard, MenuPackageCard, money } from './catalog/v0-catalog-cards';
 
 export { styles, money };
 

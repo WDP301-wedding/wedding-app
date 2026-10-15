@@ -103,10 +103,7 @@ export function NotificationDeviceDiagnosticCard({
 
   return (
     <View
-      style={[
-        styles.calloutCard,
-        { backgroundColor: tokens.surface, borderColor: tokens.rule },
-      ]}
+      style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
     >
       <View
         style={{
@@ -122,8 +119,8 @@ export function NotificationDeviceDiagnosticCard({
         <StatusTag tone="warm">Native FCM Blocker</StatusTag>
       </View>
       <Text style={[styles.calloutSubtitle, { color: tokens.muted, marginBottom: 8 }]}>
-        Thiết bị sử dụng định danh cài đặt ổn định lưu trữ bảo mật (SecureStore). Hoạt động nhận push
-        notification từ xa qua FCM hiện đang bị chặn bởi các rào cản kỹ thuật bên dưới.
+        Thiết bị sử dụng định danh cài đặt ổn định lưu trữ bảo mật (SecureStore). Hoạt động nhận
+        push notification từ xa qua FCM hiện đang bị chặn bởi các rào cản kỹ thuật bên dưới.
       </Text>
 
       <View style={[styles.factRow, { marginTop: 6 }]}>
@@ -156,12 +153,12 @@ export function NotificationDeviceDiagnosticCard({
           Chi tiết 4 rào cản tích hợp FCM:
         </Text>
         <Text style={{ fontSize: 11, color: tokens.muted }}>
-          1. Cấu hình: google-services.json có sẵn tại thư mục gốc (com.wdp301.wedding.staging) nhưng
-          chưa liên kết trong app.config.ts (android.googleServicesFile).
+          1. Cấu hình: google-services.json có sẵn tại thư mục gốc (com.wdp301.wedding.staging)
+          nhưng chưa liên kết trong app.config.ts (android.googleServicesFile).
         </Text>
         <Text style={{ fontSize: 11, color: tokens.muted }}>
-          2. SDK Client: Thư viện Push FCM (expo-notifications / react-native-firebase) chưa được cài
-          đặt trong package.json.
+          2. SDK Client: Thư viện Push FCM (expo-notifications / react-native-firebase) chưa được
+          cài đặt trong package.json.
         </Text>
         <Text style={{ fontSize: 11, color: tokens.muted }}>
           3. Build Native: Chưa biên dịch Android Gradle native plugin cho Firebase.
@@ -185,10 +182,7 @@ export function NotificationDeviceCard({
 
   return (
     <View
-      style={[
-        styles.calloutCard,
-        { backgroundColor: tokens.surface, borderColor: tokens.rule },
-      ]}
+      style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
     >
       <View
         style={{
@@ -239,10 +233,7 @@ export function NotificationPreferencesCard({
 
   return (
     <View
-      style={[
-        styles.calloutCard,
-        { backgroundColor: tokens.surface, borderColor: tokens.rule },
-      ]}
+      style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
     >
       <Text style={[styles.calloutTitle, { color: tokens.text, marginBottom: 12 }]}>
         Kênh nhận nhắc nhở & thông báo

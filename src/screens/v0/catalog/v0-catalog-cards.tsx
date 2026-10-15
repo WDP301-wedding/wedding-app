@@ -116,19 +116,12 @@ export function HallItemCard({
   );
 }
 
-export function MenuPackageCard({
-  pkg,
-}: {
-  pkg: PublicMenuPackagesView['items'][number];
-}) {
+export function MenuPackageCard({ pkg }: { pkg: PublicMenuPackagesView['items'][number] }) {
   const { tokens } = useWeddingTheme();
 
   return (
     <View
-      style={[
-        styles.calloutCard,
-        { backgroundColor: tokens.surface, borderColor: tokens.rule },
-      ]}
+      style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
     >
       <View
         style={{
@@ -159,19 +152,12 @@ export function MenuPackageCard({
   );
 }
 
-export function DishCard({
-  dish,
-}: {
-  dish: PublicDishesView['items'][number];
-}) {
+export function DishCard({ dish }: { dish: PublicDishesView['items'][number] }) {
   const { tokens } = useWeddingTheme();
 
   return (
     <View
-      style={[
-        styles.calloutCard,
-        { backgroundColor: tokens.surface, borderColor: tokens.rule },
-      ]}
+      style={[styles.calloutCard, { backgroundColor: tokens.surface, borderColor: tokens.rule }]}
     >
       <View
         style={{

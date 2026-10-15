@@ -145,9 +145,7 @@ export function ConfirmedPlanningScreen({
   );
 }
 
-export function PlanningContent({
-  snapshot,
-}: Readonly<{ snapshot: ConfirmedPlanningSnapshot }>) {
+export function PlanningContent({ snapshot }: Readonly<{ snapshot: ConfirmedPlanningSnapshot }>) {
   const { brand, colors } = useWeddingTheme();
   return (
     <>

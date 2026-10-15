@@ -368,7 +368,6 @@ export function V0InviteTab({
     ]);
   };
 
-
   if (subscreen === 'edit') {
     return (
       <InviteEditView

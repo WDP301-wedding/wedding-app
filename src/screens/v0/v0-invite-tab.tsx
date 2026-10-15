@@ -6,10 +6,9 @@ import {
   type AppDesignView,
   type AppPublicationView,
 } from '@/features/invitation-studio/app-invitation-api';
-import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from './v0-types';
 import { styles } from './invite/invite.styles';
-import { InviteEditView, type ConflictState } from './invite/invite-edit-view';
+import { InviteEditView } from './invite/invite-edit-view';
 import { InviteShareView } from './invite/invite-share-view';
 import { InvitePreviewView } from './invite/invite-preview-view';
 import { useInviteSave } from './invite/use-invite-save';
@@ -28,7 +27,6 @@ export function V0InviteTab({
   onNavigate,
   session,
 }: V0InviteTabProps) {
-  const { tokens } = useWeddingTheme();
   const gateway = invitationGateway ?? createAppInvitationGateway();
 
   // Internal screen view: 'preview' | 'edit' | 'share'
@@ -98,9 +96,11 @@ export function V0InviteTab({
   });
 
   useEffect(() => {
+    const toastTimeout = toastTimeoutRef.current;
+    const copyTimeout = copyTimeoutRef.current;
     return () => {
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      if (toastTimeout) clearTimeout(toastTimeout);
+      if (copyTimeout) clearTimeout(copyTimeout);
     };
   }, []);
 
@@ -146,7 +146,7 @@ export function V0InviteTab({
         if (reqId === activeRequestCounterRef.current) setLoading(false);
       }
     })();
-  }, [session, activeBooking?.bookingId, gateway]);
+  }, [session, activeBooking?.bookingId, gateway, setConflictState, setEditError]);
 
   const coupleDisplay =
     brideName && groomName ? `${brideName} & ${groomName}` : facts.coupleDisplay || 'Cặp đôi';
@@ -202,7 +202,7 @@ export function V0InviteTab({
       setSubscreen('preview');
       onNavigate('invite');
     }
-  }, [isDirty, onNavigate, selectedDesign]);
+  }, [isDirty, onNavigate, selectedDesign, setConflictState, setEditError]);
 
   // Hardware back handling for edit and share
   useEffect(() => {

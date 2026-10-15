@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Text } from 'react-native';
 import { api, message, money, Button, ErrorNote, Panel, type ContextProps } from './panels-common';
-import { styles } from './panels.styles';
 
 export function RestoredInvoicePanel({ activeBooking, session }: ContextProps) {
   const bookingId = activeBooking?.bookingId;

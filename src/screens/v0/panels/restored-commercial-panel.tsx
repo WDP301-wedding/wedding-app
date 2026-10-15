@@ -4,7 +4,6 @@ import type {
   CommercialAppendixView,
   CommercialContractView,
 } from '@/features/payments-billing/billing-api';
-import { saveOrShareDownloadedFile } from '@/lib/save-downloaded-file';
 import {
   api,
   message,
@@ -15,7 +14,6 @@ import {
   ErrorNote,
   Panel,
   type ContextProps,
-  type Contract,
   type Line,
   type DraftLine,
   type Proposal,

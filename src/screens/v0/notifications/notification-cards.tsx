@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
-import { BellIcon, CheckIcon, StatusTag } from '@/components/v0-primitives';
+import { CheckIcon, StatusTag } from '@/components/v0-primitives';
 import type {
   AndroidInstallationItem,
   InboxItem,

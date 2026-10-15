@@ -1,6 +1,6 @@
 import '@/lib/alert';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import { Button, Host } from '@expo/ui';
 import {
   createExperienceGateway,

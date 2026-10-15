@@ -10,7 +10,7 @@ import {
   type NotificationPreferencesView,
 } from '@/features/notifications/notification-api';
 import { useWeddingTheme } from '@/theme';
-import type { V0CommonProps, V0Screen } from './v0-types';
+import type { V0CommonProps } from './v0-types';
 import { styles } from './v0-notifications-subflow.styles';
 import {
   NotificationDeviceCard,

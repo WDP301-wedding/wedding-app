@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import {
   api,
   message,
   useMutation,
   Button,
-  Field,
   ErrorNote,
   Panel,
   type ContextProps,
 } from './panels-common';
-import { styles } from './panels.styles';
 
 export function RestoredGuestPanel({ activeBooking, session }: ContextProps) {
   const bookingId = activeBooking?.bookingId;

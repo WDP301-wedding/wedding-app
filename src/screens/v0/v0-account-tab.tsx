@@ -1,3 +1,4 @@
+import '@/lib/alert';
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CalendarIcon, ChevronRightIcon, FileTextIcon, LockIcon } from '@/components/v0-primitives';

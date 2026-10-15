@@ -3,12 +3,11 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { RotateCcwIcon, StatusTag } from '@/components/v0-primitives';
+import { RotateCcwIcon } from '@/components/v0-primitives';
 import {
   createCatalogGateway,
   type PublicDishesView,
@@ -19,11 +18,17 @@ import {
 } from '@/features/catalog/catalog-api';
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps } from './v0-types';
+import { styles } from './v0-catalog-subflow.styles';
+import {
+  DishCard,
+  HallItemCard,
+  MenuPackageCard,
+  money,
+} from './catalog/v0-catalog-cards';
+
+export { styles, money };
 
 const catalogGateway = createCatalogGateway();
-
-const money = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
 export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
@@ -112,47 +117,51 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       setSelectedHall(detail);
     } catch (caught) {
       setDetailError(
-        caught instanceof Error ? caught.message : 'Không thể tải chi tiết sảnh tiệc.',
+        caught instanceof Error ? caught.message : 'Chưa tải được chi tiết sảnh tiệc.',
       );
     } finally {
       setLoadingDetail(false);
     }
   };
 
-  const filteredDishes = dishSearch.trim()
-    ? dishes.filter(
-        (d) =>
-          d.name.toLowerCase().includes(dishSearch.toLowerCase()) ||
-          d.categoryLabel.toLowerCase().includes(dishSearch.toLowerCase()),
-      )
-    : dishes;
+  const filteredDishes = dishes.filter(
+    (d) =>
+      d.name.toLowerCase().includes(dishSearch.toLowerCase()) ||
+      d.categoryLabel.toLowerCase().includes(dishSearch.toLowerCase()),
+  );
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: tokens.canvas }]}
       contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
     >
+      {/* Page Header */}
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Về tài khoản"
-          onPress={() => onNavigate('account')}
-          style={styles.backButton}
+          accessibilityLabel="Quay lại"
+          onPress={() => onNavigate('overview')}
+          style={({ pressed }) => [
+            styles.backButton,
+            { backgroundColor: pressed ? tokens.surfaceMuted : 'transparent' },
+          ]}
         >
-          <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>
+          <Text style={[styles.backGlyph, { color: tokens.text }]}>‹</Text>
         </Pressable>
         <View style={styles.headerTitleWrap}>
-          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Thông tin tham khảo</Text>
-          <Text style={[styles.heading, { color: tokens.text }]}>Danh mục nhà hàng</Text>
+          <Text style={[styles.eyebrow, { color: tokens.sage }]}>Danh mục dịch vụ</Text>
+          <Text style={[styles.heading, { color: tokens.text }]}>Khám phá & Bảng giá</Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Tải lại danh mục"
+          accessibilityLabel="Tải lại"
           onPress={loadCatalog}
-          style={styles.refreshButton}
+          style={({ pressed }) => [
+            styles.refreshButton,
+            { backgroundColor: pressed ? tokens.surfaceMuted : 'transparent' },
+          ]}
         >
-          <RotateCcwIcon size={16} color={tokens.primary} />
+          <RotateCcwIcon size={18} color={tokens.text} />
         </Pressable>
       </View>
 
@@ -326,102 +335,17 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       {tab === 'halls' && (
         <View style={{ gap: 12 }}>
           {halls.length > 0 ? (
-            halls.map((hall) => {
-              const isSelected = selectedHall?.id === hall.id;
-              return (
-                <View
-                  key={hall.id}
-                  style={[
-                    styles.calloutCard,
-                    {
-                      backgroundColor: tokens.surface,
-                      borderColor: isSelected ? tokens.primary : tokens.rule,
-                      borderWidth: isSelected ? 1.5 : 1,
-                    },
-                  ]}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: tokens.text }}>
-                      {hall.name}
-                    </Text>
-                    <StatusTag tone="success">Tối đa {hall.maxGuests} khách</StatusTag>
-                  </View>
-
-                  {hall.description ? (
-                    <Text
-                      style={{ fontSize: 12, color: tokens.muted, marginTop: 4, lineHeight: 17 }}
-                    >
-                      {hall.description}
-                    </Text>
-                  ) : null}
-
-                  <View style={{ marginTop: 10, alignItems: 'flex-end' }}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Xem chi tiết sảnh ${hall.name}`}
-                      onPress={() => handleSelectHall(hall.id)}
-                      style={[styles.outlineButton, { borderColor: tokens.rule }]}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.primary }}>
-                        {isSelected ? 'Đóng chi tiết' : 'Xem chi tiết sảnh'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {/* Expanded Detail (A68-66) */}
-                  {isSelected && (
-                    <View
-                      style={{
-                        marginTop: 12,
-                        borderTopWidth: 1,
-                        borderTopColor: tokens.rule,
-                        paddingTop: 10,
-                      }}
-                    >
-                      {loadingDetail ? (
-                        <ActivityIndicator size="small" color={tokens.primary} />
-                      ) : detailError ? (
-                        <Text style={{ fontSize: 12, color: tokens.tagWarmText }}>
-                          {detailError}
-                        </Text>
-                      ) : selectedHall ? (
-                        <View style={{ gap: 6 }}>
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: tokens.primary }}>
-                            Thông tin sảnh:
-                          </Text>
-                          <View style={styles.factRow}>
-                            <Text style={{ fontSize: 12, color: tokens.muted }}>
-                              Sức chứa tối đa:
-                            </Text>
-                            <Text style={{ fontSize: 12, fontWeight: '600', color: tokens.text }}>
-                              {selectedHall.maxGuests} khách
-                            </Text>
-                          </View>
-                          {selectedHall.description ? (
-                            <Text
-                              style={{
-                                fontSize: 12,
-                                color: tokens.muted,
-                                marginTop: 4,
-                                lineHeight: 17,
-                              }}
-                            >
-                              {selectedHall.description}
-                            </Text>
-                          ) : null}
-                        </View>
-                      ) : null}
-                    </View>
-                  )}
-                </View>
-              );
-            })
+            halls.map((hall) => (
+              <HallItemCard
+                key={hall.id}
+                hall={hall}
+                isSelected={selectedHall?.id === hall.id}
+                loadingDetail={loadingDetail}
+                detailError={detailError}
+                selectedHall={selectedHall}
+                onToggle={() => handleSelectHall(hall.id)}
+              />
+            ))
           ) : !loading ? (
             <View style={styles.emptyCard}>
               <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
@@ -436,45 +360,7 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       {tab === 'menus' && (
         <View style={{ gap: 12 }}>
           {menuPackages.length > 0 ? (
-            menuPackages.map((pkg) => (
-              <View
-                key={pkg.id}
-                style={[
-                  styles.calloutCard,
-                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
-                ]}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: tokens.text }}>
-                    {pkg.name}
-                  </Text>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.primary }}>
-                    {money(pkg.priceVndPerTable)} / bàn
-                  </Text>
-                </View>
-
-                {pkg.description ? (
-                  <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 4, lineHeight: 17 }}>
-                    {pkg.description}
-                  </Text>
-                ) : null}
-
-                <View style={[styles.factRow, { marginTop: 8 }]}>
-                  <Text style={{ fontSize: 11, color: tokens.sage }}>
-                    Mã: #{pkg.id.slice(0, 8)}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: tokens.earth }}>
-                    Phiên bản #{pkg.versionNumber} ({pkg.items?.length ?? 0} món)
-                  </Text>
-                </View>
-              </View>
-            ))
+            menuPackages.map((pkg) => <MenuPackageCard key={pkg.id} pkg={pkg} />)
           ) : !loading ? (
             <View style={styles.emptyCard}>
               <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
@@ -500,42 +386,7 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
           />
 
           {filteredDishes.length > 0 ? (
-            filteredDishes.map((dish) => (
-              <View
-                key={dish.id}
-                style={[
-                  styles.calloutCard,
-                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
-                ]}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.text }}>
-                    {dish.name}
-                  </Text>
-                  <StatusTag tone="neutral">{dish.categoryLabel}</StatusTag>
-                </View>
-
-                {dish.priceVnd ? (
-                  <Text
-                    style={{ fontSize: 13, fontWeight: '600', color: tokens.primary, marginTop: 4 }}
-                  >
-                    Đơn giá: {money(dish.priceVnd)}
-                  </Text>
-                ) : null}
-
-                {dish.description ? (
-                  <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2, lineHeight: 17 }}>
-                    {dish.description}
-                  </Text>
-                ) : null}
-              </View>
-            ))
+            filteredDishes.map((dish) => <DishCard key={dish.id} dish={dish} />)
           ) : !loading ? (
             <View style={styles.emptyCard}>
               <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
@@ -548,99 +399,3 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backGlyph: {
-    fontSize: 26,
-    lineHeight: 28,
-  },
-  headerTitleWrap: { flex: 1 },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    marginBottom: 16,
-  },
-  tabButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    marginRight: 6,
-  },
-  tabText: {
-    fontSize: 13,
-  },
-  calloutCard: {
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  calloutTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  emptyCard: {
-    padding: 24,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  factRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  input: {
-    minHeight: 40,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 13,
-  },
-  outlineButton: {
-    minHeight: 32,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

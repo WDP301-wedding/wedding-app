@@ -1,3 +1,4 @@
+import '@/lib/alert';
 import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import {

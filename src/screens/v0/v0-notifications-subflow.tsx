@@ -4,14 +4,12 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
-import { BellIcon, CheckIcon, RotateCcwIcon, StatusTag } from '@/components/v0-primitives';
+import { BellIcon, RotateCcwIcon } from '@/components/v0-primitives';
 import {
   createNotificationGateway,
   type AndroidInstallationItem,
@@ -20,6 +18,17 @@ import {
 } from '@/features/notifications/notification-api';
 import { useWeddingTheme } from '@/theme';
 import type { V0CommonProps, V0Screen } from './v0-types';
+import { styles } from './v0-notifications-subflow.styles';
+import {
+  NotificationDeviceCard,
+  NotificationDeviceDiagnosticCard,
+  NotificationInboxCard,
+  NotificationPreferencesCard,
+  NotificationTabBar,
+  getDestinationScreen,
+} from './notifications/notification-cards';
+
+export { styles };
 
 const notificationGateway = createNotificationGateway();
 const INSTALLATION_STORAGE_KEY = 'wedding.notifications.installation-id';
@@ -59,25 +68,29 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
     };
   }, []);
 
-  const fetchData = useCallback(async () => {
-    if (!session) return;
+  const loadData = useCallback(async () => {
+    if (!session) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
     try {
-      const [inboxRes, unread, prefs, insts] = await session.authorize(async (token) => {
-        return await Promise.all([
-          notificationGateway.listInbox(token, { limit: 30 }),
-          notificationGateway.countUnread(token),
-          notificationGateway.getPreferences(token),
-          notificationGateway.listInstallations(token),
-        ]);
-      });
+      const [inboxRes, unreadRes, prefsRes, installsRes] = await Promise.all([
+        session.authorize((token) => notificationGateway.listInbox(token, { limit: 30 })),
+        session.authorize((token) => notificationGateway.countUnread(token)),
+        session.authorize((token) => notificationGateway.getPreferences(token)),
+        session.authorize((token) => notificationGateway.listInstallations(token)),
+      ]);
       setInbox(inboxRes.items);
       setNextCursor(inboxRes.nextCursor ?? null);
-      setUnreadCount(unread);
-      setPreferences(prefs);
-      setInstallations(insts);
+      setUnreadCount(unreadRes);
+      setPreferences(prefsRes);
+      setInstallations(installsRes);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Chưa tải được dữ liệu thông báo từ máy chủ.',
+        caught instanceof Error
+          ? caught.message
+          : 'Không thể tải thông báo. Vui lòng kiểm tra kết nối.',
       );
     } finally {
       setLoading(false);
@@ -86,14 +99,8 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchData();
-  }, [fetchData]);
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    await fetchData();
-  };
+    void loadData();
+  }, [loadData]);
 
   const handleLoadMoreInbox = async () => {
     if (!session || !nextCursor || loadingMore) return;
@@ -201,31 +208,6 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
     );
   };
 
-  const getDestinationScreen = (purpose: string): V0Screen | null => {
-    switch (purpose) {
-      case 'TIMELINE_REVIEW':
-      case 'TIMELINE_CHANGED':
-        return 'plan';
-      case 'CONTRACT':
-        return 'contracts';
-      case 'APPENDIX':
-        return 'appendices';
-      case 'DEPOSIT_ELIGIBLE':
-      case 'PAYMENT':
-      case 'REFUND':
-        return 'billing';
-      case 'PRINT':
-        return 'print';
-      case 'GUEST_PLAN':
-      case 'GUEST_INVITATION':
-        return 'guests';
-      case 'FINAL_INVOICE':
-        return 'invoices';
-      default:
-        return null;
-    }
-  };
-
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: tokens.canvas }]}
@@ -248,88 +230,18 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Tải lại thông báo"
-          onPress={loadData}
+          onPress={() => {
+            setLoading(true);
+            void loadData();
+          }}
           style={styles.refreshButton}
         >
-          <RotateCcwIcon size={16} color={tokens.primary} />
+          <RotateCcwIcon size={18} color={tokens.primary} />
         </Pressable>
       </View>
 
       {/* Tabs */}
-      <View style={[styles.tabBar, { borderBottomColor: tokens.rule }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Hộp thư thông báo"
-          onPress={() => setTab('inbox')}
-          style={[
-            styles.tabButton,
-            tab === 'inbox' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
-          ]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text
-              style={[
-                styles.tabText,
-                {
-                  color: tab === 'inbox' ? tokens.primary : tokens.muted,
-                  fontWeight: tab === 'inbox' ? '700' : '500',
-                },
-              ]}
-            >
-              Hộp thư
-            </Text>
-            {unreadCount > 0 ? (
-              <View style={[styles.badge, { backgroundColor: tokens.primary }]}>
-                <Text style={[styles.badgeText, { color: tokens.onPrimary }]}>{unreadCount}</Text>
-              </View>
-            ) : null}
-          </View>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Thiết bị FCM"
-          onPress={() => setTab('devices')}
-          style={[
-            styles.tabButton,
-            tab === 'devices' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: tab === 'devices' ? tokens.primary : tokens.muted,
-                fontWeight: tab === 'devices' ? '700' : '500',
-              },
-            ]}
-          >
-            Thiết bị ({installations.length})
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tùy chọn nhận tin"
-          onPress={() => setTab('preferences')}
-          style={[
-            styles.tabButton,
-            tab === 'preferences' && { borderBottomColor: tokens.primary, borderBottomWidth: 2 },
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              {
-                color: tab === 'preferences' ? tokens.primary : tokens.muted,
-                fontWeight: tab === 'preferences' ? '700' : '500',
-              },
-            ]}
-          >
-            Tùy chọn
-          </Text>
-        </Pressable>
-      </View>
+      <NotificationTabBar tab={tab} setTab={setTab} unreadCount={unreadCount} />
 
       {loading && <ActivityIndicator color={tokens.primary} style={{ marginVertical: 16 }} />}
 
@@ -371,79 +283,18 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
 
           {inbox.length > 0 ? (
             inbox.map((item) => {
-              const isUnread = !item.readAt;
+              const dest = getDestinationScreen(item.purpose);
               return (
-                <Pressable
+                <NotificationInboxCard
                   key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.message || 'Thông báo'}
-                  onPress={() => handleMarkRead(item)}
-                  style={[
-                    styles.calloutCard,
-                    {
-                      backgroundColor: isUnread ? tokens.surface : tokens.canvas,
-                      borderColor: isUnread ? tokens.primary : tokens.rule,
-                      borderLeftWidth: isUnread ? 4 : 1,
-                    },
-                  ]}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: isUnread ? '700' : '500',
-                        color: tokens.text,
-                        flex: 1,
-                      }}
-                    >
-                      {item.message}
-                    </Text>
-                    {isUnread ? (
-                      <StatusTag tone="warm">Mới</StatusTag>
-                    ) : (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <CheckIcon size={12} color={tokens.sage} />
-                        <Text style={{ fontSize: 11, color: tokens.sage }}>Đã đọc</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={[styles.factRow, { marginTop: 8 }]}>
-                    <Text style={{ fontSize: 10, color: tokens.earth }}>
-                      {new Date(item.createdAt).toLocaleString('vi-VN')}
-                    </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 10, color: tokens.sage }}>{item.purpose}</Text>
-                      {getDestinationScreen(item.purpose) && (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Xem chi tiết nội dung"
-                          onPress={() => {
-                            void handleMarkRead(item);
-                            const dest = getDestinationScreen(item.purpose);
-                            if (dest) onNavigate(dest);
-                          }}
-                          style={{
-                            paddingHorizontal: 6,
-                            paddingVertical: 2,
-                            borderRadius: 4,
-                            backgroundColor: tokens.surfaceMuted,
-                          }}
-                        >
-                          <Text style={{ fontSize: 10, color: tokens.primary, fontWeight: '600' }}>
-                            Xem chi tiết ›
-                          </Text>
-                        </Pressable>
-                      )}
-                    </View>
-                  </View>
-                </Pressable>
+                  item={item}
+                  destination={dest}
+                  onMarkRead={() => handleMarkRead(item)}
+                  onNavigateDetail={() => {
+                    void handleMarkRead(item);
+                    if (dest) onNavigate(dest);
+                  }}
+                />
               );
             })
           ) : !loading ? (
@@ -487,78 +338,7 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       {/* Tab 2: DEVICES */}
       {tab === 'devices' && (
         <View style={{ gap: 14 }}>
-          {/* Honest Device Installation Status & Blocker Diagnostics (Finding 6) */}
-          <View
-            style={[
-              styles.calloutCard,
-              { backgroundColor: tokens.surface, borderColor: tokens.rule },
-            ]}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-              }}
-            >
-              <Text style={[styles.calloutTitle, { color: tokens.text }]}>
-                Định danh thiết bị Android & Push FCM
-              </Text>
-              <StatusTag tone="warm">Native FCM Blocker</StatusTag>
-            </View>
-            <Text style={[styles.calloutSubtitle, { color: tokens.muted, marginBottom: 8 }]}>
-              Thiết bị sử dụng định danh cài đặt ổn định lưu trữ bảo mật (SecureStore). Hoạt động
-              nhận push notification từ xa qua FCM hiện đang bị chặn bởi các rào cản kỹ thuật bên
-              dưới.
-            </Text>
-
-            <View style={[styles.factRow, { marginTop: 6 }]}>
-              <Text style={{ fontSize: 11, color: tokens.muted }}>Mã cài đặt thiết bị này:</Text>
-              <Text
-                selectable
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  color: stableInstallationId ? tokens.primary : tokens.tagWarmText,
-                  fontWeight: '700',
-                }}
-              >
-                {stableInstallationId
-                  ? `${stableInstallationId.slice(0, 18)}…`
-                  : 'Chưa sẵn sàng (SecureStore lỗi/chưa khởi tạo)'}
-              </Text>
-            </View>
-
-            <View
-              style={{
-                marginTop: 8,
-                padding: 8,
-                backgroundColor: tokens.canvas,
-                borderRadius: 6,
-                gap: 4,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '700', color: tokens.text }}>
-                Chi tiết 4 rào cản tích hợp FCM:
-              </Text>
-              <Text style={{ fontSize: 11, color: tokens.muted }}>
-                1. Cấu hình: google-services.json có sẵn tại thư mục gốc
-                (com.wdp301.wedding.staging) nhưng chưa liên kết trong app.config.ts
-                (android.googleServicesFile).
-              </Text>
-              <Text style={{ fontSize: 11, color: tokens.muted }}>
-                2. SDK Client: Thư viện Push FCM (expo-notifications / react-native-firebase) chưa
-                được cài đặt trong package.json.
-              </Text>
-              <Text style={{ fontSize: 11, color: tokens.muted }}>
-                3. Build Native: Chưa biên dịch Android Gradle native plugin cho Firebase.
-              </Text>
-              <Text style={{ fontSize: 11, color: tokens.muted }}>
-                4. Máy chủ: FCM background delivery worker phía máy chủ chưa kích hoạt.
-              </Text>
-            </View>
-          </View>
+          <NotificationDeviceDiagnosticCard stableInstallationId={stableInstallationId} />
 
           <Text style={[styles.policyTitle, { color: tokens.text, marginTop: 4 }]}>
             Danh sách thiết bị đã liên kết trên máy chủ ({installations.length})
@@ -566,48 +346,11 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
 
           {installations.length > 0 ? (
             installations.map((inst) => (
-              <View
+              <NotificationDeviceCard
                 key={inst.id}
-                style={[
-                  styles.calloutCard,
-                  { backgroundColor: tokens.surface, borderColor: tokens.rule },
-                ]}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: tokens.text }}>
-                    Android #{inst.id.slice(0, 8)}
-                  </Text>
-                  <StatusTag tone={inst.enabled ? 'success' : 'neutral'}>
-                    {inst.enabled ? 'Đang kích hoạt' : 'Tắt'}
-                  </StatusTag>
-                </View>
-
-                <View style={[styles.factRow, { marginTop: 6 }]}>
-                  <Text style={{ fontSize: 11, color: tokens.muted }}>Mã cài đặt:</Text>
-                  <Text style={{ fontSize: 11, fontFamily: 'monospace', color: tokens.text }}>
-                    {inst.installationId.slice(0, 16)}…
-                  </Text>
-                </View>
-
-                <View style={{ marginTop: 8, alignItems: 'flex-end' }}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Hủy thiết bị ${inst.id.slice(0, 8)}`}
-                    onPress={() => handleRevokeDevice(inst)}
-                    style={[styles.outlineButton, { borderColor: tokens.champagne }]}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: tokens.tagWarmText }}>
-                      Hủy liên kết
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
+                inst={inst}
+                onRevoke={() => handleRevokeDevice(inst)}
+              />
             ))
           ) : !loading ? (
             <View style={styles.emptyCard}>
@@ -623,59 +366,10 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       {tab === 'preferences' && (
         <View style={{ gap: 14 }}>
           {preferences ? (
-            <View
-              style={[
-                styles.calloutCard,
-                { backgroundColor: tokens.surface, borderColor: tokens.rule },
-              ]}
-            >
-              <Text style={[styles.calloutTitle, { color: tokens.text, marginBottom: 12 }]}>
-                Kênh nhận nhắc nhở & thông báo
-              </Text>
-
-              <View
-                style={[
-                  styles.prefRow,
-                  { borderBottomColor: tokens.rule, borderBottomWidth: 1, paddingBottom: 12 },
-                ]}
-              >
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.text }}>
-                    Nhắc nhở qua Email
-                  </Text>
-                  <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
-                    Nhận thông báo cập nhật hợp đồng, phụ lục và xác nhận thanh toán qua thư điện
-                    tử.
-                  </Text>
-                </View>
-                <Switch
-                  value={preferences.reminderEmail}
-                  onValueChange={(val) => handleTogglePreference('reminderEmail', val)}
-                  trackColor={{ false: tokens.rule, true: tokens.primary }}
-                />
-              </View>
-
-              <View style={[styles.prefRow, { paddingTop: 12 }]}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: tokens.text }}>
-                    Thông báo đẩy (Push Notification)
-                  </Text>
-                  <Text style={{ fontSize: 12, color: tokens.muted, marginTop: 2 }}>
-                    Nhận thông báo trực tiếp trên màn hình thiết bị Android khi có thay đổi trạng
-                    thái.
-                  </Text>
-                </View>
-                <Switch
-                  value={preferences.reminderPush}
-                  onValueChange={(val) => handleTogglePreference('reminderPush', val)}
-                  trackColor={{ false: tokens.rule, true: tokens.primary }}
-                />
-              </View>
-
-              <Text style={{ fontSize: 11, color: tokens.sage, marginTop: 14 }}>
-                Phiên bản cấu hình: #{preferences.revision}
-              </Text>
-            </View>
+            <NotificationPreferencesCard
+              preferences={preferences}
+              onToggle={handleTogglePreference}
+            />
           ) : !loading ? (
             <View style={styles.emptyCard}>
               <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>
@@ -688,137 +382,3 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, paddingBottom: 40 },
-  pageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backGlyph: {
-    fontSize: 26,
-    lineHeight: 28,
-  },
-  headerTitleWrap: { flex: 1 },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    marginBottom: 16,
-  },
-  tabButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginRight: 8,
-  },
-  tabText: {
-    fontSize: 13,
-  },
-  badge: {
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  calloutCard: {
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  calloutTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  calloutSubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  emptyCard: {
-    padding: 24,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyCardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyCardDesc: {
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  factRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 3,
-  },
-  prefRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  input: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    fontSize: 13,
-  },
-  primaryButton: {
-    minHeight: 38,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  outlineButton: {
-    minHeight: 32,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  policyTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});

@@ -86,6 +86,7 @@ export function CoupleOverviewScreen({
   const [venueName, setVenueName] = useState<string>('Chưa cung cấp');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const currentBookingRequestIdRef = useRef(0);
 
   const load = useCallback(
@@ -103,6 +104,7 @@ export function CoupleOverviewScreen({
         );
         if (prof) setProfile(prof);
         if (restaurant?.displayName) setVenueName(restaurant.displayName);
+        setLastRefreshedAt(new Date());
       } catch (caught) {
         if (caught instanceof ApiClientError && [401, 403, 404].includes(caught.status ?? 0)) {
           setOverview(null);
@@ -207,6 +209,20 @@ export function CoupleOverviewScreen({
     void load();
   }, [load]);
 
+  const handleSelectBooking = useCallback(() => {
+    setError(null);
+    if (plan) {
+      setView('overview');
+      return;
+    }
+    const firstBooking = overview?.data?.[0];
+    if (firstBooking) {
+      void open(firstBooking.bookingId);
+      return;
+    }
+    void load();
+  }, [plan, overview, open, load]);
+
   const brideName = canonicalBride;
   const groomName = canonicalGroom;
   const coupleDisplay =
@@ -280,11 +296,9 @@ export function CoupleOverviewScreen({
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingHorizontal: 16 }}>
         <ActionButton
-          label="Chọn tiệc"
-          action={() => {
-            setView('overview');
-            setError(null);
-          }}
+          label={plan ? 'Vào tiệc' : 'Chọn tiệc'}
+          action={handleSelectBooking}
+          disabled={pending}
         />
         <ActionButton
           label="Tài khoản"
@@ -326,6 +340,17 @@ export function CoupleOverviewScreen({
               Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp tục
               trao đổi với nhà hàng trên Web.
             </Text>
+            {lastRefreshedAt && (
+              <Text style={[type.caption, { color: brand.script, marginTop: 4 }]}>
+                Đã kiểm tra lúc{' '}
+                {lastRefreshedAt.toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}{' '}
+                · Chưa có tiệc nào ở trạng thái đã xác nhận cọc
+              </Text>
+            )}
           </View>
         )}
         {overview?.data.map((item) => (
@@ -362,7 +387,25 @@ export function CoupleOverviewScreen({
         {overview?.nextCursor && (
           <ActionButton label="Xem thêm kế hoạch" action={() => void load(overview.nextCursor!)} />
         )}
-        {overview && <ActionButton label="Cập nhật tổng quan" action={() => void load()} />}
+        {overview && (
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            <ActionButton
+              label={pending ? 'Đang cập nhật...' : 'Cập nhật tổng quan'}
+              action={() => void load()}
+              disabled={pending}
+            />
+            {lastRefreshedAt && overview.data.length > 0 && (
+              <Text style={[type.caption, { color: colors.secondaryLabel }]}>
+                Cập nhật lần cuối:{' '}
+                {lastRefreshedAt.toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </Text>
+            )}
+          </View>
+        )}
       </>
     </ScrollView>
   );

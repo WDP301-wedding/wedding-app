@@ -5,10 +5,13 @@ import type { AndroidIdentitySession } from '@/features/identity-access/session'
 
 export type V0Screen =
   | 'overview'
+  | 'prepare'
+  | 'payments'
+  | 'notifications'
+  | 'account'
   | 'finance'
   | 'plan'
   | 'invite'
-  | 'account'
   | 'edit'
   | 'share'
   | 'schedule'
@@ -22,7 +25,6 @@ export type V0Screen =
   | 'incidentals'
   | 'invoices'
   | 'catalog'
-  | 'notifications'
   | 'sessions';
 
 export interface V0EventFacts {
@@ -48,4 +50,15 @@ export interface V0CommonProps {
   readonly invitationGateway?: AppInvitationGateway | undefined;
   readonly onBack?: (() => void) | undefined;
   readonly onSwitchBooking?: (() => void) | undefined;
+  readonly allBookings?:
+    | readonly {
+        readonly bookingId: string;
+        readonly eventDate: string;
+        readonly shiftCode: string;
+        readonly hallName: string;
+        readonly planningHeadcount: number;
+        readonly phase: string;
+      }[]
+    | undefined;
+  readonly onSelectBooking?: ((bookingId: string) => void) | undefined;
 }

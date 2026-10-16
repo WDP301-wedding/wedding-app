@@ -21,17 +21,22 @@ export const hy = {
   warningBg: '#FCEFD6',
   error: '#C62828',
   errorBg: '#FDECEA',
+  info: '#3F5B6B',
+  infoBg: '#E9EFF2',
   scrim: 'rgba(43,29,34,0.4)',
   body: 'HyBody',
   medium: 'HyBody500',
   semibold: 'HyBody600',
   bold: 'HyBody700',
-  display: 'HyDisplay',
+  display: 'HyBody700',
+  monogram: 'HyDisplay',
 } as const;
 export const motion = {
   fast: 150,
-  standard: 300,
+  standard: 250,
+  emphasized: 300,
   sheet: 350,
+  exit: 400,
   stagger: 50,
   ease: [0.2, 0, 0, 1] as const,
 };
@@ -52,18 +57,18 @@ export const semanticColors = {
   separator: hy.rule,
 };
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
-export const radius = { sm: 8, md: 12, lg: 20, full: 999 } as const;
+export const radius = { sm: 12, md: 12, lg: 16, xl: 24, full: 999 } as const;
 export const type = {
   largeTitle: {
-    fontFamily: hy.display,
+    fontFamily: hy.bold,
     fontSize: 30,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 38,
   } satisfies TextStyle,
   title: {
-    fontFamily: hy.display,
+    fontFamily: hy.bold,
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 32,
   } satisfies TextStyle,
   headline: {

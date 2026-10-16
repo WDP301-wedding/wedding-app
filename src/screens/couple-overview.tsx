@@ -270,6 +270,8 @@ export function CoupleOverviewScreen({
         session={session}
         profile={profile}
         activeBooking={plan}
+        allBookings={overview?.data ?? []}
+        onSelectBooking={(bId) => void open(bId)}
         invitationGateway={invitation}
         onLogout={onLogout}
         onSwitchBooking={handleSwitchBooking}

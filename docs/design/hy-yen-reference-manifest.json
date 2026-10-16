@@ -1,261 +1,367 @@
 {
   "source": "Hỷ Yến Design System.zip",
-  "archiveSha256": "f8879cb2368f68275c26dc113b7da61425b460f39079d8a5d6625f095dc41b1b",
+  "archiveSha256": "e8205ec46448366f7dcfd7f894a5804d36a6e67dd036bada94ff9493ec598406",
+  "fileCount": 72,
   "entries": [
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/.thumbnail",
-      "bytes": 23306,
-      "sha256": "d1e49e15375833329f74606ec02a02b11a314d3cbd4fbd170f8c9aa56ebb541a"
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\.thumbnail",
+      "bytes": 6804,
+      "sha256": "f83cc3f200b695965e4d4b45a31e1bbc6fb92d403f2834dce3616ba950ecbdb0"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/Hỷ Yến Design System (export).dc.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\Hỷ Yến Design System (export).dc.html",
       "bytes": 107266,
       "sha256": "e2c7b89e9e20222ab6e3854aead8719495af0132e72e616e6eb0481f71e15829"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/Hỷ Yến Design System.dc.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\Hỷ Yến Design System.dc.html",
       "bytes": 106818,
       "sha256": "4c22c53a23c24ca76f3df0f7a2a153b96d6047315377fc1a206c3644307ea46e"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/Hỷ Yến Design System.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\Hỷ Yến Design System.html",
       "bytes": 2552714,
       "sha256": "ed4d65c5a9c4fa3a091f831df036251a083ffd4535b3615bf89d380e6079bb62"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/Hỷ Yến Motion Prototype.dc.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\Hỷ Yến Motion Prototype.dc.html",
       "bytes": 61154,
       "sha256": "34afa1cf8f8cab7012b0a5e63282ca8357c8936d857de04a1109b43eb3c18ad2"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/README.md",
-      "bytes": 1055,
-      "sha256": "693e20eb9202b6b339fbcee258d920a459d7e09da3379ee396914a63b8f67e38"
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\README.md",
+      "bytes": 1165,
+      "sha256": "29b545d1f7eb0f69bdc52463e08b31b361351f3d1c1c8e33d5a6e05c5ef53699"
     },
     {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/support.js",
-      "bytes": 69150,
-      "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
-    },
-    {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/_shared-goc/hy-app.js",
-      "bytes": 2215,
-      "sha256": "759e0c43837c09f09a238826cadb397ec1913f42c88e1abb347772f185f44eb4"
-    },
-    {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/_shared-goc/hy-motion.js",
-      "bytes": 4259,
-      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
-    },
-    {
-      "path": "Hỷ Yến Design System/00_Chung_Design-System/_shared-goc/HyState.dc.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\_shared-goc\\HyState.dc.html",
       "bytes": 6030,
       "sha256": "8fbd287529155149da6d5f1b70a8464b787990849ae4165b79d023fcd140d695"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/hy-motion.js",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\_shared-goc\\hy-app.js",
+      "bytes": 2215,
+      "sha256": "759e0c43837c09f09a238826cadb397ec1913f42c88e1abb347772f185f44eb4"
+    },
+    {
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\_shared-goc\\hy-motion.js",
       "bytes": 4259,
       "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyAccount.dc.html",
+      "path": "Hỷ Yến Design System\\00_Chung_Design-System\\support.js",
+      "bytes": 69150,
+      "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\HyState.dc.html",
+      "bytes": 6030,
+      "sha256": "8fbd287529155149da6d5f1b70a8464b787990849ae4165b79d023fcd140d695"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\Hỷ Yến Web Khách Hàng v2.dc.html",
+      "bytes": 34873,
+      "sha256": "89f178bf1289f8393e9aaae68468ea78079bc8cb63221f25d2008032d8c5e628"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\Hỷ Yến Web v2 - Rà soát.dc.html",
+      "bytes": 13048,
+      "sha256": "c2b34a98fccf08921e9a5fd62e08c46edac6e6616e895f9dd3676c1c6f927953"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\PROMPT_ClaudeCode_Web-v2.md",
+      "bytes": 3742,
+      "sha256": "c86c223eaf0c72e9f150611006d2eaeec790c6fef608dfa2a8876780659afd3d"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\README.md",
+      "bytes": 1635,
+      "sha256": "b55adc6f37858dd43871b538ec8455da9ca3358ba2cf984f22a44dcc420479c2"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Account.dc.html",
+      "bytes": 41568,
+      "sha256": "c96caf4fd7c439341ce53218ff4e60d31914236ccebe73e175b1923cb2d311fa"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Addendum.dc.html",
+      "bytes": 24717,
+      "sha256": "2442d5f188da6355b775f366337873276adf32e94626f274e66df075c9e4b175"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Agreement.dc.html",
+      "bytes": 44395,
+      "sha256": "3a80ef5ceca4b2908c2e924538f08616fc5c6efdd6c54e64c4551b3510b91163"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Card.dc.html",
+      "bytes": 38256,
+      "sha256": "034be9eb083fbee150e77e86b6a39cd6c0693ad8ce0592327f809b369a465079"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Guest.dc.html",
+      "bytes": 12060,
+      "sha256": "fa8636bd47da1f8b143ee69647bcde2d64a5d1891e2447573a12a684ffe730b5"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Guests.dc.html",
+      "bytes": 43771,
+      "sha256": "826c810826ab7cfa4ee2b88a85e0ccfdfd582a5fa4deeb318734b66fea092c12"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Notifs.dc.html",
+      "bytes": 9328,
+      "sha256": "fadc59b352b3b12f83ac258857f851e89da4ffde8ecd77cae74685140662c684"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Payment.dc.html",
+      "bytes": 27835,
+      "sha256": "cc30e1fd1403066ba128d6e43dea22b238244c5962a9be06ccf0c744001ddfa5"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Public.dc.html",
+      "bytes": 65153,
+      "sha256": "f577bf07dade479b2e3722321cce57c7e28202a8d593ad49caebdd0e4e578659"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Settle.dc.html",
+      "bytes": 14080,
+      "sha256": "e8ffc5a7cc489316111fdba4d1074eb54970c18d51a7b864255170ecb8dfb38f"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\V2Space.dc.html",
+      "bytes": 44426,
+      "sha256": "c58d50363aa1e0031c5ee7eb50aa06d2f99e8ca4a9a027195a87f0f561a5b199"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyAccount.dc.html",
       "bytes": 20905,
       "sha256": "da4b84e272b7e067ceec51b0a02f112ef5bcb1191728b2476bb1f4334806e82d"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyAgreement.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyAgreement.dc.html",
       "bytes": 38311,
       "sha256": "947da0e411ae9ede6593f723c8f743ef2bd9d48c848d3531353770e419c484f0"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyDeposit.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyDeposit.dc.html",
       "bytes": 21252,
       "sha256": "26feef06f2a4f5b6ea3693f54af832d8748c987bb5e18e964c3aeca5d10d4bf2"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyExtras.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyExtras.dc.html",
       "bytes": 13848,
       "sha256": "660a206dd3bb999ac0c56a77074f9dc07d06da2fd294eb16a0aa35cf0feef54a"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyGuests.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyGuests.dc.html",
       "bytes": 24339,
       "sha256": "7d88fdc4c4a6427dd50623724192a99cd158b3f94ff0efff66b1be07cad244d4"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyInvite.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyInvite.dc.html",
       "bytes": 5095,
       "sha256": "310de3996ebdd5aa7208978d3b305a43dff78624b9ede63a19175adfb3659741"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyOverview.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyOverview.dc.html",
       "bytes": 16600,
       "sha256": "48baf300978abb6539fa232e58217016509338ab1ff27f10602ef2950d94943e"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyPublic.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyPublic.dc.html",
       "bytes": 40146,
       "sha256": "691776c9a4cb3a7aad73140b524e5ec5278c3a16509c86cdc3befb93c095d1f4"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HySeating.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HySeating.dc.html",
       "bytes": 16809,
       "sha256": "aa5a73bc0acad082ea3746484fd7189164002c140cae976c1f5737aee15e683f"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyState.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyState.dc.html",
       "bytes": 6030,
       "sha256": "8fbd287529155149da6d5f1b70a8464b787990849ae4165b79d023fcd140d695"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/HyStudio.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\HyStudio.dc.html",
       "bytes": 14112,
       "sha256": "b31ed1474fa9de926687d164d9bde28c58c12da232f8111141e2ecdb6e9a97d8"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/Hỷ Yến Web Khách Hàng.dc.html",
-      "bytes": 51519,
-      "sha256": "0a64bcde4282c8032fc8e829a9d69dd494a2018ab056457a536c21fb6e28641f"
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\Hỷ Yến Web Khách Hàng.dc.html",
+      "bytes": 51525,
+      "sha256": "1b97d7f1d6db29f9e5377e7c3aeaee2826c2c69ffceff3d2e710b8171e2a63c9"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/README.md",
-      "bytes": 1899,
-      "sha256": "873552fab91fb73d4258a6595eec46b6826e25a21c0e48d0636d8a69ec376765"
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\hy-motion.js",
+      "bytes": 4259,
+      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
     },
     {
-      "path": "Hỷ Yến Design System/01_Toan_Web-Khach-Hang/support.js",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\_v1-tham-khao\\support.js",
       "bytes": 69150,
       "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdBooking.dc.html",
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\hy-motion.js",
+      "bytes": 4259,
+      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
+    },
+    {
+      "path": "Hỷ Yến Design System\\01_Toan_Web-Khach-Hang\\support.js",
+      "bytes": 69150,
+      "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
+    },
+    {
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\PROMPT_1_ClaudeDesign_Admin-v2.md",
+      "bytes": 6897,
+      "sha256": "5ceacbbe9fb7dcde600ef632d4b0baf4f07aa46f22dc5cceb2608a01f891e037"
+    },
+    {
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\PROMPT_2_ClaudeCode_Admin-v2.md",
+      "bytes": 3223,
+      "sha256": "60e569a2153c71c5fa54f9ed8024dc68927a010e06e89a8ff574093ef0930213"
+    },
+    {
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\README.md",
+      "bytes": 747,
+      "sha256": "8e34ffd969f702d2b1e3375f5780d03a64c4e22e4b1aab6fb46df961b5ff8e7f"
+    },
+    {
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdBooking.dc.html",
       "bytes": 54650,
       "sha256": "511f39c03b164b41fca5ae8bc4bbb54a51b649770d92aae8f50d6fb5971851a0"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdCatalog.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdCatalog.dc.html",
       "bytes": 23426,
       "sha256": "1661a816fd2e85ae5bc21d3a0bd30b7e646ab470444e75e2557c0d8d9aa29110"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdConsult.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdConsult.dc.html",
       "bytes": 17856,
       "sha256": "b6f0a41158acce31fe64250207f0fa6e2b9b857e1f52e1d6911c7b3701563798"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdDashboard.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdDashboard.dc.html",
       "bytes": 18440,
       "sha256": "195c887f2e4cc6e6b26fb355ff071ed094db24c252286030858843aabfe36299"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdFinance.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdFinance.dc.html",
       "bytes": 27129,
       "sha256": "ff032eb98fac033e3de0cd8988a6838ff165d7a4f3c42565fda10fa996d8e426"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdPrint.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdPrint.dc.html",
       "bytes": 9853,
       "sha256": "cafa3cac3d2d4303a2988a3d78592f633101bc2f29be194a4a9ef5c83a6b81f0"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdStaff.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdStaff.dc.html",
       "bytes": 15749,
       "sha256": "a07f5ccb4d12ba448dbf1c3103469c6e32f388227d3b897a5b6a6728c1d5e923"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/AdStaffMgmt.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\AdStaffMgmt.dc.html",
       "bytes": 10029,
       "sha256": "972a9abc0dc4e5b7e1adaf7c70e983d0ab797cedf01bec9d5e67ce9aa5a46af7"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/hy-motion.js",
-      "bytes": 4259,
-      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
-    },
-    {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/HyState.dc.html",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\HyState.dc.html",
       "bytes": 6030,
       "sha256": "8fbd287529155149da6d5f1b70a8464b787990849ae4165b79d023fcd140d695"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/Hỷ Yến Web Quản Trị.dc.html",
-      "bytes": 35167,
-      "sha256": "314d2b7e35851f2d9752b9f820f2fd0c0a98a7cfa5aa8063fea856d7fff908f6"
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\Hỷ Yến Web Quản Trị.dc.html",
+      "bytes": 35170,
+      "sha256": "962cca92e293a6f23a894744afe3bbfc2b369436ac08330ed4b1da9b235320d5"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/README.md",
-      "bytes": 1726,
-      "sha256": "9259ac56b819a48f78cc1d61a082b04259a45901b8f0336642d4fe2dd329f841"
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\hy-motion.js",
+      "bytes": 4259,
+      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
     },
     {
-      "path": "Hỷ Yến Design System/02_Tin_Web-Quan-Tri/support.js",
+      "path": "Hỷ Yến Design System\\02_Tri_Web-Admin\\_v1-tham-khao\\support.js",
       "bytes": 69150,
       "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppAuth.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\PROMPT_1_ClaudeDesign_App-v2.md",
+      "bytes": 4176,
+      "sha256": "2d1e255426f25ed5933c21756e1c67d1eb2204b5fb25ef29d3b0e0ed01efce67"
+    },
+    {
+      "path": "Hỷ Yến Design System\\03_Huy_App\\PROMPT_2_ClaudeCode_App-v2.md",
+      "bytes": 3307,
+      "sha256": "3ab82e88d9f7059bb3a62b8bdb5a1db409d831c9202389e1d916e57a546c0adb"
+    },
+    {
+      "path": "Hỷ Yến Design System\\03_Huy_App\\README.md",
+      "bytes": 671,
+      "sha256": "f995d5d5a1904e96390047989e6b7b803a691d922cc1d59e86b31125aea2e0d0"
+    },
+    {
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppAuth.dc.html",
       "bytes": 13372,
       "sha256": "036614a5100356e69ce54466979ffc845b57930cad597e4e2efeff8bc7e568d7"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppCard.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppCard.dc.html",
       "bytes": 12356,
       "sha256": "95cf7584a82108ffda776518870021d619511fc2fe92c7d12d26a854c71c1093"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppFinance.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppFinance.dc.html",
       "bytes": 23061,
       "sha256": "f0695d521b6b8aef5c2935d32c7294f5290013e1d4e4412e039f8bb223b69f65"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppGuests.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppGuests.dc.html",
       "bytes": 9612,
       "sha256": "e6edd0dfbbc8f9ddc5d0f97578a8f03939e6b9014295a2e69954c3bcffd0ebcb"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppNotifs.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppNotifs.dc.html",
       "bytes": 4788,
       "sha256": "98c5c53a2f9018f21af5f497f63dae79d4311ba931a5bf76e1a3b56799eeee7b"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/AppParty.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\AppParty.dc.html",
       "bytes": 11090,
       "sha256": "33a937e5fb37236ae9bc835393f0b2a6144f2c635f021873054572838194fbdd"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/hy-app.js",
-      "bytes": 2215,
-      "sha256": "759e0c43837c09f09a238826cadb397ec1913f42c88e1abb347772f185f44eb4"
-    },
-    {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/hy-motion.js",
-      "bytes": 4259,
-      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
-    },
-    {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/HyState.dc.html",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\HyState.dc.html",
       "bytes": 6030,
       "sha256": "8fbd287529155149da6d5f1b70a8464b787990849ae4165b79d023fcd140d695"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/Hỷ Yến App Android.dc.html",
-      "bytes": 39289,
-      "sha256": "7a47f8cdf118046f8337958a3fff37c63d06371a5f4ffb9eb6db348a674cd7c3"
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\Hỷ Yến App Android.dc.html",
+      "bytes": 39292,
+      "sha256": "b455d4cecf0866f5eaa524ed90fc4b6d214c3d5275da0155dd35ba38cee1b10b"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/README.md",
-      "bytes": 1513,
-      "sha256": "1f169867ab3701b114b286cc483bc410ad17dae4f3c8747a23c186de49ae8e90"
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\hy-app.js",
+      "bytes": 2215,
+      "sha256": "759e0c43837c09f09a238826cadb397ec1913f42c88e1abb347772f185f44eb4"
     },
     {
-      "path": "Hỷ Yến Design System/03_Minh_App-Android/support.js",
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\hy-motion.js",
+      "bytes": 4259,
+      "sha256": "97dbb30c6a5e64dea466ad634c21d47dc65a186f690f4a11552a8fad49ff84f7"
+    },
+    {
+      "path": "Hỷ Yến Design System\\03_Huy_App\\_v1-tham-khao\\support.js",
       "bytes": 69150,
       "sha256": "8fe7df74405f3c55f49b7249c74ea1397e65d07dea2b1bd3b4a489bec2e28cbe"
     },
     {
-      "path": "Hỷ Yến Design System/README.md",
-      "bytes": 2262,
-      "sha256": "a6811547d85d44d219523e0ec81b13843a2593f2a095f0fd007be6792d39b5ca"
+      "path": "Hỷ Yến Design System\\README.md",
+      "bytes": 2281,
+      "sha256": "e23c6fd1fa1b89e6513d613b1a096bbca8cd40beb49e38d4475d5473faf5c2f6"
     }
   ]
 }

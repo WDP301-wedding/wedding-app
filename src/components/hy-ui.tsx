@@ -244,15 +244,211 @@ export function HyScreen({
     </ScrollView>
   );
 }
+export function HyBadge({
+  status,
+  label,
+}: {
+  status: 'done' | 'waiting' | 'locked' | 'info' | 'neutral';
+  label?: string;
+}) {
+  const configs = {
+    done: { bg: hy.successBg, fg: hy.success, defaultLabel: '✓ Xong' },
+    waiting: { bg: hy.warningBg, fg: hy.warning, defaultLabel: 'Chờ bạn' },
+    locked: { bg: hy.surfaceMuted, fg: hy.muted, defaultLabel: '🔒 Mở sau đặt cọc' },
+    info: { bg: hy.infoBg, fg: hy.info, defaultLabel: 'Thông tin' },
+    neutral: { bg: hy.surfaceMuted, fg: hy.secondary, defaultLabel: '' },
+  };
+  const c = configs[status];
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: c.bg,
+        alignSelf: 'flex-start',
+      }}
+    >
+      <HyText style={{ fontSize: 12, fontWeight: '600', color: c.fg }}>
+        {label ?? c.defaultLabel}
+      </HyText>
+    </View>
+  );
+}
+
+export function HySegmentedControl<T extends string>({
+  items,
+  selected,
+  onSelect,
+}: {
+  items: readonly { key: T; label: string; badge?: number | string }[];
+  selected: T;
+  onSelect: (key: T) => void;
+}) {
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={{
+        flexDirection: 'row',
+        backgroundColor: hy.surfaceMuted,
+        borderRadius: 16,
+        padding: 4,
+        gap: 4,
+      }}
+    >
+      {items.map((it) => {
+        const isSelected = selected === it.key;
+        return (
+          <Pressable
+            key={it.key}
+            accessibilityRole="tab"
+            accessibilityLabel={it.label}
+            accessibilityState={{ selected: isSelected }}
+            onPress={() => onSelect(it.key)}
+            style={{
+              flex: 1,
+              minHeight: 44,
+              paddingVertical: 8,
+              paddingHorizontal: 8,
+              borderRadius: 12,
+              backgroundColor: isSelected ? hy.surface : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              gap: 6,
+            }}
+          >
+            <HyText
+              style={{
+                fontSize: 14,
+                fontWeight: isSelected ? '600' : '500',
+                color: isSelected ? hy.primary : hy.secondary,
+              }}
+            >
+              {it.label}
+            </HyText>
+            {it.badge !== undefined && it.badge !== null ? (
+              <View
+                style={{
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: isSelected ? hy.primary : hy.muted,
+                  paddingHorizontal: 4,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <NativeText
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontWeight: '700',
+                  }}
+                >
+                  {it.badge}
+                </NativeText>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function HySkeleton({
+  width = '100%',
+  height = 20,
+  borderRadius = 12,
+  style,
+}: {
+  width?: number | `${number}%` | 'auto';
+  height?: number;
+  borderRadius?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [opacity] = useState(() => new Animated.Value(0.4));
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (reduced) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.85,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.4,
+          duration: 700,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [opacity, reduced]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: hy.rule,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
+export function OfflineBanner({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <View
+      accessibilityRole="alert"
+      style={{
+        backgroundColor: hy.warningBg,
+        borderBottomWidth: 1,
+        borderBottomColor: hy.warning,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+      }}
+    >
+      <HyText style={{ fontSize: 13, color: hy.warning, fontWeight: '600' }}>
+        Đang hiển thị dữ liệu đã lưu
+      </HyText>
+    </View>
+  );
+}
+
 export function HyState({
   kind,
   title,
   body,
+  errorCode,
+  requestId,
   onRetry,
 }: {
   kind: 'loading' | 'empty' | 'error' | 'locked';
   title?: string;
   body?: string;
+  errorCode?: string;
+  requestId?: string;
   onRetry?: () => void;
 }) {
   if (kind === 'loading')
@@ -262,18 +458,9 @@ export function HyState({
         accessibilityState={{ busy: true }}
         style={{ gap: 16, padding: 16 }}
       >
-        <View style={{ width: '45%', height: 24, borderRadius: 8, backgroundColor: hy.rule }} />
+        <HySkeleton width="45%" height={24} borderRadius={8} />
         {[0, 1, 2].map((i) => (
-          <View
-            key={i}
-            style={{
-              height: i === 0 ? 148 : 64,
-              borderRadius: 20,
-              backgroundColor: hy.surface,
-              borderWidth: 1,
-              borderColor: hy.rule,
-            }}
-          />
+          <HySkeleton key={i} height={i === 0 ? 148 : 64} borderRadius={20} />
         ))}
       </View>
     );
@@ -296,6 +483,12 @@ export function HyState({
               : 'Chưa có dữ liệu')}
       </HyText>
       {body ? <HyText style={{ color: hy.secondary, textAlign: 'center' }}>{body}</HyText> : null}
+      {errorCode ? (
+        <HyText style={{ fontSize: 12, color: hy.muted, textAlign: 'center' }}>
+          Mã lỗi: {errorCode}
+          {requestId ? ` · Ref: ${requestId}` : ''}
+        </HyText>
+      ) : null}
       {onRetry && <HyButton label="Thử lại" onPress={onRetry} />}
     </HyCard>
   );

@@ -1,5 +1,6 @@
 import { createApiClient, type ApiClient } from '../../lib/api/client';
 import type { components, operations } from '../../lib/api/generated/schema';
+import { createDeterministicIdempotencyKey } from '../../lib/idempotency';
 
 import { readPublicEnv } from '../../lib/env';
 
@@ -96,6 +97,41 @@ export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
     bookingId: string,
     revisionId: string,
   ): Promise<Blob>;
+  loadGuestPlan?(
+    this: void,
+    token: string,
+    bookingId: string,
+  ): Promise<{
+    readonly planningHeadcount: number;
+    readonly revision: number;
+    readonly sourceSequence?: number;
+  }>;
+  updateGuestPlan?(
+    this: void,
+    token: string,
+    bookingId: string,
+    expectedRevision: number,
+    planningHeadcount: number,
+    key?: string,
+  ): Promise<{
+    readonly planningHeadcount: number;
+    readonly revision: number;
+  }>;
+  loadSeatingLayoutOptions?(
+    this: void,
+    token: string,
+    bookingId: string,
+  ): Promise<
+    operations['listSeatingLayoutOptions']['responses'][200]['content']['application/json']['data']
+  >;
+  loadSeatingPlan?(
+    this: void,
+    token: string,
+    bookingId: string,
+    planId: string,
+  ): Promise<
+    operations['readSeatingPlan']['responses'][200]['content']['application/json']['data']
+  >;
 }
 function required<T>(data: { readonly data: T } | undefined): T {
   if (data?.data === undefined || data.data === null)
@@ -249,6 +285,58 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
         throw new Error('Không thể tải tệp PDF hợp đồng từ máy chủ.');
       }
       return await res.blob();
+    },
+    async loadGuestPlan(token, bookingId) {
+      const { data } = await api().GET('/bookings/{bookingId}/guest-plan', {
+        params: { path: { bookingId } },
+        headers: headers(token),
+        cache: 'no-store',
+      });
+      return required(data) as {
+        readonly planningHeadcount: number;
+        readonly revision: number;
+        readonly sourceSequence?: number;
+      };
+    },
+    async updateGuestPlan(token, bookingId, expectedRevision, planningHeadcount, key) {
+      const idempKey =
+        key ??
+        createDeterministicIdempotencyKey('guest-plan', bookingId, expectedRevision, {
+          planningHeadcount,
+        });
+      const { data } = await api().PATCH('/bookings/{bookingId}/guest-plan', {
+        params: {
+          path: { bookingId },
+          header: { 'Idempotency-Key': idempKey },
+        },
+        headers: headers(token),
+        body: { expectedRevision, planningHeadcount },
+        cache: 'no-store',
+      });
+      return required(data) as {
+        readonly planningHeadcount: number;
+        readonly revision: number;
+      };
+    },
+    async loadSeatingLayoutOptions(token, bookingId) {
+      const { data } = await api().GET('/bookings/{bookingId}/seating-layout-options', {
+        params: { path: { bookingId } },
+        headers: headers(token),
+        cache: 'no-store',
+      });
+      return required(
+        data,
+      ) as operations['listSeatingLayoutOptions']['responses'][200]['content']['application/json']['data'];
+    },
+    async loadSeatingPlan(token, bookingId, planId) {
+      const { data } = await api().GET('/bookings/{bookingId}/seating-plans/{planId}', {
+        params: { path: { bookingId, planId } },
+        headers: headers(token),
+        cache: 'no-store',
+      });
+      return required(
+        data,
+      ) as operations['readSeatingPlan']['responses'][200]['content']['application/json']['data'];
     },
   };
 }

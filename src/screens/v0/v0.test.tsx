@@ -1,7 +1,4 @@
-import {
-  createHash as mockCreateHash,
-  randomUUID as mockRandomUUID,
-} from 'node:crypto';
+import { createHash as mockCreateHash, randomUUID as mockRandomUUID } from 'node:crypto';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
 import { Alert, BackHandler, Share as NativeShare } from 'react-native';
@@ -23,7 +20,9 @@ import { coupleBilling } from './subflows/subflows-common';
 jest.mock('expo-secure-store', () => {
   const store = new Map<string, string>();
   return {
-    getItemAsync: jest.fn().mockImplementation((key: string) => Promise.resolve(store.get(key) ?? null)),
+    getItemAsync: jest
+      .fn()
+      .mockImplementation((key: string) => Promise.resolve(store.get(key) ?? null)),
     setItemAsync: jest.fn().mockImplementation((key: string, value: string) => {
       store.set(key, value);
       return Promise.resolve();
@@ -88,7 +87,13 @@ jest.mock('@/features/payments-billing/billing-api', () => {
           ]),
           loadGuests: jest.fn().mockResolvedValue({
             items: [
-              { guestId: 'g-1', name: 'Trần Thị Mai', guestGroupId: 'grp-1', notes: null, status: 'ACTIVE' },
+              {
+                guestId: 'g-1',
+                name: 'Trần Thị Mai',
+                guestGroupId: 'grp-1',
+                notes: null,
+                status: 'ACTIVE',
+              },
             ],
             nextCursor: null,
             sourceSequence: 1,
@@ -1143,7 +1148,9 @@ describe('V0CompanionShell', () => {
     await fireEvent.press(screen.getByRole('tab', { name: 'Tài chính' }));
     expect((await screen.findAllByText('Tài chính')).length).toBeGreaterThan(0);
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Xem thanh toán & giao dịch' }));
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Xem thanh toán & giao dịch' }),
+    );
     expect((await screen.findAllByText('Thanh toán')).length).toBeGreaterThan(0);
   });
 

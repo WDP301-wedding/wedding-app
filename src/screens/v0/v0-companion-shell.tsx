@@ -71,6 +71,8 @@ export function V0CompanionShell({
   onNavigate: externalNavigate,
   activeBooking,
   onSwitchBooking,
+  session,
+  profile,
   ...props
 }: V0CompanionShellProps) {
   const [screen, setScreen] = useState<V0Screen>(initialScreen);
@@ -97,6 +99,8 @@ export function V0CompanionShell({
   }, [screen, back]);
   const common: V0CommonProps = {
     ...props,
+    session,
+    profile,
     activeBooking,
     onSwitchBooking,
     onNavigate: navigate,
@@ -105,10 +109,7 @@ export function V0CompanionShell({
   const tab = tabs.some((t) => t.id === screen);
   const active = tab ? screen : parent(screen);
   const render = () => {
-    if (
-      !activeBooking &&
-      !['account', 'catalog', 'notifications', 'sessions'].includes(screen)
-    )
+    if (!activeBooking && !['account', 'catalog', 'notifications', 'sessions'].includes(screen))
       return (
         <HyState
           kind="empty"
@@ -159,8 +160,8 @@ export function V0CompanionShell({
       case 'billing':
         return (
           <AndroidBillingPage
-            {...(props.session ? { session: props.session } : {})}
-            {...(props.activeBooking ? { initialBookingId: props.activeBooking.bookingId } : {})}
+            {...(session ? { session } : {})}
+            {...(activeBooking ? { initialBookingId: activeBooking.bookingId } : {})}
           />
         );
     }
@@ -213,11 +214,11 @@ export function V0CompanionShell({
           }}
         >
           <Text style={{ fontWeight: '600', color: hy.primary }}>
-            {props.profile?.displayName?.trim().slice(0, 1).toLocaleUpperCase() || 'HY'}
+            {profile?.displayName?.trim().slice(0, 1).toLocaleUpperCase() || 'HY'}
           </Text>
         </Pressable>
       </View>
-      <View key={props.activeBooking?.bookingId ?? 'no-booking'} style={{ flex: 1 }}>
+      <View key={activeBooking?.bookingId ?? 'no-booking'} style={{ flex: 1 }}>
         {render()}
       </View>
       <View

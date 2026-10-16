@@ -44,10 +44,7 @@ export function RestoredPrintPanel({
     if (!session || !bookingId) return;
     try {
       const [o, d] = await session.authorize((token) =>
-        Promise.all([
-          inv.listPrintOrders(token, bookingId),
-          inv.listDesigns(token, bookingId),
-        ]),
+        Promise.all([inv.listPrintOrders(token, bookingId), inv.listDesigns(token, bookingId)]),
       );
       setOrders(o);
       setDesigns(d);
@@ -127,13 +124,7 @@ export function RestoredPrintPanel({
             { expectedRevision: order.revision, reason: reason.trim() },
             key,
           );
-        return inv.cancelApprovedPrintOrder(
-          token,
-          bookingId,
-          order.orderId,
-          order.revision,
-          key,
-        );
+        return inv.cancelApprovedPrintOrder(token, bookingId, order.orderId, order.revision, key);
       }),
     );
     if (ok) {

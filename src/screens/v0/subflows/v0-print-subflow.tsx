@@ -54,7 +54,11 @@ export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <RestoredPrintPanel activeBooking={activeBooking} session={session} />
+      <RestoredPrintPanel
+        activeBooking={activeBooking}
+        session={session}
+        invitationGateway={gateway}
+      />
 
       {/* Read-Only MVP Notice */}
       <View

@@ -41,7 +41,10 @@ export function createPlanningGateway(
       });
       if (data === undefined) throw new Error('The planning response did not include data.');
       const value = data.data;
-      if (value.phase === 'CANCELLED') {
+      if (value.capabilities.accessLevel !== 'FULL') {
+        return { status: 'not-confirmed', snapshot: null };
+      }
+      if (value.phase !== 'CONFIRMED' && value.phase !== 'COMPLETED') {
         return { status: 'not-confirmed', snapshot: null };
       }
       return {

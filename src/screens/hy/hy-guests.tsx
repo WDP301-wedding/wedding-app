@@ -15,13 +15,11 @@ import {
   type NamedGuestView,
 } from '@/features/payments-billing/billing-api';
 import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
-import { createApiClient } from '@/lib/api/client';
 import { RestoredGuestPanel } from '../v0/restored-flow-controls';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from './use-hy-resource';
 const billing = createCoupleBillingGateway();
 const api = createRestoredFlowsGateway();
-const client = createApiClient();
 const normalize = (v: string) =>
   v
     .toLowerCase()
@@ -37,11 +35,16 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   const loader = useCallback(async () => {
     if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
     const bookingId = activeBooking.bookingId;
-    const [groups, first, attendance] = await Promise.all([
+    const [groupsRes, firstRes, attendanceRes] = await Promise.allSettled([
       session.authorize((t) => billing.loadGuestGroups(t, bookingId)),
       session.authorize((t) => billing.loadGuests(t, bookingId)),
       session.authorize((t) => api.attendanceSummary(t, bookingId)),
     ]);
+    if (groupsRes.status === 'rejected') throw groupsRes.reason;
+    if (firstRes.status === 'rejected') throw firstRes.reason;
+    const groups = groupsRes.value;
+    const first = firstRes.value;
+    const attendance = attendanceRes.status === 'fulfilled' ? attendanceRes.value : null;
     let page = first;
     const guests = [...first.items];
     const seen = new Set<string>();
@@ -50,14 +53,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
       if (seen.has(cursor))
         throw new Error('Danh sách khách chưa được tải đầy đủ. Vui lòng tải lại.');
       seen.add(cursor);
-      page = await session.authorize(async (t) => {
-        const response = await client.GET('/bookings/{bookingId}/guests', {
-          headers: { Authorization: `Bearer ${t}` },
-          params: { path: { bookingId }, query: { cursor } },
-        });
-        if (!response.data) throw new Error('Chưa tải được danh sách khách.');
-        return response.data.data as NamedGuestView;
-      });
+      page = await session.authorize((t) => billing.loadGuests(t, bookingId, cursor));
       if (page.sourceSequence !== first.sourceSequence)
         throw new Error('Danh sách khách vừa thay đổi. Vui lòng tải lại.');
       guests.push(...page.items);
@@ -92,7 +88,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
         {data && (
           <HyCard style={{ backgroundColor: hy.surfaceMuted }}>
             <Text style={{ fontSize: 13 }}>
-              {data.attendance.checkInMode === 'NONE'
+              {!data.attendance || data.attendance.checkInMode === 'NONE'
                 ? 'Điểm danh đang tắt · không ghi nhận'
                 : `Điểm danh theo tên · ${data.attendance.checkedInGuestCount ?? 'Chưa ghi nhận'}`}
             </Text>
@@ -215,7 +211,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
           <Text>Ghi chú: {selected?.operationalNote || 'Chưa có'}</Text>
           <Text>
             Điểm danh:{' '}
-            {data?.attendance.checkInMode === 'NONE'
+            {!data?.attendance || data.attendance.checkInMode === 'NONE'
               ? 'Không ghi nhận'
               : 'Xem tổng kết điểm danh theo nhóm'}
           </Text>

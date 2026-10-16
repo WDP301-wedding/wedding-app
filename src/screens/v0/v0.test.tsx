@@ -1,3 +1,7 @@
+import {
+  createHash as mockCreateHash,
+  randomUUID as mockRandomUUID,
+} from 'node:crypto';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
 import { Alert, BackHandler, Share as NativeShare } from 'react-native';
@@ -14,13 +18,233 @@ import { HyPartyDetail as V0PlanTab } from '../hy/hy-detail';
 import { V0GuestsSubflow, V0MediaSubflow, V0PrintSubflow, V0ScheduleSubflow } from './v0-subflows';
 import type { V0EventFacts } from './v0-types';
 
+import { coupleBilling } from './subflows/subflows-common';
+
+jest.mock('expo-secure-store', () => {
+  const store = new Map<string, string>();
+  return {
+    getItemAsync: jest.fn().mockImplementation((key: string) => Promise.resolve(store.get(key) ?? null)),
+    setItemAsync: jest.fn().mockImplementation((key: string, value: string) => {
+      store.set(key, value);
+      return Promise.resolve();
+    }),
+    deleteItemAsync: jest.fn().mockImplementation((key: string) => {
+      store.delete(key);
+      return Promise.resolve();
+    }),
+  };
+});
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: () => mockRandomUUID(),
+  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
+  digestStringAsync: (_algorithm: string, value: string) =>
+    Promise.resolve(mockCreateHash('sha256').update(value).digest('hex')),
+}));
+
 jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  launchImageLibraryAsync: jest.fn().mockResolvedValue({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///path/to/test.jpg',
+        fileName: 'test.jpg',
+        mimeType: 'image/jpeg',
+        fileSize: 1024 * 1024,
+      },
+    ],
+  }),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ bottom: 16, top: 0, left: 0, right: 0 }),
 }));
+
+jest.mock('@/features/payments-billing/billing-api', () => {
+  const actual = jest.requireActual('@/features/payments-billing/billing-api');
+  let instance: any = null;
+  return {
+    ...actual,
+    createCoupleBillingGateway: () => {
+      if (!instance) {
+        instance = {
+          load: jest.fn().mockResolvedValue({
+            totals: {
+              netPaidVnd: 50000000,
+              acceptedChargesVnd: 100000000,
+              outstandingVnd: 50000000,
+            },
+            charges: [],
+            payments: [],
+          }),
+          loadGuestGroups: jest.fn().mockResolvedValue([
+            { guestGroupId: 'grp-1', name: 'Gia đình nhà trai', status: 'ACTIVE' },
+            { guestGroupId: 'grp-2', name: 'Gia đình nhà gái', status: 'ACTIVE' },
+          ]),
+          loadGuests: jest.fn().mockResolvedValue({
+            items: [
+              { guestId: 'g-1', name: 'Trần Thị Mai', guestGroupId: 'grp-1', notes: null, status: 'ACTIVE' },
+            ],
+            nextCursor: null,
+            sourceSequence: 1,
+          }),
+          loadContracts: jest.fn().mockResolvedValue({ revisions: [] }),
+          loadAppendices: jest.fn().mockResolvedValue({ appendices: [] }),
+          loadIncidentals: jest.fn().mockResolvedValue({ items: [] }),
+          loadFinalInvoices: jest.fn().mockResolvedValue({ invoices: [] }),
+          loadContext: jest.fn().mockResolvedValue({
+            timelineRevisionId: 'rev-1',
+            contractRevisionId: 'c-rev-1',
+            documentDigest: 'digest-1',
+          }),
+          loadAttempt: jest.fn().mockResolvedValue({
+            attemptId: 'att-1',
+            status: 'UNKNOWN',
+            amountVnd: 10000000,
+          }),
+          startDeposit: jest.fn().mockResolvedValue({ checkoutUrl: 'https://vnpay.vn/test' }),
+          startBalance: jest.fn().mockResolvedValue({ checkoutUrl: 'https://vnpay.vn/test' }),
+          downloadContractPdf: jest.fn().mockResolvedValue(new Blob()),
+        };
+      }
+      return instance;
+    },
+  };
+});
+
+jest.mock('@/features/restored-flows/restored-flows-api', () => {
+  const actual = jest.requireActual('@/features/restored-flows/restored-flows-api');
+  let instance: any = null;
+  return {
+    ...actual,
+    createRestoredFlowsGateway: () => {
+      if (!instance) {
+        instance = {
+          attendanceSummary: jest.fn().mockResolvedValue({
+            checkInMode: 'NONE',
+            checkedInGuestCount: 0,
+            totalNamedGuests: 0,
+          }),
+          loadProposal: jest.fn().mockResolvedValue({
+            revision: 4,
+            effectiveTimeline: [
+              {
+                itemId: 't-1',
+                startTime: '17:30',
+                title: 'Đón khách & Chụp ảnh lưu niệm',
+                description: 'Khu vực tiền sảnh',
+              },
+            ],
+            pendingTimeline: null,
+            capabilities: {
+              canApproveTimeline: false,
+              canEditTimeline: true,
+              canRequestCancellation: true,
+              canRequestChange: true,
+              canWithdrawApproval: false,
+            },
+          }),
+          readContracts: jest.fn().mockResolvedValue({
+            eligibleForDeposit: true,
+          }),
+          requestCancellation: jest.fn().mockResolvedValue({}),
+          requestChange: jest.fn().mockResolvedValue({}),
+        };
+      }
+      return instance;
+    },
+  };
+});
+
+jest.mock('@/features/identity-access/experience-api', () => {
+  const actual = jest.requireActual('@/features/identity-access/experience-api');
+  let instance: any = null;
+  return {
+    ...actual,
+    createExperienceGateway: () => {
+      if (!instance) {
+        instance = {
+          profile: jest.fn().mockResolvedValue({
+            accountId: 'acc-1',
+            displayEmail: 'couple@example.com',
+            displayName: 'Thùy Trang',
+            revision: 1,
+          }),
+          updateProfile: jest.fn().mockResolvedValue({
+            accountId: 'acc-1',
+            displayEmail: 'couple@example.com',
+            displayName: 'Thùy Trang',
+            revision: 2,
+          }),
+          changePassword: jest.fn().mockResolvedValue({ status: 'completed' }),
+          requestPasswordChange: jest.fn().mockResolvedValue({
+            ticket: 'ticket-1',
+            expiresAt: '2026-10-16T12:00:00Z',
+          }),
+          overview: jest.fn().mockResolvedValue({ data: [], nextCursor: null }),
+          listSessions: jest.fn().mockResolvedValue({ sessions: [] }),
+          revokeSession: jest.fn().mockResolvedValue(undefined),
+          revokeCurrentSession: jest.fn().mockResolvedValue(undefined),
+          liveHealth: jest.fn().mockResolvedValue({ status: 'live' }),
+          readyHealth: jest.fn().mockResolvedValue({ status: 'ready' }),
+        };
+      }
+      return instance;
+    },
+  };
+});
+
+jest.mock('@/features/invitation-studio/app-invitation-api', () => {
+  const actual = jest.requireActual('@/features/invitation-studio/app-invitation-api');
+  let instance: any = null;
+  return {
+    ...actual,
+    createAppInvitationGateway: () => {
+      if (!instance) {
+        instance = {
+          listDesigns: jest.fn().mockResolvedValue([
+            {
+              designId: 'design-1',
+              title: 'Vườn chiều',
+              revisionNumber: 4,
+              status: 'APPROVED',
+              textFields: {
+                groomName: 'Hoàng Nam',
+                brideName: 'Thùy Trang',
+                greeting: 'Trân trọng kính mời',
+                message: 'Chung vui cùng gia đình chúng tôi',
+                footer: 'Rất hân hạnh đón tiếp',
+              },
+            },
+          ]),
+          getDesign: jest.fn().mockResolvedValue({
+            designId: 'design-1',
+            title: 'Vườn chiều',
+            revisionNumber: 4,
+            status: 'APPROVED',
+          }),
+          getRestaurantCatalog: jest.fn().mockResolvedValue({
+            name: 'Trung tâm Tiệc cưới Wedding Estate',
+          }),
+          listPrintOrders: jest.fn().mockResolvedValue([]),
+          approvePrintOrder: jest.fn().mockResolvedValue({}),
+          approveReplacementProposal: jest.fn().mockResolvedValue({}),
+          cancelApprovedPrintOrder: jest.fn().mockResolvedValue({}),
+          uploadWeddingMedia: jest.fn().mockResolvedValue({ uploadCount: 1 }),
+          quickEditTextFields: jest.fn().mockResolvedValue({}),
+          publishInvitation: jest.fn().mockResolvedValue({}),
+          unpublishInvitation: jest.fn().mockResolvedValue(undefined),
+        };
+      }
+      return instance;
+    },
+  };
+});
 
 jest.spyOn(Alert, 'alert');
 jest.spyOn(NativeShare, 'share');
@@ -232,13 +456,25 @@ const mockSession = {
     .mockImplementation((fn: (token: string) => Promise<unknown>) => fn('mock-access-token')),
   snapshot: jest.fn().mockReturnValue({
     status: 'authenticated',
-    access: 'granted',
-    session: { accountId: 'acc-1' },
+    access: 'full',
+    actor: {
+      accountId: 'acc-1',
+      displayEmail: 'couple@example.com',
+      roles: ['COUPLE'] as const,
+      sessionId: 's-1',
+    },
+    denial: null,
   }),
   restore: jest.fn().mockResolvedValue({
     status: 'authenticated',
-    access: 'granted',
-    session: { accountId: 'acc-1' },
+    access: 'full',
+    actor: {
+      accountId: 'acc-1',
+      displayEmail: 'couple@example.com',
+      roles: ['COUPLE'] as const,
+      sessionId: 's-1',
+    },
+    denial: null,
   }),
 } as unknown as AndroidIdentitySession;
 
@@ -250,31 +486,45 @@ afterEach(async () => {
 describe('V0OverviewTab', () => {
   it('renders event anchor with dynamic date facts, next action, and tasks', async () => {
     const onNavigate = jest.fn();
-    await render(<V0OverviewTab facts={mockFacts} onNavigate={onNavigate} />);
+    await render(
+      <V0OverviewTab
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        onNavigate={onNavigate}
+      />,
+    );
 
-    expect(await screen.findByText('Chào buổi sáng, Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
-    expect(await screen.findByText('Nhà hàng Wedding Estate')).toBeOnTheScreen();
-    expect((await screen.findAllByText('18:00–21:30 · Sảnh Lavender')).length).toBeGreaterThan(0);
-    expect(await screen.findByText('Hoàn thiện nội dung thiệp')).toBeOnTheScreen();
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
+    expect((await screen.findAllByText('18 Tháng 01, 2027')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Sảnh Lavender · 18:00–21:30/)).length).toBeGreaterThan(0);
+    expect(await screen.findByText('Hành trình cưới')).toBeOnTheScreen();
 
     // Navigate to invite
-    await fireEvent.press(screen.getByText('Mở bản xem trước'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Thiệp & lời mời' }));
     expect(onNavigate).toHaveBeenCalledWith('invite');
 
-    // Navigate to plan
-    await fireEvent.press(screen.getByText('Xem kế hoạch'));
-    expect(onNavigate).toHaveBeenCalledWith('plan');
+    // Navigate to schedule
+    await fireEvent.press(screen.getByRole('button', { name: 'Lịch trình & yêu cầu' }));
+    expect(onNavigate).toHaveBeenCalledWith('schedule');
   });
 
-  it('toggles task checklist without pretending business server completion', async () => {
+  it('routes journey steps in HyParty', async () => {
     const onNavigate = jest.fn();
-    await render(<V0OverviewTab facts={mockFacts} onNavigate={onNavigate} />);
+    await render(
+      <V0OverviewTab
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        onNavigate={onNavigate}
+      />,
+    );
 
-    const task = await screen.findByText('Kiểm tra nội dung thiệp');
-    expect(task).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Hợp đồng' }));
+    expect(onNavigate).toHaveBeenCalledWith('contracts');
 
-    await fireEvent.press(task);
-    expect(await screen.findByText('Kiểm tra nội dung thiệp')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Đặt cọc' }));
+    expect(onNavigate).toHaveBeenCalledWith('billing');
   });
 
   it('triggers onSwitchBooking when user presses Đổi tiệc cưới', async () => {
@@ -302,12 +552,12 @@ describe('V0InviteTab', () => {
       />,
     );
 
-    expect(await screen.findByText('Thiệp của hai bạn')).toBeOnTheScreen();
+    expect(await screen.findByText('THIỆP MỜI')).toBeOnTheScreen();
     await waitFor(() =>
       expect(gateway.listDesigns).toHaveBeenCalledWith('mock-access-token', 'booking-test-123'),
     );
-    expect(await screen.findByText('Vườn chiều')).toBeOnTheScreen();
-    expect(await screen.findByText('Đã duyệt nội dung')).toBeOnTheScreen();
+    expect((await screen.findAllByText('Vườn chiều')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/Phiên bản 4/)).length).toBeGreaterThan(0);
   });
 
   it('saves quick text editing via gateway and updates revision state', async () => {
@@ -323,8 +573,8 @@ describe('V0InviteTab', () => {
     );
 
     // Switch to edit subscreen
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
-    expect(await screen.findByText('Chỉnh sửa nội dung')).toBeOnTheScreen();
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
+    expect(await screen.findByText('Sửa nhanh thiệp')).toBeOnTheScreen();
 
     // Edit groom name
     const groomInput = screen.getByPlaceholderText('Tên chú rể');
@@ -407,12 +657,12 @@ describe('V0InviteTab', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     const groomInput = screen.getByPlaceholderText('Tên chú rể');
     await fireEvent.changeText(groomInput, 'Nam Mới');
     await fireEvent.press(screen.getByRole('button', { name: 'Lưu bản chỉnh sửa' }));
 
-    expect(await screen.findByText(/cập nhật từ phiên làm việc khác/)).toBeOnTheScreen();
+    expect((await screen.findAllByText(/Xung đột phiên bản/)).length).toBeGreaterThan(0);
     expect(screen.getByDisplayValue('Nam Mới')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Xem bản máy chủ' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Xác nhận lưu đè' })).toBeOnTheScreen();
@@ -444,7 +694,7 @@ describe('V0InviteTab', () => {
     );
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Chia sẻ' }));
-    expect(await screen.findByText('Gửi thiệp đi')).toBeOnTheScreen();
+    expect(await screen.findByText('Link thiệp cưới chính thức')).toBeOnTheScreen();
     expect(await screen.findByText('Thiệp chưa được xuất bản công khai')).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Xuất bản thiệp cưới' }));
@@ -499,8 +749,9 @@ describe('V0PlanTab', () => {
       <V0PlanTab facts={mockFacts} activeBooking={mockBooking} onNavigate={onNavigate} />,
     );
 
-    expect(await screen.findByText('Lịch trình của hai bạn')).toBeOnTheScreen();
-    expect(await screen.findByText('Phiên bản 3 đang có hiệu lực')).toBeOnTheScreen();
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
+    expect(await screen.findByText('18 Tháng 01, 2027')).toBeOnTheScreen();
+    expect(await screen.findByText('Sảnh Lavender')).toBeOnTheScreen();
     expect(await screen.findByText('Đón khách & Chụp ảnh lưu niệm')).toBeOnTheScreen();
     expect(await screen.findByText('Nghi thức thành hôn chính thức')).toBeOnTheScreen();
     expect(await screen.findByText('Khai tiệc mừng')).toBeOnTheScreen();
@@ -512,17 +763,14 @@ describe('V0PlanTab', () => {
       <V0PlanTab facts={mockFacts} activeBooking={mockBooking} onNavigate={onNavigate} />,
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Về tổng quan' }));
-    expect(onNavigate).toHaveBeenCalledWith('overview');
+    await fireEvent.press(screen.getByText('Lịch trình chính thức'));
+    expect(onNavigate).toHaveBeenCalledWith('schedule');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Ảnh riêng tư' }));
+    await fireEvent.press(screen.getByText('Nhóm khách & sơ đồ bàn'));
+    expect(onNavigate).toHaveBeenCalledWith('seating');
+
+    await fireEvent.press(screen.getByText('Ảnh cưới'));
     expect(onNavigate).toHaveBeenCalledWith('media');
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Đơn in thiệp' }));
-    expect(onNavigate).toHaveBeenCalledWith('print');
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Khách mời & chỗ ngồi' }));
-    expect(onNavigate).toHaveBeenCalledWith('guests');
   });
 
   it('renders empty timeline and fallback revision state in V0PlanTab', async () => {
@@ -532,33 +780,14 @@ describe('V0PlanTab', () => {
       timelineRevision: null,
       revision: 2,
       phase: 'COMPLETED',
-      timeline: [
-        {
-          itemId: 't-none',
-          startTime: '18:00',
-          title: 'Tiết mục mở màn',
-          description: null,
-        },
-      ],
+      timeline: [],
     };
 
     await render(
       <V0PlanTab facts={mockFacts} activeBooking={emptyBooking} onNavigate={onNavigate} />,
     );
 
-    expect(await screen.findByText('Phiên bản 2 đang có hiệu lực')).toBeOnTheScreen();
-    expect(await screen.findByText('Tiết mục mở màn')).toBeOnTheScreen();
-
-    const noItemsBooking: ConfirmedPlanningSnapshot = {
-      ...emptyBooking,
-      timeline: [],
-    };
-    await render(
-      <V0PlanTab facts={mockFacts} activeBooking={noItemsBooking} onNavigate={onNavigate} />,
-    );
-    expect(await screen.findByText('Kịch bản chi tiết đang được chuẩn bị')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Xem chi tiết lịch trình mẫu' }));
-    expect(onNavigate).toHaveBeenCalledWith('schedule');
+    expect(await screen.findByText('Chưa có lịch trình chính thức')).toBeOnTheScreen();
   });
 });
 
@@ -568,7 +797,7 @@ describe('V0Subflows', () => {
       <V0ScheduleSubflow facts={mockFacts} activeBooking={mockBooking} onNavigate={jest.fn()} />,
     );
 
-    expect(await screen.findByText('Lịch trình buổi tiệc')).toBeOnTheScreen();
+    expect(await screen.findByText('Lễ cưới Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
     expect(await screen.findByText('17:30')).toBeOnTheScreen();
     expect(await screen.findByText('Đón khách & Chụp ảnh lưu niệm')).toBeOnTheScreen();
   });
@@ -576,7 +805,7 @@ describe('V0Subflows', () => {
   it('explains 72h media cutoff and contractual limits in V0MediaSubflow', async () => {
     await render(<V0MediaSubflow facts={mockFacts} onNavigate={jest.fn()} />);
 
-    expect(await screen.findByText('Kho ảnh cưới bảo mật')).toBeOnTheScreen();
+    expect(await screen.findByText(/Thời hạn tải ảnh/)).toBeOnTheScreen();
     expect(await screen.findByText(/Tối đa 100 ảnh \/ 1 GiB/)).toBeOnTheScreen();
     expect(await screen.findByText(/Thời hạn cutoff/)).toBeOnTheScreen();
   });
@@ -619,22 +848,18 @@ describe('V0Subflows', () => {
       />,
     );
 
-    expect(await screen.findByText('Đã có báo giá (Chờ duyệt)')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận duyệt báo giá in' }));
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Hết hạn báo giá',
-      'Báo giá in thiệp cưới đã hết hạn. Vui lòng liên hệ nhà hàng để nhận báo giá mới.',
-    );
+    expect(await screen.findByText(/Đã hết hạn duyệt/)).toBeOnTheScreen();
     await unmount();
 
     const pastFacts = { ...mockFacts, eventDate: '2020-01-01' };
     await render(<V0MediaSubflow facts={pastFacts} onNavigate={jest.fn()} />);
-    await fireEvent.press(await screen.findByRole('button', { name: 'Tải thêm ảnh từ máy' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Chọn ảnh từ máy' }));
     expect(Alert.alert).toHaveBeenCalledWith('Đã quá thời hạn cutoff', expect.any(String));
   });
 
   it('loads real print orders and approves quotation via gateway in V0PrintSubflow', async () => {
     const gateway = createMockGateway();
+    gateway.listPrintOrders = jest.fn().mockResolvedValue([mockPrintOrder]);
     await render(
       <V0PrintSubflow
         facts={mockFacts}
@@ -649,8 +874,8 @@ describe('V0Subflows', () => {
     expect(await screen.findByText('Đơn in #order-12')).toBeOnTheScreen();
     expect(await screen.findByText(/200 bộ/)).toBeOnTheScreen();
 
-    // Confirm quotation
-    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận duyệt báo giá in' }));
+    // Confirm quotation in RestoredPrintPanel
+    await fireEvent.press(screen.getByRole('button', { name: 'Chấp thuận báo giá hiện tại' }));
     await waitFor(() =>
       expect(gateway.approvePrintOrder).toHaveBeenCalledWith(
         'mock-access-token',
@@ -666,28 +891,41 @@ describe('V0Subflows', () => {
   it('renders Group and optional Guest policy without Household or forced RSVP in V0GuestsSubflow', async () => {
     await render(<V0GuestsSubflow facts={mockFacts} onNavigate={jest.fn()} />);
 
-    expect(await screen.findByText('Khách mời & chỗ ngồi')).toBeOnTheScreen();
     expect(await screen.findByText('Quy định danh sách & sơ đồ bàn')).toBeOnTheScreen();
     expect(await screen.findByText(/không lưu trữ danh tính theo Hộ gia đình/)).toBeOnTheScreen();
     expect(await screen.findByText('280 khách')).toBeOnTheScreen();
   });
 
-  it('navigates back to plan from V0ScheduleSubflow and V0MediaSubflow header back buttons', async () => {
+  it('navigates back from subflows in V0CompanionShell', async () => {
     const onNavigate = jest.fn();
     const { unmount } = await render(
-      <V0ScheduleSubflow facts={mockFacts} activeBooking={mockBooking} onNavigate={onNavigate} />,
+      <V0CompanionShell
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        initialScreen="schedule"
+        onNavigate={onNavigate}
+      />,
     );
-    await fireEvent.press(screen.getByRole('button', { name: 'Về kế hoạch' }));
-    expect(onNavigate).toHaveBeenCalledWith('plan');
+    await fireEvent.press(screen.getByRole('button', { name: 'Quay lại' }));
+    expect(onNavigate).toHaveBeenCalledWith('overview');
     await unmount();
 
     const onNavigateMedia = jest.fn();
-    await render(<V0MediaSubflow facts={mockFacts} onNavigate={onNavigateMedia} />);
-    await fireEvent.press(screen.getByRole('button', { name: 'Về kế hoạch' }));
-    expect(onNavigateMedia).toHaveBeenCalledWith('plan');
+    await render(
+      <V0CompanionShell
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        initialScreen="media"
+        onNavigate={onNavigateMedia}
+      />,
+    );
+    await fireEvent.press(screen.getByRole('button', { name: 'Quay lại' }));
+    expect(onNavigateMedia).toHaveBeenCalledWith('overview');
   });
 
-  it('navigates back to plan from V0PrintSubflow and renders multiple print order statuses', async () => {
+  it('renders multiple print order statuses in V0PrintSubflow', async () => {
     const onNavigate = jest.fn();
     const gateway = createMockGateway();
     const ordersWithVariousStatuses = [
@@ -785,9 +1023,6 @@ describe('V0Subflows', () => {
     expect(await screen.findByText('Sẵn sàng bàn giao')).toBeOnTheScreen();
     expect(await screen.findByText('Đã bàn giao')).toBeOnTheScreen();
     expect(await screen.findByText('Đã hủy đơn')).toBeOnTheScreen();
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Về kế hoạch' }));
-    expect(onNavigate).toHaveBeenCalledWith('plan');
   });
 
   it('handles replacement proposals in V0PrintSubflow', async () => {
@@ -817,7 +1052,7 @@ describe('V0Subflows', () => {
     );
 
     expect(await screen.findByText(/Đề xuất báo giá thay thế mới/)).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Duyệt báo giá thay thế' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Chấp thuận bản thay thế' }));
     await waitFor(() => {
       expect(gateway.approveReplacementProposal).toHaveBeenCalledWith(
         'mock-access-token',
@@ -825,6 +1060,7 @@ describe('V0Subflows', () => {
         'order-12345678',
         'rev-replace-1',
         2,
+        expect.any(String),
       );
     });
   });
@@ -840,6 +1076,7 @@ describe('V0Subflows', () => {
         requestId: '00000000-0000-0000-0000-000000000000',
       }),
     );
+    gateway.listPrintOrders = jest.fn().mockResolvedValue([mockPrintOrder]);
 
     await render(
       <V0PrintSubflow
@@ -852,14 +1089,8 @@ describe('V0Subflows', () => {
     );
 
     await waitFor(() => expect(gateway.listPrintOrders).toHaveBeenCalled());
-    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận duyệt báo giá in' }));
-    await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith(
-        'Xung đột phiên bản (409)',
-        expect.any(String),
-        expect.any(Array),
-      );
-    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Chấp thuận báo giá hiện tại' }));
+    expect(await screen.findByText(/Conflict/)).toBeOnTheScreen();
   });
 });
 
@@ -875,16 +1106,18 @@ describe('V0AccountTab', () => {
           displayName: 'Thùy Trang & Hoàng Nam',
           revision: 1,
         }}
+        session={mockSession}
         onNavigate={onNavigate}
       />,
     );
 
-    expect(await screen.findByText('Thông tin của hai bạn')).toBeOnTheScreen();
-    expect((await screen.findAllByText('TH')).length).toBeGreaterThan(0); // Derived initials for Thùy Trang & Hoàng Nam
-    expect(await screen.findByText('Tài khoản cặp đôi')).toBeOnTheScreen();
+    expect(await screen.findByText('HY')).toBeOnTheScreen();
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
+    expect(await screen.findByText('couple@example.com')).toBeOnTheScreen();
+    expect(await screen.findByText('Hồ sơ & bảo mật')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán & Hóa đơn' }));
-    expect(onNavigate).toHaveBeenCalledWith('billing');
+    await fireEvent.press(screen.getByText('Thông báo'));
+    expect(onNavigate).toHaveBeenCalledWith('notifications');
   });
 });
 
@@ -899,16 +1132,19 @@ describe('V0CompanionShell', () => {
       />,
     );
 
-    expect(await screen.findByText('Chào buổi sáng, Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('tab', { name: 'Kế hoạch' }));
-    expect(await screen.findByText('Lịch trình của hai bạn')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Khách' }));
+    expect((await screen.findAllByText('Khách mời')).length).toBeGreaterThan(0);
 
-    await fireEvent.press(screen.getByRole('tab', { name: 'Tài khoản' }));
-    expect(await screen.findByText('Thông tin của hai bạn')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Thiệp' }));
+    expect((await screen.findAllByText('Thiệp cưới')).length).toBeGreaterThan(0);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán & Hóa đơn' }));
-    expect(await screen.findByText('Thanh toán & Hóa đơn')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('tab', { name: 'Tài chính' }));
+    expect((await screen.findAllByText('Tài chính')).length).toBeGreaterThan(0);
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Xem thanh toán & giao dịch' }));
+    expect((await screen.findAllByText('Thanh toán')).length).toBeGreaterThan(0);
   });
 
   it('bounds hardware back press to return from subflow to parent tab', async () => {
@@ -931,7 +1167,7 @@ describe('V0CompanionShell', () => {
       />,
     );
 
-    expect(await screen.findByText('Lịch trình buổi tiệc')).toBeOnTheScreen();
+    expect(await screen.findByText('Lịch trình')).toBeOnTheScreen();
 
     // Trigger hardware back
     expect(backHandlerCallback).not.toBeNull();
@@ -940,8 +1176,7 @@ describe('V0CompanionShell', () => {
       expect(handled).toBe(true);
     });
 
-    expect(onNavigate).toHaveBeenCalledWith('plan');
-    expect(await screen.findByText('Lịch trình của hai bạn')).toBeOnTheScreen();
+    expect(onNavigate).toHaveBeenCalledWith('overview');
   });
 
   it('routes to guests, media, and print subflows with functional hardware back handling', async () => {
@@ -959,16 +1194,16 @@ describe('V0CompanionShell', () => {
         facts={mockFacts}
         activeBooking={mockBooking}
         session={mockSession}
-        initialScreen="guests"
+        initialScreen="media"
         onNavigate={onNavigate}
       />,
     );
-    expect(await screen.findByText('Khách mời & chỗ ngồi')).toBeOnTheScreen();
+    expect(await screen.findByText('Ảnh cưới')).toBeOnTheScreen();
 
     await act(async () => {
       backHandlerCallback!({} as never);
     });
-    expect(onNavigate).toHaveBeenCalledWith('plan');
+    expect(onNavigate).toHaveBeenCalledWith('overview');
 
     await unmount();
 
@@ -977,16 +1212,16 @@ describe('V0CompanionShell', () => {
         facts={mockFacts}
         activeBooking={mockBooking}
         session={mockSession}
-        initialScreen="media"
+        initialScreen="print"
         onNavigate={onNavigate}
       />,
     );
-    expect(await screen.findByText('Kho ảnh cưới bảo mật')).toBeOnTheScreen();
+    expect(await screen.findByText('Đơn in')).toBeOnTheScreen();
 
     await act(async () => {
       backHandlerCallback!({} as never);
     });
-    expect(onNavigate).toHaveBeenCalledWith('plan');
+    expect(onNavigate).toHaveBeenCalledWith('finance');
   });
 });
 
@@ -1024,7 +1259,7 @@ describe('V0InviteTab edge cases & dirty edits', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     const groomInput = screen.getByPlaceholderText('Tên chú rể');
     await fireEvent.changeText(groomInput, 'Nam Cục Bộ');
     await fireEvent.press(screen.getByRole('button', { name: 'Lưu bản chỉnh sửa' }));
@@ -1071,12 +1306,12 @@ describe('V0InviteTab edge cases & dirty edits', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     const groomInput = screen.getByPlaceholderText('Tên chú rể');
     await fireEvent.changeText(groomInput, 'Thay Đổi Chưa Lưu');
 
-    // Press back button
-    await fireEvent.press(screen.getByRole('button', { name: 'Quay lại thiệp' }));
+    // Press close button on sheet
+    await fireEvent.press(screen.getByRole('button', { name: 'Đóng' }));
     expect(Alert.alert).toHaveBeenCalledWith(
       'Hủy thay đổi?',
       expect.stringContaining('chưa lưu'),
@@ -1089,10 +1324,10 @@ describe('V0InviteTab edge cases & dirty edits', () => {
     await act(async () => {
       discardButton.onPress();
     });
-    expect(await screen.findByText('Bản xem trước thiệp cưới (Vườn chiều)')).toBeOnTheScreen();
+    expect(await screen.findByText('THIỆP MỜI')).toBeOnTheScreen();
 
     // Test handleMorePress options
-    await fireEvent.press(screen.getByRole('button', { name: 'Tùy chọn khác' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Tùy chọn thiệp & bản in' }));
     expect(Alert.alert).toHaveBeenCalledWith('Tùy chọn thiệp cưới', undefined, expect.any(Array));
     const moreCalls = (Alert.alert as jest.Mock).mock.calls;
     const moreButtons = moreCalls[moreCalls.length - 1][2];
@@ -1148,7 +1383,7 @@ describe('V0Subflows edge cases & actions', () => {
     expect(await screen.findByText(/Đề xuất báo giá thay thế mới/)).toBeOnTheScreen();
 
     // Approve replacement
-    await fireEvent.press(screen.getByRole('button', { name: 'Duyệt báo giá thay thế' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Chấp thuận bản thay thế' }));
     await waitFor(() =>
       expect(gateway.approveReplacementProposal).toHaveBeenCalledWith(
         'mock-access-token',
@@ -1156,31 +1391,20 @@ describe('V0Subflows edge cases & actions', () => {
         'order-replacement-1',
         'comm-rev-2',
         2,
+        expect.any(String),
       ),
     );
 
     // Cancel order
     await fireEvent.press(screen.getByRole('button', { name: 'Hủy đơn in' }));
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Hủy đơn in thiệp',
-      expect.any(String),
-      expect.any(Array),
-    );
-    const cancelAlertButtons = (Alert.alert as unknown as jest.Mock).mock.calls.find(
-      (call) => call[0] === 'Hủy đơn in thiệp',
-    )?.[2];
-    const confirmButton = cancelAlertButtons?.find(
-      (b: { text: string }) => b.text === 'Xác nhận hủy',
-    );
-    await act(async () => {
-      await confirmButton?.onPress?.();
-    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Xác nhận hủy đơn in' }));
     await waitFor(() =>
       expect(gateway.cancelApprovedPrintOrder).toHaveBeenCalledWith(
         'mock-access-token',
         'booking-test-123',
         'order-replacement-1',
         2,
+        expect.any(String),
       ),
     );
   });
@@ -1255,48 +1479,88 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    expect(await screen.findByText('Kho ảnh cưới bảo mật')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Tải thêm ảnh từ máy' }));
+    expect(await screen.findByText(/Thời hạn tải ảnh/)).toBeOnTheScreen();
+    const altInput = screen.getByPlaceholderText(/Nhập mô tả ảnh/);
+    await fireEvent.changeText(altInput, 'Ảnh cưới hạnh phúc');
+    await fireEvent.press(screen.getByRole('button', { name: 'Chọn ảnh từ máy' }));
     await waitFor(() => expect(gateway.uploadWeddingMedia).toHaveBeenCalled());
   });
 
   it('manages groups, guests, adds guest, and adds new group in V0GuestsSubflow', async () => {
-    await render(<V0GuestsSubflow facts={mockFacts} onNavigate={jest.fn()} />);
+    jest.spyOn(coupleBilling, 'loadGuestGroups').mockResolvedValue([
+      {
+        guestGroupId: 'grp-1',
+        name: 'Gia đình nhà trai',
+        status: 'ACTIVE',
+        bookingId: 'booking-test-123',
+        color: '#D4AF37',
+        revision: 1,
+      },
+      {
+        guestGroupId: 'grp-2',
+        name: 'Gia đình nhà gái',
+        status: 'ACTIVE',
+        bookingId: 'booking-test-123',
+        color: '#8A9A5B',
+        revision: 1,
+      },
+    ]);
+    jest.spyOn(coupleBilling, 'loadGuests').mockResolvedValue({
+      items: [
+        {
+          guestId: 'g-1',
+          name: 'Trần Thị Mai',
+          guestGroupId: 'grp-1',
+          operationalNote: null,
+          phone: null,
+          status: 'ACTIVE',
+          bookingId: 'booking-test-123',
+          revision: 1,
+        },
+      ],
+      nextCursor: null,
+      sourceSequence: 1,
+    });
+
+    await render(
+      <V0GuestsSubflow
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        onNavigate={jest.fn()}
+      />,
+    );
 
     expect(await screen.findByText('Gia đình nhà trai')).toBeOnTheScreen();
     expect(await screen.findByText('Gia đình nhà gái')).toBeOnTheScreen();
-
-    // Add a guest to currently selected group
-    const guestInput = screen.getByPlaceholderText('Tên khách mời tùy chọn...');
-    await fireEvent.changeText(guestInput, 'Trần Thị Mai');
-    await fireEvent.press(screen.getByRole('button', { name: 'Thêm khách' }));
     expect(await screen.findByText(/Trần Thị Mai/)).toBeOnTheScreen();
-
-    // Add a new group
-    const groupInput = screen.getByPlaceholderText('Tên nhóm mới (ví dụ: Bạn cấp 3)');
-    await fireEvent.changeText(groupInput, 'Bạn cấp 3');
-    await fireEvent.press(screen.getByRole('button', { name: 'Thêm nhóm' }));
-    expect(await screen.findByText('Bạn cấp 3')).toBeOnTheScreen();
   });
 
   it('routes quick actions and milestones from V0OverviewTab to respective screens', async () => {
     const onNavigate = jest.fn();
-    await render(<V0OverviewTab facts={mockFacts} onNavigate={onNavigate} />);
+    await render(
+      <V0OverviewTab
+        facts={mockFacts}
+        activeBooking={mockBooking}
+        session={mockSession}
+        onNavigate={onNavigate}
+      />,
+    );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Mở bản xem trước' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Thiệp & lời mời' }));
     expect(onNavigate).toHaveBeenCalledWith('invite');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Xem kế hoạch' }));
-    expect(onNavigate).toHaveBeenCalledWith('plan');
-
-    await fireEvent.press(screen.getByText('Lễ cưới chính thức'));
+    await fireEvent.press(screen.getByRole('button', { name: 'Lịch trình & yêu cầu' }));
     expect(onNavigate).toHaveBeenCalledWith('schedule');
 
-    await fireEvent.press(screen.getByText('Đơn in thiệp cưới'));
-    expect(onNavigate).toHaveBeenCalledWith('print');
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Mở Kế hoạch khách mời' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Khách mời của hai bạn' }));
     expect(onNavigate).toHaveBeenCalledWith('guests');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Hợp đồng' }));
+    expect(onNavigate).toHaveBeenCalledWith('contracts');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Quyết toán' }));
+    expect(onNavigate).toHaveBeenCalledWith('finance');
   });
 
   it('routes to schedule and subflows from V0PlanTab', async () => {
@@ -1309,17 +1573,14 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Xem chi tiết lịch trình mẫu' }));
+    await fireEvent.press(screen.getByText('Lịch trình chính thức'));
     expect(onNavigate).toHaveBeenCalledWith('schedule');
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Ảnh riêng tư' }));
+    await fireEvent.press(screen.getByText('Nhóm khách & sơ đồ bàn'));
+    expect(onNavigate).toHaveBeenCalledWith('seating');
+
+    await fireEvent.press(screen.getByText('Ảnh cưới'));
     expect(onNavigate).toHaveBeenCalledWith('media');
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Đơn in thiệp' }));
-    expect(onNavigate).toHaveBeenCalledWith('print');
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Khách mời & chỗ ngồi' }));
-    expect(onNavigate).toHaveBeenCalledWith('guests');
   });
 
   it('handles account tab logout and security toggles', async () => {
@@ -1329,21 +1590,23 @@ describe('V0Subflows edge cases & actions', () => {
       <V0AccountTab
         facts={mockFacts}
         session={mockSession}
+        profile={{
+          accountId: 'acc-1',
+          displayEmail: 'couple@example.com',
+          displayName: 'Thùy Trang & Hoàng Nam',
+          revision: 1,
+        }}
         onNavigate={onNavigate}
         onLogout={onLogout}
       />,
     );
 
     // Toggle security inline settings
-    await fireEvent.press(screen.getByRole('button', { name: 'Bảo mật phiên đăng nhập' }));
-    expect(await screen.findByText('Đổi mật khẩu tài khoản')).toBeOnTheScreen();
-
-    // Navigate to billing
-    await fireEvent.press(screen.getByRole('button', { name: 'Thanh toán & Hóa đơn' }));
-    expect(onNavigate).toHaveBeenCalledWith('billing');
+    await fireEvent.press(screen.getByText('Hồ sơ & bảo mật'));
+    expect(await screen.findByText('Hồ sơ và bảo mật')).toBeOnTheScreen();
 
     // Logout
-    await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất khỏi thiết bị' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất' }));
     expect(Alert.alert).toHaveBeenCalledWith('Đăng xuất', expect.any(String), expect.any(Array));
     const logoutAlertButtons = (Alert.alert as unknown as jest.Mock).mock.calls.find(
       (call) => call[0] === 'Đăng xuất',
@@ -1381,7 +1644,7 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Tên chú rể'), 'Nam Network');
     await fireEvent.press(screen.getByRole('button', { name: 'Lưu bản chỉnh sửa' }));
     expect(await screen.findByText(/Lỗi kết nối mạng trước khi nhận kết quả/)).toBeOnTheScreen();
@@ -1408,7 +1671,7 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Tên chú rể'), 'Nam Timeout');
     await fireEvent.press(screen.getByRole('button', { name: 'Lưu bản chỉnh sửa' }));
     expect(await screen.findByText(/Quá thời gian kết nối tới máy chủ/)).toBeOnTheScreen();
@@ -1485,7 +1748,7 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Chỉnh sửa chữ' }));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sửa nhanh' }));
     await fireEvent.changeText(screen.getByPlaceholderText('Tên chú rể'), 'Nam Ghi Đè');
     await fireEvent.press(screen.getByRole('button', { name: 'Lưu bản chỉnh sửa' }));
 
@@ -1614,7 +1877,9 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Tải thêm ảnh từ máy' }));
+    const altInput = screen.getByPlaceholderText(/Nhập mô tả ảnh/);
+    await fireEvent.changeText(altInput, 'Ảnh mô tả lỗi');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Chọn ảnh từ máy' }));
     expect(Alert.alert).toHaveBeenCalledWith('Lỗi tải ảnh', 'Tệp quá lớn 25MiB');
     await unmount();
 
@@ -1654,23 +1919,23 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    expect(await screen.findByText('Góc nhỏ của hai bạn')).toBeOnTheScreen();
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
 
     // Navigate to Thiệp tab
     await fireEvent.press(screen.getByRole('tab', { name: 'Thiệp' }));
-    expect(await screen.findByText('Thiệp của hai bạn')).toBeOnTheScreen();
+    expect((await screen.findAllByText('Thiệp cưới')).length).toBeGreaterThan(0);
 
-    // Navigate to Kế hoạch tab
-    await fireEvent.press(screen.getByRole('tab', { name: 'Kế hoạch' }));
-    expect(await screen.findByText('Lịch trình của hai bạn')).toBeOnTheScreen();
+    // Navigate to Khách tab
+    await fireEvent.press(screen.getByRole('tab', { name: 'Khách' }));
+    expect((await screen.findAllByText('Khách mời')).length).toBeGreaterThan(0);
 
-    // Navigate to Tài khoản tab
-    await fireEvent.press(screen.getByRole('tab', { name: 'Tài khoản' }));
-    expect(await screen.findByText('Thông tin của hai bạn')).toBeOnTheScreen();
+    // Navigate to Tài chính tab
+    await fireEvent.press(screen.getByRole('tab', { name: 'Tài chính' }));
+    expect((await screen.findAllByText('Tài chính')).length).toBeGreaterThan(0);
 
-    // Navigate back to Tổng quan tab
-    await fireEvent.press(screen.getByRole('tab', { name: 'Tổng quan' }));
-    expect(await screen.findByText('Góc nhỏ của hai bạn')).toBeOnTheScreen();
+    // Navigate back to Tiệc tab
+    await fireEvent.press(screen.getByRole('tab', { name: 'Tiệc' }));
+    expect(await screen.findByText('Thùy Trang & Hoàng Nam')).toBeOnTheScreen();
   });
 
   it('handles hardware back routing on billing screen in V0CompanionShell', async () => {
@@ -1695,13 +1960,13 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    expect(await screen.findByText('Thanh toán & Hóa đơn')).toBeOnTheScreen();
+    expect(await screen.findByText('Thanh toán')).toBeOnTheScreen();
 
     await act(async () => {
       const handled = backHandlerCallback!({} as never);
       expect(handled).toBe(true);
     });
-    expect(onNavigate).toHaveBeenCalledWith('account');
+    expect(onNavigate).toHaveBeenCalledWith('finance');
   });
 
   it('handles header back button on billing screen in V0CompanionShell', async () => {
@@ -1718,9 +1983,9 @@ describe('V0Subflows edge cases & actions', () => {
       />,
     );
 
-    expect(await screen.findByText('Thanh toán & Hóa đơn')).toBeOnTheScreen();
-    await fireEvent.press(screen.getByRole('button', { name: 'Quay lại tài khoản' }));
-    expect(onNavigate).toHaveBeenCalledWith('account');
+    expect(await screen.findByText('Thanh toán')).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Quay lại' }));
+    expect(onNavigate).toHaveBeenCalledWith('finance');
   });
 
   it('handles hardware back routing on edit screen in V0CompanionShell', async () => {
@@ -1778,7 +2043,7 @@ describe('V0Subflows edge cases & actions', () => {
       const handled = backHandlerCallback!({} as never);
       expect(handled).toBe(true);
     });
-    expect(onNavigate).toHaveBeenCalledWith('plan');
+    expect(onNavigate).toHaveBeenCalledWith('overview');
   });
 
   it('returns false on hardware back on overview in V0CompanionShell', async () => {

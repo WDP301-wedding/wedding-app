@@ -64,7 +64,12 @@ export interface CoupleBillingGateway {
   loadIncidentals?(this: void, token: string, bookingId: string): Promise<IncidentalExpensesView>;
   loadFinalInvoices?(this: void, token: string, bookingId: string): Promise<CommercialInvoiceView>;
   loadGuestGroups?(this: void, token: string, bookingId: string): Promise<GuestGroupView>;
-  loadGuests?(this: void, token: string, bookingId: string): Promise<NamedGuestView>;
+  loadGuests?(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<NamedGuestView>;
   downloadContractPdf?(
     this: void,
     token: string,
@@ -79,7 +84,12 @@ export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
   loadIncidentals(this: void, token: string, bookingId: string): Promise<IncidentalExpensesView>;
   loadFinalInvoices(this: void, token: string, bookingId: string): Promise<CommercialInvoiceView>;
   loadGuestGroups(this: void, token: string, bookingId: string): Promise<GuestGroupView>;
-  loadGuests(this: void, token: string, bookingId: string): Promise<NamedGuestView>;
+  loadGuests(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<NamedGuestView>;
   downloadContractPdf(
     this: void,
     token: string,
@@ -144,8 +154,7 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
         depositAmountVnd: value.proposal.depositAmountVnd,
         timelineRevisionId:
           value.effectiveTimeline?.revisionId ?? value.timeline?.revisionId ?? null,
-        contractRevisionId,
-        documentDigest,
+        ...(contractRevisionId !== null ? { contractRevisionId, documentDigest } : {}),
       };
     },
     async load(token, bookingId, query = {}) {
@@ -223,9 +232,9 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       });
       return required(data) as GuestGroupView;
     },
-    async loadGuests(token, bookingId) {
+    async loadGuests(token, bookingId, cursor) {
       const { data } = await api().GET('/bookings/{bookingId}/guests', {
-        params: { path: { bookingId } },
+        params: { path: { bookingId }, ...(cursor ? { query: { cursor } } : {}) },
         headers: headers(token),
         cache: 'no-store',
       });

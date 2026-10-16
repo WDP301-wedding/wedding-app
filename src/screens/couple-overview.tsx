@@ -1,6 +1,6 @@
 import { HyText as Text, HyButton } from '@/components/hy-ui';
 import '@/lib/alert';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppInsets } from '@/lib/safe-area';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 
@@ -76,7 +76,7 @@ export function CoupleOverviewScreen({
   initialScreen?: V0Screen | undefined;
 }>) {
   const { brand, colors } = useWeddingTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppInsets();
   const [view, setView] = useState<'selector' | 'overview' | 'account'>('selector');
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<ConfirmedPlanningSnapshot | null>(null);

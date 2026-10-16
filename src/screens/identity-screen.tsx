@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppInsets } from '@/lib/safe-area';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 
@@ -47,7 +47,7 @@ export function IdentityScreen({
   session,
 }: IdentityScreenProps) {
   const { brand, colors } = useWeddingTheme();
-  const insets = useSafeAreaInsets();
+  const insets = useAppInsets();
   const [mode, setMode] = useState<'login' | 'reset-complete' | 'reset-request'>(initialMode);
   const [email, setEmail] = useState('');
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);

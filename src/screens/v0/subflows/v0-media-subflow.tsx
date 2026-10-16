@@ -276,7 +276,7 @@ export function V0MediaSubflow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Chọn ảnh từ máy"
-          disabled={uploading || isCutoffPassed}
+          disabled={uploading}
           onPress={() => void handlePickAndUpload()}
           style={({ pressed }) => [
             styles.primaryButton,

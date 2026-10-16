@@ -267,7 +267,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Xem kế hoạch' }));
 
     // Now inside V0CompanionShell
-    expect(await screen.findByText('Chào buổi sáng, Trang & Nam')).toBeOnTheScreen();
+    expect(await screen.findByText('Trang & Nam')).toBeOnTheScreen();
 
     // Switch booking back to selector
     await fireEvent.press(screen.getByRole('button', { name: 'Đổi tiệc cưới' }));
@@ -305,7 +305,7 @@ describe('CoupleOverviewScreen booking and navigation flows', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Tài khoản' }));
     expect(await screen.findByText('couple@example.com')).toBeOnTheScreen();
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Tổng quan' }));
+    await fireEvent.press(screen.getByRole('tab', { name: 'Tiệc' }));
     expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
   });
 

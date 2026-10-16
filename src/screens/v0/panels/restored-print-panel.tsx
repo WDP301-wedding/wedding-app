@@ -4,6 +4,7 @@ import { HyText as Text } from '@/components/hy-ui';
 import type {
   AppDesignView,
   AppPrintOrderView,
+  AppInvitationGateway,
 } from '@/features/invitation-studio/app-invitation-api';
 import { readPublicEnv } from '@/lib/env';
 import { saveOrShareDownloadedFile } from '@/lib/save-downloaded-file';
@@ -20,7 +21,16 @@ import {
 } from './panels-common';
 import { styles } from './panels.styles';
 
-export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
+export interface RestoredPrintPanelProps extends ContextProps {
+  invitationGateway?: AppInvitationGateway;
+}
+
+export function RestoredPrintPanel({
+  activeBooking,
+  session,
+  invitationGateway,
+}: RestoredPrintPanelProps) {
+  const inv = invitationGateway ?? invitations;
   const bookingId = activeBooking?.bookingId;
   const [orders, setOrders] = useState<readonly AppPrintOrderView[]>([]);
   const [designs, setDesigns] = useState<readonly AppDesignView[]>([]);
@@ -35,8 +45,8 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
     try {
       const [o, d] = await session.authorize((token) =>
         Promise.all([
-          invitations.listPrintOrders(token, bookingId),
-          invitations.listDesigns(token, bookingId),
+          inv.listPrintOrders(token, bookingId),
+          inv.listDesigns(token, bookingId),
         ]),
       );
       setOrders(o);
@@ -47,7 +57,7 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
       setDesigns([]);
       setError(message(e));
     }
-  }, [session, bookingId]);
+  }, [session, bookingId, inv]);
   useEffect(() => {
     const task = setTimeout(() => void load(), 0);
     return () => clearTimeout(task);
@@ -92,7 +102,7 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
     const ok = await mutation.run(`${bookingId}:print:${order.orderId}`, body, (key) =>
       session.authorize<unknown>(async (token) => {
         if (kind === 'approve' && revision)
-          return invitations.approvePrintOrder(
+          return inv.approvePrintOrder(
             token,
             bookingId,
             order.orderId,
@@ -101,7 +111,7 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
             key,
           );
         if (kind === 'replace' && revision)
-          return invitations.approveReplacementProposal(
+          return inv.approveReplacementProposal(
             token,
             bookingId,
             order.orderId,
@@ -117,7 +127,7 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
             { expectedRevision: order.revision, reason: reason.trim() },
             key,
           );
-        return invitations.cancelApprovedPrintOrder(
+        return inv.cancelApprovedPrintOrder(
           token,
           bookingId,
           order.orderId,
@@ -158,7 +168,7 @@ export function RestoredPrintPanel({ activeBooking, session }: ContextProps) {
           <Text>
             Đơn {order.orderId.slice(0, 8)} · {order.status} · Phiên bản {order.revision}
           </Text>
-          {order.lines
+          {(order.lines ?? [])
             .filter((line) => line.printableRevisionId !== null)
             .map((line) => (
               <Button

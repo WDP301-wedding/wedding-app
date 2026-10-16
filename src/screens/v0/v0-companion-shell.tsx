@@ -1,7 +1,7 @@
 import '@/lib/alert';
 import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler, Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppInsets } from '@/lib/safe-area';
 import { HyText as Text, HyState } from '@/components/hy-ui';
 import { CalendarIcon, UsersIcon, FileTextIcon, BellIcon, WalletIcon } from '@/components/v0-icons';
 import { hy } from '@/theme';
@@ -69,16 +69,22 @@ function parent(screen: V0Screen): V0Screen {
 export function V0CompanionShell({
   initialScreen = 'overview',
   onNavigate: externalNavigate,
+  activeBooking,
+  onSwitchBooking,
   ...props
 }: V0CompanionShellProps) {
   const [screen, setScreen] = useState<V0Screen>(initialScreen);
-  const insets = useSafeAreaInsets();
+  const insets = useAppInsets();
   const navigate = useCallback(
     (next: V0Screen) => {
+      if (!activeBooking && next === 'overview' && onSwitchBooking) {
+        onSwitchBooking();
+        return;
+      }
       setScreen(next);
       externalNavigate?.(next);
     },
-    [externalNavigate],
+    [externalNavigate, activeBooking, onSwitchBooking],
   );
   const back = useCallback(() => navigate(parent(screen)), [navigate, screen]);
   useEffect(() => {
@@ -89,12 +95,18 @@ export function V0CompanionShell({
     });
     return () => sub.remove();
   }, [screen, back]);
-  const common: V0CommonProps = { ...props, onNavigate: navigate, onBack: back };
+  const common: V0CommonProps = {
+    ...props,
+    activeBooking,
+    onSwitchBooking,
+    onNavigate: navigate,
+    onBack: back,
+  };
   const tab = tabs.some((t) => t.id === screen);
   const active = tab ? screen : parent(screen);
   const render = () => {
     if (
-      !props.activeBooking &&
+      !activeBooking &&
       !['account', 'catalog', 'notifications', 'sessions'].includes(screen)
     )
       return (
@@ -102,7 +114,7 @@ export function V0CompanionShell({
           kind="empty"
           title="Chọn tiệc để bắt đầu"
           body="Mở một tiệc cưới để xem khách mời, thiệp và tài chính."
-          {...(props.onSwitchBooking ? { onRetry: props.onSwitchBooking } : {})}
+          {...(onSwitchBooking ? { onRetry: onSwitchBooking } : {})}
         />
       );
     switch (screen) {

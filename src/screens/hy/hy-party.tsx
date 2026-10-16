@@ -105,7 +105,7 @@ export function HyParty({
         <View style={{ backgroundColor: hy.primary, borderRadius: 28, padding: 20, gap: 14 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Chọn tiệc cưới"
+            accessibilityLabel="Đổi tiệc cưới"
             onPress={() => onSwitchBooking?.()}
             style={{
               minHeight: 48,

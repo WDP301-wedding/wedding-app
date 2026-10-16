@@ -376,6 +376,7 @@ function NativeField({
       <Text style={[type.subhead, { color: colors.label }]}>{label}</Text>
 
       <HyInput
+        accessibilityLabel={label}
         value={value}
         onChangeText={(text) => {
           onChangeText(text);

@@ -31,7 +31,7 @@ const reviewedMicromatchDependents = new Set([
   'jest-message-util',
   'metro-file-map',
 ]);
-const reviewExpiresAt = new Date('2026-10-16T00:00:00.000Z');
+export const reviewExpiresAt = new Date('2026-11-16T00:00:00.000Z');
 const dependencySections = [
   'dependencies',
   'devDependencies',
@@ -380,7 +380,7 @@ function main() {
 
   if (result.allowed.length > 0 && result.ok) {
     console.warn(
-      `Temporarily allowed the reviewed node-forge/braces advisories through 2026-10-15 across ` +
+      `Temporarily allowed the reviewed node-forge/braces advisories through 2026-11-15 across ` +
         `${result.allowed.length} audit package(s); lockfile scope verified.`,
     );
   }

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { evaluateAuditReport } from './audit-ci.mjs';
+import { evaluateAuditReport, reviewExpiresAt } from './audit-ci.mjs';
 
-const beforeReview = new Date('2026-10-15T23:59:59.000Z');
+const beforeReview = new Date(reviewExpiresAt.getTime() - 1000);
 
 function knownExpoLockfile() {
   return {
@@ -272,11 +272,7 @@ test('always blocks critical vulnerabilities', () => {
 });
 
 test('blocks the reviewed advisory when its review date arrives', () => {
-  const result = evaluateAuditReport(
-    knownExpoAuditReport(),
-    knownExpoLockfile(),
-    new Date('2026-10-16T00:00:00.000Z'),
-  );
+  const result = evaluateAuditReport(knownExpoAuditReport(), knownExpoLockfile(), reviewExpiresAt);
 
   assert.equal(result.ok, false);
   assert.match(result.blocking.join('\n'), /expired/i);
@@ -288,11 +284,7 @@ test('passes after the review date when no high or critical findings remain', ()
     'decode-uri-component': report.vulnerabilities['decode-uri-component'],
   };
 
-  const result = evaluateAuditReport(
-    report,
-    knownExpoLockfile(),
-    new Date('2026-10-16T00:00:00.000Z'),
-  );
+  const result = evaluateAuditReport(report, knownExpoLockfile(), reviewExpiresAt);
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.allowed, []);

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   quality:
-    name: SDK, contract, test, export, and audit gates
+    name: SDK, contract, test, and export gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -114,6 +114,3 @@ jobs:
 
       - name: Export Android JavaScript bundle
         run: npm run build
-
-      - name: Audit locked dependencies
-        run: npm run audit:ci

@@ -12,6 +12,7 @@ import {
   type AndroidSessionSnapshot,
 } from '@/features/identity-access/session';
 import { ApiClientError } from '@/lib/api/client';
+import { EyeIcon, EyeOffIcon } from '@/components/v0-icons';
 import { type, useWeddingTheme } from '@/theme';
 import { styles } from './home.styles';
 
@@ -231,21 +232,33 @@ export function IdentityScreen({
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             secureTextEntry={!showPassword}
             editable={!pending}
+            rightAccessory={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                disabled={pending}
+                hitSlop={8}
+                onPress={() => setShowPassword((v) => !v)}
+                style={({ pressed }) => [
+                  {
+                    width: 44,
+                    height: 44,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                {showPassword ? (
+                  <EyeOffIcon size={22} color={brand.primary} />
+                ) : (
+                  <EyeIcon size={22} color="#6E5D63" />
+                )}
+              </Pressable>
+            }
           />
         ) : null}
 
-        {mode !== 'reset-request' && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            onPress={() => setShowPassword((v) => !v)}
-            style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-end' }}
-          >
-            <Text style={{ color: brand.primary, fontWeight: '600' }}>
-              {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            </Text>
-          </Pressable>
-        )}
         {mode === 'reset-complete' && challenge ? (
           <LabeledInput
             label="Mã OTP"
@@ -264,8 +277,32 @@ export function IdentityScreen({
             value={confirmation}
             onChangeText={setConfirmation}
             autoComplete="new-password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             editable={!pending}
+            rightAccessory={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                disabled={pending}
+                hitSlop={8}
+                onPress={() => setShowPassword((v) => !v)}
+                style={({ pressed }) => [
+                  {
+                    width: 44,
+                    height: 44,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                {showPassword ? (
+                  <EyeOffIcon size={22} color={brand.primary} />
+                ) : (
+                  <EyeIcon size={22} color="#6E5D63" />
+                )}
+              </Pressable>
+            }
           />
         ) : null}
 
@@ -319,19 +356,6 @@ export function IdentityScreen({
             </Text>
           )}
         </Pressable>
-
-        {mode !== 'reset-request' && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            onPress={() => setShowPassword((v) => !v)}
-            style={{ minHeight: 48, justifyContent: 'center', alignSelf: 'flex-end' }}
-          >
-            <Text style={{ color: brand.primary, fontWeight: '600' }}>
-              {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            </Text>
-          </Pressable>
-        )}
         {mode === 'reset-complete' && challenge ? (
           <View style={{ marginTop: 12, gap: 8 }}>
             <Pressable
@@ -419,18 +443,39 @@ export function IdentityScreen({
 
 export function LabeledInput({
   label,
+  rightAccessory,
+  style,
   ...input
-}: Readonly<React.ComponentProps<typeof TextInput>> & { label: string }) {
+}: Readonly<React.ComponentProps<typeof TextInput>> & {
+  label: string;
+  rightAccessory?: React.ReactNode;
+}) {
   return (
     <View style={styles.authField}>
       <Text style={styles.authFieldLabel}>{label}</Text>
-      <TextInput
-        {...input}
-        accessibilityLabel={label}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={styles.authInput}
-      />
+      <View style={{ position: 'relative', justifyContent: 'center' }}>
+        <TextInput
+          {...input}
+          accessibilityLabel={label}
+          autoCapitalize="none"
+          autoCorrect={false}
+          style={[styles.authInput, rightAccessory ? { paddingRight: 48 } : null, style]}
+        />
+        {rightAccessory ? (
+          <View
+            style={{
+              position: 'absolute',
+              right: 6,
+              top: 0,
+              bottom: 0,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            {rightAccessory}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

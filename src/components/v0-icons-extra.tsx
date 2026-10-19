@@ -308,3 +308,133 @@ export function ClockIcon({ size = 16, color = '#4A3A40' }: IconProps) {
     </View>
   );
 }
+
+/** Eye (visible / show) icon */
+export function EyeIcon({ size = 20, color = '#6E5D63' }: IconProps) {
+  const stroke = Math.max(1.6, size * 0.08);
+  const eyeW = size * 0.95;
+  const halfH = size * 0.3;
+  const outerW = size * 1.18;
+  const outerH = size * 1.0;
+  const offsetL = (eyeW - outerW) / 2;
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+      }}
+    >
+      <View style={{ width: eyeW, height: halfH, overflow: 'hidden', position: 'relative' }}>
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: offsetL,
+            width: outerW,
+            height: outerH,
+            borderRadius: outerW / 2,
+            borderWidth: stroke,
+            borderColor: color,
+          }}
+        />
+      </View>
+      <View style={{ width: eyeW, height: halfH, overflow: 'hidden', position: 'relative' }}>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: offsetL,
+            width: outerW,
+            height: outerH,
+            borderRadius: outerW / 2,
+            borderWidth: stroke,
+            borderColor: color,
+          }}
+        />
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.3,
+          height: size * 0.3,
+          borderRadius: size * 0.15,
+          backgroundColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
+/** Eye off (hidden) icon with diagonal slash */
+export function EyeOffIcon({ size = 20, color = '#6E5D63' }: IconProps) {
+  const stroke = Math.max(1.6, size * 0.08);
+  const eyeW = size * 0.95;
+  const halfH = size * 0.3;
+  const outerW = size * 1.18;
+  const outerH = size * 1.0;
+  const offsetL = (eyeW - outerW) / 2;
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+      }}
+    >
+      <View style={{ width: eyeW, height: halfH, overflow: 'hidden', position: 'relative' }}>
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: offsetL,
+            width: outerW,
+            height: outerH,
+            borderRadius: outerW / 2,
+            borderWidth: stroke,
+            borderColor: color,
+          }}
+        />
+      </View>
+      <View style={{ width: eyeW, height: halfH, overflow: 'hidden', position: 'relative' }}>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: offsetL,
+            width: outerW,
+            height: outerH,
+            borderRadius: outerW / 2,
+            borderWidth: stroke,
+            borderColor: color,
+          }}
+        />
+      </View>
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.3,
+          height: size * 0.3,
+          borderRadius: size * 0.15,
+          backgroundColor: color,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 1.05,
+          height: stroke,
+          backgroundColor: color,
+          transform: [{ rotate: '-45deg' }],
+          borderRadius: 1,
+        }}
+      />
+    </View>
+  );
+}

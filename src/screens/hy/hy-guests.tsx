@@ -1,10 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { FlatList, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import {
   HyText as Text,
   HyInput,
   HyCard,
-  HyScreen,
   HyState,
   HySheet,
   HyButton,
@@ -19,6 +18,7 @@ import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-f
 import { RestoredGuestPanel } from '../v0/restored-flow-controls';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from './use-hy-resource';
+import { sharedResourceStore } from './resource-store';
 
 const billing = createCoupleBillingGateway();
 const api = createRestoredFlowsGateway();
@@ -31,6 +31,84 @@ const normalize = (v: string) =>
     .replace(/đ/g, 'd');
 
 type Guest = NamedGuestView['items'][number];
+type Group = Awaited<ReturnType<NonNullable<typeof billing.loadGuestGroups>>>[number];
+
+const GuestRow = React.memo(function GuestRow({
+  guest,
+  group,
+  onPress,
+  isFirst,
+  isLast,
+}: {
+  guest: Guest;
+  group?: Group | undefined;
+  onPress: (guest: Guest) => void;
+  isFirst?: boolean | undefined;
+  isLast?: boolean | undefined;
+}) {
+  const initials = guest.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Khách ${guest.name}, nhóm ${group?.name ?? 'Chưa xác định'}`}
+      onPress={() => onPress(guest)}
+      style={{
+        minHeight: 72,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: hy.surface,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderTopWidth: isFirst ? 1 : 0,
+        borderBottomWidth: 1,
+        borderColor: hy.rule,
+        borderTopLeftRadius: isFirst ? 20 : 0,
+        borderTopRightRadius: isFirst ? 20 : 0,
+        borderBottomLeftRadius: isLast ? 20 : 0,
+        borderBottomRightRadius: isLast ? 20 : 0,
+      }}
+    >
+      <View
+        style={{
+          height: 40,
+          width: 40,
+          borderRadius: 20,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: hy.primarySoft,
+        }}
+      >
+        <Text style={{ color: hy.primary, fontWeight: '700', fontSize: 14 }}>{initials}</Text>
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontWeight: '600', fontSize: 15 }}>{guest.name}</Text>
+        <Text style={{ fontSize: 12, color: hy.muted }}>
+          {group?.name ?? 'Nhóm chưa xác định'}
+          {guest.phone ? ` · ${guest.phone}` : ''}
+        </Text>
+      </View>
+      <View
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 5,
+          backgroundColor: group?.color ?? hy.outline,
+        }}
+      />
+      <Text style={{ color: hy.muted, fontSize: 20 }}>›</Text>
+    </Pressable>
+  );
+});
 
 export function HyGuests({ activeBooking, facts, session, onNavigate }: V0CommonProps) {
   const [search, setSearch] = useState('');
@@ -46,9 +124,10 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   const [headcountSaving, setHeadcountSaving] = useState(false);
   const [headcountError, setHeadcountError] = useState<string | null>(null);
 
+  const bookingId = activeBooking?.bookingId;
+
   const loader = useCallback(async () => {
-    if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
-    const bookingId = activeBooking.bookingId;
+    if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
     const [groupsRes, firstRes, attendanceRes, guestPlanRes] = await Promise.allSettled([
       session.authorize((t) => billing.loadGuestGroups(t, bookingId)),
       session.authorize((t) => billing.loadGuests(t, bookingId)),
@@ -81,9 +160,12 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
     }
 
     return { groups, guests, attendance, guestPlan };
-  }, [session, activeBooking]);
+  }, [session, bookingId]);
 
-  const { data, error, loading, reload } = useHyResource(loader);
+  const { data, error, loading, reload } = useHyResource(loader, {
+    key: bookingId ? `booking:${bookingId}:guests-data` : undefined,
+    ttlMs: 60_000,
+  });
   const guests = useMemo(
     () => data?.guests.filter((g) => g.status === 'ACTIVE') ?? [],
     [data?.guests],
@@ -128,7 +210,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
       );
       return;
     }
-    if (!session || !activeBooking || !billing.updateGuestPlan) {
+    if (!session || !bookingId || !billing.updateGuestPlan) {
       setHeadcountError('Tính năng cập nhật số khách chưa sẵn sàng.');
       return;
     }
@@ -136,8 +218,11 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
     setHeadcountError(null);
     try {
       await session.authorize((t) =>
-        billing.updateGuestPlan!(t, activeBooking.bookingId, freshPlan.revision, num),
+        billing.updateGuestPlan!(t, bookingId, freshPlan.revision, num),
       );
+      if (bookingId) {
+        sharedResourceStore.invalidate(`booking:${bookingId}:guests-data`);
+      }
       setEditHeadcountOpen(false);
       await reload();
     } catch (caught: any) {
@@ -149,9 +234,36 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
     }
   };
 
-  return (
-    <>
-      <HyScreen onRefresh={() => void reload()} refreshing={loading}>
+  const renderItem = useCallback(
+    ({ item, index }: { item: Guest; index: number }) => (
+      <GuestRow
+        guest={item}
+        group={groupMap.get(item.guestGroupId)}
+        onPress={setSelected}
+        isFirst={index === 0}
+        isLast={index === filtered.length - 1}
+      />
+    ),
+    [filtered.length, groupMap],
+  );
+
+  const keyExtractor = useCallback((item: Guest) => item.guestId, []);
+
+  const listEmpty = useMemo(() => {
+    if (loading && !data) return <HyState kind="loading" />;
+    if (error) return <HyState kind="error" body={error} onRetry={() => void reload()} />;
+    return (
+      <HyState
+        kind="empty"
+        title={search ? 'Không tìm thấy khách phù hợp' : 'Chưa có tên khách'}
+        body="Danh sách tên là tùy chọn. Sơ đồ bàn tiệc vẫn hoạt động theo nhóm mà không cần nhập tên."
+      />
+    );
+  }, [loading, data, error, search, reload]);
+
+  const listHeader = useMemo(
+    () => (
+      <View style={{ gap: 16, marginBottom: filtered.length > 0 ? 16 : 0 }}>
         {/* Planned count vs Listed guests */}
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <HyCard style={{ flex: 1, gap: 4 }}>
@@ -303,82 +415,36 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
             );
           })}
         </ScrollView>
+      </View>
+    ),
+    [currentHeadcount, data, guests.length, search, groups, group, filtered.length],
+  );
 
-        {loading && !data ? (
-          <HyState kind="loading" />
-        ) : error ? (
-          <HyState kind="error" body={error} onRetry={() => void reload()} />
-        ) : filtered.length === 0 ? (
-          <HyState
-            kind="empty"
-            title={search ? 'Không tìm thấy khách phù hợp' : 'Chưa có tên khách'}
-            body="Danh sách tên là tùy chọn. Sơ đồ bàn tiệc vẫn hoạt động theo nhóm mà không cần nhập tên."
-          />
-        ) : (
-          <HyCard style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
-            {filtered.map((guest) => {
-              const g = groupMap.get(guest.guestGroupId);
-              const initials = guest.name
-                .split(/\s+/)
-                .filter(Boolean)
-                .slice(-2)
-                .map((n) => n[0])
-                .join('')
-                .toUpperCase();
-
-              return (
-                <Pressable
-                  key={guest.guestId}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Khách ${guest.name}, nhóm ${g?.name ?? 'Chưa xác định'}`}
-                  onPress={() => setSelected(guest)}
-                  style={{
-                    minHeight: 72,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderBottomWidth: 1,
-                    borderBottomColor: hy.rule,
-                  }}
-                >
-                  <View
-                    style={{
-                      height: 40,
-                      width: 40,
-                      borderRadius: 20,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: hy.primarySoft,
-                    }}
-                  >
-                    <Text style={{ color: hy.primary, fontWeight: '700', fontSize: 14 }}>
-                      {initials}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={{ fontWeight: '600', fontSize: 15 }}>{guest.name}</Text>
-                    <Text style={{ fontSize: 12, color: hy.muted }}>
-                      {g?.name ?? 'Nhóm chưa xác định'}
-                      {guest.phone ? ` · ${guest.phone}` : ''}
-                    </Text>
-                  </View>
-                  <View
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 5,
-                      backgroundColor: g?.color ?? hy.outline,
-                    }}
-                  />
-                  <Text style={{ color: hy.muted, fontSize: 20 }}>›</Text>
-                </Pressable>
-              );
-            })}
-          </HyCard>
-        )}
-      </HyScreen>
+  return (
+    <>
+      <View style={{ flex: 1, backgroundColor: hy.canvas }}>
+        <FlatList
+          data={filtered}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={listEmpty}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => void reload()}
+              tintColor={hy.primary}
+              colors={[hy.primary]}
+            />
+          }
+        />
+      </View>
 
       {/* Guest Detail Bottom Sheet */}
       <HySheet

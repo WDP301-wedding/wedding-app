@@ -27,6 +27,7 @@ import { money } from '@/lib/formatters';
 import { completed, kinds } from '../billing-sections';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from '../hy/use-hy-resource';
+import { sharedResourceStore } from '../hy/resource-store';
 
 const billing = createCoupleBillingGateway();
 
@@ -41,6 +42,210 @@ const sourceLabels: Record<string, string> = {
   PRINT_CREDIT: 'Tín dụng in ấn',
   MANUAL_REFUND: 'Hoàn tiền thủ công',
 };
+
+const PAYMENT_RING_DOTS = Array.from({ length: 72 }, (_, i) => {
+  const angle = i * 5;
+  const rad = (angle * Math.PI) / 180;
+  return {
+    index: i,
+    angle,
+    left: 53 + 46 * Math.sin(rad),
+    top: 53 - 46 * Math.cos(rad),
+    rotate: `${angle}deg`,
+  };
+});
+
+const PaymentProgressRing = React.memo(function PaymentProgressRing({
+  pct,
+}: {
+  pct: number | null;
+}) {
+  const filledCount = pct !== null ? Math.round((72 * pct) / 100) : 0;
+  return (
+    <View
+      accessibilityLabel={pct === null ? 'Chưa có số liệu thanh toán' : `Đã thanh toán ${pct}%`}
+      style={{ width: 110, height: 110, alignItems: 'center', justifyContent: 'center' }}
+    >
+      {PAYMENT_RING_DOTS.map((dot) => (
+        <View
+          key={dot.index}
+          style={{
+            position: 'absolute',
+            left: dot.left,
+            top: dot.top,
+            width: 3.5,
+            height: 8,
+            borderRadius: 2,
+            transform: [{ rotate: dot.rotate }],
+            backgroundColor: pct !== null && dot.index < filledCount ? hy.primary : hy.rule,
+          }}
+        />
+      ))}
+      <Text
+        style={{
+          fontFamily: hy.bold,
+          fontSize: 26,
+          fontWeight: '700',
+          color: hy.primary,
+        }}
+      >
+        {pct === null ? '—' : `${pct}%`}
+      </Text>
+      <Text style={{ fontSize: 11, color: hy.muted }}>tiến độ</Text>
+    </View>
+  );
+});
+
+const ActiveAttemptCard = React.memo(function ActiveAttemptCard({
+  attemptResult,
+  checkingStatus,
+  onCheckStatus,
+}: {
+  attemptResult: AttemptView;
+  checkingStatus: boolean;
+  onCheckStatus: () => void;
+}) {
+  const isSucceeded = attemptResult.status === 'SUCCEEDED';
+  const isPending = attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED';
+  const isUnknown = attemptResult.status === 'UNKNOWN';
+
+  return (
+    <HyCard
+      style={{
+        backgroundColor: isSucceeded ? hy.surface : hy.surfaceMuted,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: isSucceeded ? hy.primary : hy.rule,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Text style={{ fontSize: 15, fontWeight: '700' }}>
+          {isSucceeded
+            ? 'Thanh toán thành công'
+            : isPending
+              ? 'Đang xác nhận kết quả thanh toán'
+              : isUnknown
+                ? 'Chưa rõ trạng thái giao dịch'
+                : 'Thanh toán không thành công'}
+        </Text>
+        <HyBadge
+          status={isSucceeded ? 'done' : isPending ? 'waiting' : isUnknown ? 'neutral' : 'locked'}
+          label={
+            isSucceeded
+              ? 'Thành công'
+              : isPending
+                ? 'Đang xác nhận'
+                : isUnknown
+                  ? 'Chưa rõ'
+                  : 'Thất bại'
+          }
+        />
+      </View>
+      <Text style={{ fontSize: 13, color: hy.secondary, lineHeight: 18 }}>
+        {isSucceeded
+          ? `Số tiền ${money(attemptResult.amountVnd)} đã được ghi nhận vào tài khoản tiệc cưới.`
+          : isPending
+            ? 'Máy chủ đang đối soát với cổng VNPay. Vui lòng không tạo giao dịch trùng lặp.'
+            : isUnknown
+              ? 'Giao dịch chưa có kết quả cuối cùng từ VNPay. Nhà hàng sẽ đối soát trước khi ghi nhận.'
+              : 'Giao dịch bị huỷ hoặc chưa hoàn tất thanh toán.'}
+      </Text>
+      {attemptResult.paymentAttemptId ? (
+        <Text style={{ fontSize: 11, color: hy.muted }}>
+          Mã giao dịch: {attemptResult.paymentAttemptId}
+        </Text>
+      ) : null}
+      {!completed(attemptResult) && (
+        <HyButton
+          label={checkingStatus ? 'Đang kiểm tra kết quả…' : 'Kiểm tra lại trạng thái'}
+          variant="outline"
+          disabled={checkingStatus}
+          busy={checkingStatus}
+          onPress={onCheckStatus}
+        />
+      )}
+    </HyCard>
+  );
+});
+
+const TransactionHistoryCard = React.memo(function TransactionHistoryCard({
+  historyList,
+  nextCursor,
+  loadingMore,
+  onLoadMore,
+}: {
+  historyList: readonly BillingView['history'][number][];
+  nextCursor: string | null;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+}) {
+  if (historyList.length === 0) return null;
+  return (
+    <HyCard style={{ gap: 12 }}>
+      <Text style={{ fontSize: 16, fontWeight: '700' }}>Lịch sử giao dịch sổ cái</Text>
+      {historyList.map((entry, idx) => {
+        const isPayment = entry.kind === 'PAYMENT';
+        const isRefund = entry.kind === 'REFUND';
+        const isAdjustment = entry.kind === 'CREDIT_ADJUSTMENT';
+        const badgeStatus = isPayment ? 'done' : isRefund ? 'waiting' : 'neutral';
+        const badgeLabel = kinds[entry.kind] ?? entry.kind;
+        const sourceName = sourceLabels[entry.sourceType] ?? entry.sourceType;
+        return (
+          <View
+            key={entry.ledgerEntryId}
+            style={{
+              paddingVertical: 10,
+              borderBottomWidth: idx < historyList.length - 1 ? 1 : 0,
+              borderBottomColor: hy.rule,
+              gap: 4,
+            }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: isRefund || isAdjustment ? hy.secondary : hy.ink,
+                }}
+              >
+                {isRefund ? `-${money(entry.amountVnd)}` : money(entry.amountVnd)}
+              </Text>
+              <HyBadge status={badgeStatus} label={badgeLabel} />
+            </View>
+            <Text style={{ fontSize: 12, color: hy.muted }}>
+              {entry.occurredAt
+                ? new Date(entry.occurredAt).toLocaleString('vi-VN')
+                : 'Giao dịch hệ thống'}
+              {sourceName ? ` · ${sourceName}` : ''}
+              {entry.paymentAttemptId ? ` · Mã: ${entry.paymentAttemptId.slice(0, 8)}…` : ''}
+            </Text>
+          </View>
+        );
+      })}
+      {nextCursor && (
+        <HyButton
+          label={loadingMore ? 'Đang tải thêm…' : 'Tải thêm lịch sử'}
+          variant="outline"
+          disabled={loadingMore}
+          busy={loadingMore}
+          onPress={onLoadMore}
+        />
+      )}
+    </HyCard>
+  );
+});
 
 export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonProps) {
   const portalUrl = readPublicEnv().EXPO_PUBLIC_WEB_PORTAL_URL;
@@ -69,9 +274,10 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
     sessionSnapshot?.status === 'authenticated' ? sessionSnapshot.actor.accountId : 'device';
   const intents = useMemo(() => createBillingIntents(accountId), [accountId]);
 
+  const bookingId = activeBooking?.bookingId;
+
   const loader = useCallback(async () => {
-    if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
-    const bookingId = activeBooking.bookingId;
+    if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
     try {
       const view = await session.authorize((t) => billing.load(t, bookingId));
       return {
@@ -90,9 +296,12 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
         billingError: errorMsg,
       };
     }
-  }, [session, activeBooking]);
+  }, [session, bookingId]);
 
-  const { data, loading, reload } = useHyResource(loader);
+  const { data, loading, reload } = useHyResource(loader, {
+    key: bookingId ? `booking:${bookingId}:billing` : undefined,
+    ttlMs: 30_000,
+  });
 
   const historyList = useMemo(() => {
     const base = data?.view?.history ?? [];
@@ -107,19 +316,19 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
 
   const reconcileAttempt = useCallback(
     async (attemptId: string) => {
-      if (!session || !activeBooking) return;
-      const bookingId = activeBooking.bookingId;
+      if (!session || !bookingId) return;
       try {
         const res = await session.authorize((t) => billing.loadAttempt(t, bookingId, attemptId));
         setAttemptResult(res);
         if (completed(res)) {
           await intents.finishCheckout(bookingId, res);
+          sharedResourceStore.invalidate(`booking:${bookingId}:billing`);
         }
       } catch {
         // Silently preserve state if network temporarily fails
       }
     },
-    [session, activeBooking, intents],
+    [session, bookingId, intents],
   );
 
   // Recover in-flight checkout attempt when booking mounts
@@ -298,88 +507,11 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
 
         {/* Payment Attempt Result Banner (4 states) */}
         {attemptResult && (
-          <HyCard
-            style={{
-              backgroundColor:
-                attemptResult.status === 'SUCCEEDED'
-                  ? hy.successBg
-                  : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                    ? hy.warningBg
-                    : attemptResult.status === 'UNKNOWN'
-                      ? hy.surfaceMuted
-                      : hy.errorBg,
-              borderColor:
-                attemptResult.status === 'SUCCEEDED'
-                  ? hy.success
-                  : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                    ? hy.warning
-                    : attemptResult.status === 'UNKNOWN'
-                      ? hy.outline
-                      : hy.error,
-              gap: 8,
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '700' }}>
-                {attemptResult.status === 'SUCCEEDED'
-                  ? 'Thanh toán thành công'
-                  : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                    ? 'Đang xác nhận kết quả thanh toán'
-                    : attemptResult.status === 'UNKNOWN'
-                      ? 'Chưa rõ trạng thái giao dịch'
-                      : 'Thanh toán không thành công'}
-              </Text>
-              <HyBadge
-                status={
-                  attemptResult.status === 'SUCCEEDED'
-                    ? 'done'
-                    : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                      ? 'waiting'
-                      : attemptResult.status === 'UNKNOWN'
-                        ? 'neutral'
-                        : 'locked'
-                }
-                label={
-                  attemptResult.status === 'SUCCEEDED'
-                    ? 'Thành công'
-                    : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                      ? 'Đang xác nhận'
-                      : attemptResult.status === 'UNKNOWN'
-                        ? 'Chưa rõ'
-                        : 'Thất bại'
-                }
-              />
-            </View>
-            <Text style={{ fontSize: 13, color: hy.secondary, lineHeight: 18 }}>
-              {attemptResult.status === 'SUCCEEDED'
-                ? `Số tiền ${money(attemptResult.amountVnd)} đã được ghi nhận vào tài khoản tiệc cưới.`
-                : attemptResult.status === 'PENDING' || attemptResult.status === 'CREATED'
-                  ? 'Máy chủ đang đối soát với cổng VNPay. Vui lòng không tạo giao dịch trùng lặp.'
-                  : attemptResult.status === 'UNKNOWN'
-                    ? 'Giao dịch chưa có kết quả cuối cùng từ VNPay. Nhà hàng sẽ đối soát trước khi ghi nhận.'
-                    : 'Giao dịch bị huỷ hoặc chưa hoàn tất thanh toán.'}
-            </Text>
-            {attemptResult.paymentAttemptId ? (
-              <Text style={{ fontSize: 11, color: hy.muted }}>
-                Mã giao dịch: {attemptResult.paymentAttemptId}
-              </Text>
-            ) : null}
-            {!completed(attemptResult) && (
-              <HyButton
-                label={checkingStatus ? 'Đang kiểm tra kết quả…' : 'Kiểm tra lại trạng thái'}
-                variant="outline"
-                disabled={checkingStatus}
-                busy={checkingStatus}
-                onPress={() => void handleCheckAttemptStatus()}
-              />
-            )}
-          </HyCard>
+          <ActiveAttemptCard
+            attemptResult={attemptResult}
+            checkingStatus={checkingStatus}
+            onCheckStatus={() => void handleCheckAttemptStatus()}
+          />
         )}
 
         {/* Ví tiệc: Progress Ring & Summary */}
@@ -392,43 +524,7 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
               {/* Progress Ring Indicator */}
-              <View
-                accessibilityLabel={
-                  pct === null ? 'Chưa có số liệu thanh toán' : `Đã thanh toán ${pct}%`
-                }
-                style={{ width: 110, height: 110, alignItems: 'center', justifyContent: 'center' }}
-              >
-                {Array.from({ length: 72 }, (_, i) => {
-                  const angle = i * 5;
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        left: 53 + 46 * Math.sin((angle * Math.PI) / 180),
-                        top: 53 - 46 * Math.cos((angle * Math.PI) / 180),
-                        width: 3.5,
-                        height: 8,
-                        borderRadius: 2,
-                        transform: [{ rotate: `${angle}deg` }],
-                        backgroundColor:
-                          pct !== null && i < (72 * pct) / 100 ? hy.primary : hy.rule,
-                      }}
-                    />
-                  );
-                })}
-                <Text
-                  style={{
-                    fontFamily: hy.bold,
-                    fontSize: 26,
-                    fontWeight: '700',
-                    color: hy.primary,
-                  }}
-                >
-                  {pct === null ? '—' : `${pct}%`}
-                </Text>
-                <Text style={{ fontSize: 11, color: hy.muted }}>tiến độ</Text>
-              </View>
+              <PaymentProgressRing pct={pct} />
 
               <View style={{ flex: 1, gap: 4 }}>
                 <Text style={{ fontSize: 13, color: hy.secondary }}>Đã thanh toán</Text>
@@ -525,65 +621,12 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
         ))}
 
         {/* Transaction History Section */}
-        {historyList.length > 0 && (
-          <HyCard style={{ gap: 12 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700' }}>Lịch sử giao dịch sổ cái</Text>
-            {historyList.map((entry, idx) => {
-              const isPayment = entry.kind === 'PAYMENT';
-              const isRefund = entry.kind === 'REFUND';
-              const isAdjustment = entry.kind === 'CREDIT_ADJUSTMENT';
-              const badgeStatus = isPayment ? 'done' : isRefund ? 'waiting' : 'neutral';
-              const badgeLabel = kinds[entry.kind] ?? entry.kind;
-              const sourceName = sourceLabels[entry.sourceType] ?? entry.sourceType;
-              return (
-                <View
-                  key={entry.ledgerEntryId}
-                  style={{
-                    paddingVertical: 10,
-                    borderBottomWidth: idx < historyList.length - 1 ? 1 : 0,
-                    borderBottomColor: hy.rule,
-                    gap: 4,
-                  }}
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        fontWeight: '600',
-                        color: isRefund || isAdjustment ? hy.secondary : hy.ink,
-                      }}
-                    >
-                      {isRefund ? `-${money(entry.amountVnd)}` : money(entry.amountVnd)}
-                    </Text>
-                    <HyBadge status={badgeStatus} label={badgeLabel} />
-                  </View>
-                  <Text style={{ fontSize: 12, color: hy.muted }}>
-                    {entry.occurredAt
-                      ? new Date(entry.occurredAt).toLocaleString('vi-VN')
-                      : 'Giao dịch hệ thống'}
-                    {sourceName ? ` · ${sourceName}` : ''}
-                    {entry.paymentAttemptId ? ` · Mã: ${entry.paymentAttemptId.slice(0, 8)}…` : ''}
-                  </Text>
-                </View>
-              );
-            })}
-            {nextCursor && (
-              <HyButton
-                label={loadingMore ? 'Đang tải thêm…' : 'Tải thêm lịch sử'}
-                variant="outline"
-                disabled={loadingMore}
-                busy={loadingMore}
-                onPress={() => void handleLoadMoreHistory()}
-              />
-            )}
-          </HyCard>
-        )}
+        <TransactionHistoryCard
+          historyList={historyList}
+          nextCursor={nextCursor}
+          loadingMore={loadingMore}
+          onLoadMore={() => void handleLoadMoreHistory()}
+        />
       </HyScreen>
 
       {/* Pre-VNPay Confirmation Sheet */}

@@ -19,12 +19,67 @@ const billing = createCoupleBillingGateway();
 const api = createRestoredFlowsGateway();
 const money = (v: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+
+const FINANCE_RING_DOTS = Array.from({ length: 72 }, (_, i) => {
+  const angle = i * 5;
+  const rad = (angle * Math.PI) / 180;
+  return {
+    index: i,
+    angle,
+    left: 58 + 52 * Math.sin(rad),
+    top: 58 - 52 * Math.cos(rad),
+    rotate: `${angle}deg`,
+  };
+});
+
+const FinanceProgressRing = React.memo(function FinanceProgressRing({
+  pct,
+}: {
+  pct: number | null;
+}) {
+  const filledCount = pct !== null ? Math.round((72 * pct) / 100) : 0;
+  return (
+    <View
+      accessibilityLabel={pct === null ? 'Chưa có số liệu thanh toán' : `Đã thanh toán ${pct}%`}
+      style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}
+    >
+      {FINANCE_RING_DOTS.map((dot) => (
+        <View
+          key={dot.index}
+          style={{
+            position: 'absolute',
+            left: dot.left,
+            top: dot.top,
+            width: 4,
+            height: 9,
+            borderRadius: 2,
+            transform: [{ rotate: dot.rotate }],
+            backgroundColor: pct !== null && dot.index < filledCount ? hy.primary : hy.rule,
+          }}
+        />
+      ))}
+      <Text
+        style={{
+          fontFamily: hy.display,
+          fontSize: 30,
+          fontWeight: '600',
+          color: hy.primary,
+        }}
+      >
+        {pct === null ? '—' : `${pct}%`}
+      </Text>
+      <Text style={{ fontSize: 11, color: hy.muted }}>đã thanh toán</Text>
+    </View>
+  );
+});
+
 export function HyFinance({ activeBooking, session, onNavigate }: V0CommonProps) {
+  const bookingId = activeBooking?.bookingId;
   const loader = useCallback(async () => {
-    if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
+    if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
     const [view, contracts] = await Promise.allSettled([
-      session.authorize((t) => billing.load(t, activeBooking.bookingId)),
-      session.authorize((t) => api.readContracts(t, activeBooking.bookingId)),
+      session.authorize((t) => billing.load(t, bookingId)),
+      session.authorize((t) => api.readContracts(t, bookingId)),
     ]);
     return {
       view: view.status === 'fulfilled' ? view.value : null,
@@ -36,8 +91,11 @@ export function HyFinance({ activeBooking, session, onNavigate }: V0CommonProps)
             : 'Chưa tải được số dư'
           : null,
     };
-  }, [session, activeBooking]);
-  const { data, loading, error, reload } = useHyResource(loader);
+  }, [session, bookingId]);
+  const { data, loading, error, reload } = useHyResource(loader, {
+    key: bookingId ? `booking:${bookingId}:finance` : undefined,
+    ttlMs: 30_000,
+  });
   const totals = data?.view?.totals;
   const pct =
     totals && totals.acceptedChargesVnd > 0
@@ -65,43 +123,7 @@ export function HyFinance({ activeBooking, session, onNavigate }: V0CommonProps)
             <HyCard
               style={{ flexDirection: 'row', alignItems: 'center', gap: 20, paddingVertical: 24 }}
             >
-              <View
-                accessibilityLabel={
-                  pct === null ? 'Chưa có số liệu thanh toán' : `Đã thanh toán ${pct}%`
-                }
-                style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}
-              >
-                {Array.from({ length: 72 }, (_, i) => {
-                  const angle = i * 5;
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        position: 'absolute',
-                        left: 58 + 52 * Math.sin((angle * Math.PI) / 180),
-                        top: 58 - 52 * Math.cos((angle * Math.PI) / 180),
-                        width: 4,
-                        height: 9,
-                        borderRadius: 2,
-                        transform: [{ rotate: `${angle}deg` }],
-                        backgroundColor:
-                          pct !== null && i < (72 * pct) / 100 ? hy.primary : hy.rule,
-                      }}
-                    />
-                  );
-                })}
-                <Text
-                  style={{
-                    fontFamily: hy.display,
-                    fontSize: 30,
-                    fontWeight: '600',
-                    color: hy.primary,
-                  }}
-                >
-                  {pct === null ? '—' : `${pct}%`}
-                </Text>
-                <Text style={{ fontSize: 11, color: hy.muted }}>đã thanh toán</Text>
-              </View>
+              <FinanceProgressRing pct={pct} />
               <View style={{ flex: 1, gap: 6 }}>
                 <Text style={{ fontSize: 14, color: hy.secondary }}>Đã thanh toán</Text>
                 <Text style={{ fontSize: 22, fontWeight: '600' }}>

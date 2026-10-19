@@ -21,6 +21,7 @@ import { createAppInvitationGateway } from '@/features/invitation-studio/app-inv
 import { createCoupleBillingGateway } from '@/features/payments-billing/billing-api';
 import { V0CompanionShell } from './v0/v0-companion-shell';
 import type { V0EventFacts, V0Screen } from './v0/v0-types';
+import { sharedResourceStore } from '@/screens/hy/resource-store';
 
 const type = typeTokens;
 
@@ -100,14 +101,22 @@ export function CoupleOverviewScreen({
           setOverview((old) => (old ? { ...page, data: [...old.data, ...page.data] } : page));
         } else {
           // Initial or full refresh: query overview, profile, and restaurant catalog concurrently
+          const cachedRestaurant = sharedResourceStore.get<{ displayName?: string }>(
+            'restaurantCatalog',
+          );
           const [page, prof, restaurant] = await Promise.all([
             session.authorize((token) => experience.overview(token)),
             session.authorize((token) => experience.profile(token)).catch(() => null),
-            invitation.getRestaurantCatalog().catch(() => null),
+            cachedRestaurant
+              ? Promise.resolve(cachedRestaurant)
+              : invitation.getRestaurantCatalog().catch(() => null),
           ]);
           setOverview(page);
           if (prof) setProfile(prof);
-          if (restaurant?.displayName) setVenueName(restaurant.displayName);
+          if (restaurant) {
+            sharedResourceStore.set('restaurantCatalog', restaurant, 300_000);
+            if (restaurant.displayName) setVenueName(restaurant.displayName);
+          }
         }
         setLastRefreshedAt(new Date());
       } catch (caught) {
@@ -143,6 +152,7 @@ export function CoupleOverviewScreen({
         if (reqId !== currentBookingRequestIdRef.current) return;
         if (result.status === 'confirmed') {
           setPlan(result.snapshot);
+          sharedResourceStore.set(`booking:${id}:proposal`, result.snapshot, 60_000);
 
           // Legal name resolution with strict legal precedence:
           // 1. Authoritative signed/approved Contract document (highest precedence)
@@ -156,6 +166,9 @@ export function CoupleOverviewScreen({
                 .authorize((token) => billing.loadContracts(token, id))
                 .catch(() => null);
               if (reqId !== currentBookingRequestIdRef.current) return;
+              if (contracts) {
+                sharedResourceStore.set(`booking:${id}:contracts`, contracts, 60_000);
+              }
               const latestContract = contracts?.revisions?.[0]?.document;
               if (latestContract) {
                 const b = latestContract.brideName?.trim();

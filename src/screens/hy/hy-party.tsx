@@ -27,10 +27,59 @@ import { readPublicEnv } from '@/lib/env';
 import { formatVnd } from '@/lib/formatters';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from './use-hy-resource';
+import { sharedResourceStore } from './resource-store';
 
 const api = createRestoredFlowsGateway();
 const invitation = createAppInvitationGateway();
 const coupleBilling = createCoupleBillingGateway();
+
+type ProposalView = Awaited<ReturnType<typeof api.loadProposal>>;
+type ContractsView = Awaited<ReturnType<typeof api.readContracts>>;
+type RestaurantView = Awaited<ReturnType<typeof invitation.getRestaurantCatalog>>;
+
+const HyCountdown = React.memo(function HyCountdown({
+  eventDate,
+  startTime,
+  isCancelled,
+  isCompleted,
+}: {
+  eventDate?: string | undefined;
+  startTime?: string | undefined;
+  isCancelled?: boolean | undefined;
+  isCompleted?: boolean | undefined;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (isCancelled || !eventDate) return null;
+  const eventTime = Date.parse(`${eventDate}T${startTime?.slice(0, 5) ?? '00:00'}:00+07:00`);
+  const days = Number.isFinite(eventTime)
+    ? Math.max(0, Math.ceil((eventTime - now) / 86_400_000))
+    : null;
+
+  if (days === null) return null;
+
+  return (
+    <View style={{ alignItems: 'flex-end' }}>
+      <Text
+        style={{
+          fontSize: 40,
+          lineHeight: 44,
+          fontFamily: hy.bold,
+          color: hy.canvas,
+        }}
+      >
+        {days}
+      </Text>
+      <Text style={{ fontSize: 12, color: hy.canvas }}>
+        {isCompleted ? 'đã chung đôi' : 'ngày nữa'}
+      </Text>
+    </View>
+  );
+});
 
 export function HyParty({
   activeBooking,
@@ -40,43 +89,56 @@ export function HyParty({
   onSwitchBooking,
   allBookings,
 }: V0CommonProps) {
+  const bookingId = activeBooking?.bookingId;
   const loader = useCallback(async () => {
-    if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
-    // Only fetch needed resources: proposal, contracts, billing, and restaurant catalog (designs unused here)
+    if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
+    const cachedProposal = sharedResourceStore.get<ProposalView>(`booking:${bookingId}:proposal`);
+    const cachedContracts = sharedResourceStore.get<ContractsView>(
+      `booking:${bookingId}:contracts`,
+    );
+    const cachedRestaurant = sharedResourceStore.get<RestaurantView>('restaurantCatalog');
+
+    // Reuse already confirmed proposal and contracts from booking entry if available
     const [proposal, contracts, billingRes, restaurant] = await Promise.allSettled([
-      session.authorize((t) => api.loadProposal(t, activeBooking.bookingId)),
-      session.authorize((t) => api.readContracts(t, activeBooking.bookingId)),
-      session.authorize((t) => coupleBilling.load(t, activeBooking.bookingId)),
-      invitation.getRestaurantCatalog().catch(() => null),
+      cachedProposal
+        ? Promise.resolve(cachedProposal)
+        : session.authorize((t) => api.loadProposal(t, bookingId)),
+      cachedContracts
+        ? Promise.resolve(cachedContracts)
+        : session.authorize((t) => api.readContracts(t, bookingId)),
+      session.authorize((t) => coupleBilling.load(t, bookingId)),
+      cachedRestaurant
+        ? Promise.resolve(cachedRestaurant)
+        : invitation.getRestaurantCatalog().catch(() => null),
     ]);
 
     if (proposal.status === 'rejected') throw proposal.reason;
+    if (proposal.status === 'fulfilled' && !cachedProposal) {
+      sharedResourceStore.set(`booking:${bookingId}:proposal`, proposal.value, 60_000);
+    }
+    if (contracts.status === 'fulfilled' && contracts.value && !cachedContracts) {
+      sharedResourceStore.set(`booking:${bookingId}:contracts`, contracts.value, 60_000);
+    }
+    if (restaurant.status === 'fulfilled' && restaurant.value && !cachedRestaurant) {
+      sharedResourceStore.set('restaurantCatalog', restaurant.value, 300_000);
+    }
+
     return {
       proposal: proposal.value,
       contracts: contracts.status === 'fulfilled' ? contracts.value : null,
       billing: billingRes.status === 'fulfilled' ? billingRes.value : null,
       restaurant: restaurant.status === 'fulfilled' ? restaurant.value : null,
     };
-  }, [activeBooking, session]);
+  }, [bookingId, session]);
 
-  const { data, error, loading, reload } = useHyResource(loader);
+  const { data, error, loading, reload } = useHyResource(loader, {
+    key: bookingId ? `booking:${bookingId}:party-overview` : undefined,
+    ttlMs: 60_000,
+  });
   const phase = activeBooking?.phase ?? 'DRAFT';
   const pre = phase === 'DRAFT' || phase === 'AWAITING_DEPOSIT';
   const isCancelled = phase === 'CANCELLED';
   const isCompleted = phase === 'COMPLETED';
-
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const eventTime = Date.parse(
-    `${facts.eventDate}T${activeBooking?.shift.startTime?.slice(0, 5) ?? '00:00'}:00+07:00`,
-  );
-  const days = Number.isFinite(eventTime)
-    ? Math.max(0, Math.ceil((eventTime - now) / 86400000))
-    : null;
 
   // Derive stages strictly from current active revision facts (not stale historical revisions)
   const currentContractApproved = data?.contracts?.revisions?.[0]?.state === 'APPROVED';
@@ -309,23 +371,12 @@ export function HyParty({
                 {facts.hallName} · {facts.shiftTime} · {facts.planningHeadcount} khách dự kiến
               </Text>
             </View>
-            {days !== null && !isCancelled && (
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text
-                  style={{
-                    fontSize: 40,
-                    lineHeight: 44,
-                    fontFamily: hy.bold,
-                    color: hy.canvas,
-                  }}
-                >
-                  {days}
-                </Text>
-                <Text style={{ fontSize: 12, color: hy.canvas }}>
-                  {isCompleted ? 'đã chung đôi' : 'ngày nữa'}
-                </Text>
-              </View>
-            )}
+            <HyCountdown
+              eventDate={facts.eventDate}
+              startTime={activeBooking?.shift.startTime}
+              isCancelled={isCancelled}
+              isCompleted={isCompleted}
+            />
           </View>
         </View>
       </HyEnter>

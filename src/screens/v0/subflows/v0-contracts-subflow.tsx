@@ -8,6 +8,7 @@ import { saveOrShareDownloadedFile } from '@/lib/save-downloaded-file';
 import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
 import { money, coupleBilling, type CommercialContractView } from './subflows-common';
+import { sharedResourceStore } from '@/screens/hy/resource-store';
 
 export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
@@ -46,12 +47,22 @@ export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
   useEffect(() => {
     let active = true;
     void (async () => {
-      if (!session || !activeBooking?.bookingId) return;
-      setLoading(true);
+      const bookingId = activeBooking?.bookingId;
+      if (!session || !bookingId) return;
+      const cached = sharedResourceStore.get<CommercialContractView>(
+        `booking:${bookingId}:contracts`,
+      );
+      if (cached) {
+        setContract(cached);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       try {
-        const loaded = await session.authorize((token) =>
-          coupleBilling.loadContracts(token, activeBooking.bookingId),
+        const loaded = await sharedResourceStore.fetchWithDeduplication(
+          `booking:${bookingId}:contracts`,
+          () => session.authorize((token) => coupleBilling.loadContracts(token, bookingId)),
+          60_000,
         );
         if (active) setContract(loaded);
       } catch (caught) {

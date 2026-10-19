@@ -20,8 +20,9 @@ import {
   type Proposal,
 } from './panels-common';
 import { styles } from './panels.styles';
+import { sharedResourceStore } from '@/screens/hy/resource-store';
 
-async function allContracts(token: string, bookingId: string) {
+async function allContracts(token: string, bookingId: string): Promise<CommercialContractView> {
   let page = await api.readContracts(token, bookingId);
   const revisions = [...page.revisions];
   const seen = new Set<string>();
@@ -33,7 +34,7 @@ async function allContracts(token: string, bookingId: string) {
   }
   return { ...page, revisions };
 }
-async function allAppendices(token: string, bookingId: string) {
+async function allAppendices(token: string, bookingId: string): Promise<CommercialAppendixView> {
   let page = await api.readAppendices(token, bookingId);
   const revisions = [...page.revisions];
   const seen = new Set<string>();
@@ -44,6 +45,25 @@ async function allAppendices(token: string, bookingId: string) {
     revisions.push(...page.revisions);
   }
   return { ...page, revisions };
+}
+
+async function loadAllMenus(): Promise<Awaited<ReturnType<typeof api.readMenus>>['items']> {
+  return sharedResourceStore.fetchWithDeduplication(
+    'catalog:menus',
+    async () => {
+      let menuPage = await api.readMenus();
+      const menus = [...menuPage.items];
+      const seen = new Set<string>();
+      while (menuPage.nextCursor) {
+        if (seen.has(menuPage.nextCursor)) throw new Error('Phân trang thực đơn không hợp lệ.');
+        seen.add(menuPage.nextCursor);
+        menuPage = await api.readMenus({ cursor: menuPage.nextCursor });
+        menus.push(...menuPage.items);
+      }
+      return menus;
+    },
+    600_000,
+  );
 }
 
 export function RestoredCommercialPanel({
@@ -73,22 +93,18 @@ export function RestoredCommercialPanel({
     setLoading(true);
     try {
       const result = await session.authorize(async (token) => {
-        const [proposal, contracts, appendices, invoices] = await Promise.all([
-          api.loadProposal(token, bookingId),
+        const [proposal, contracts, appendices, invoices, menus] = await Promise.all([
+          sharedResourceStore.fetchWithDeduplication<Proposal>(
+            `booking:${bookingId}:proposal`,
+            () => api.loadProposal(token, bookingId),
+            60_000,
+          ),
           allContracts(token, bookingId),
           mode === 'appendix' ? allAppendices(token, bookingId) : Promise.resolve(null),
           api.readInvoices(token, bookingId),
+          loadAllMenus(),
         ]);
         const legal = await api.coupleProfile(token, proposal.consultationId);
-        let menuPage = await api.readMenus();
-        const menus = [...menuPage.items];
-        const seen = new Set<string>();
-        while (menuPage.nextCursor) {
-          if (seen.has(menuPage.nextCursor)) throw new Error('Phân trang thực đơn không hợp lệ.');
-          seen.add(menuPage.nextCursor);
-          menuPage = await api.readMenus({ cursor: menuPage.nextCursor });
-          menus.push(...menuPage.items);
-        }
         return {
           proposal,
           contracts,
@@ -251,7 +267,11 @@ export function RestoredCommercialPanel({
           : api.approveAppendix(token, bookingId, revisionId, { expectedRevision }, key);
       }),
     );
-    if (ok) await load();
+    if (ok) {
+      sharedResourceStore.invalidate(`booking:${bookingId}:contracts`);
+      sharedResourceStore.invalidate(`booking:${bookingId}:proposal`);
+      await load();
+    }
   };
   const saveNames = async () => {
     if (!data || !bride.trim() || !groom.trim()) {
@@ -269,8 +289,10 @@ export function RestoredCommercialPanel({
           api.updateCoupleProfile(token, data.proposal.consultationId, body, key),
         ),
       )
-    )
+    ) {
+      sharedResourceStore.invalidate(`booking:${bookingId}:proposal`);
       await load();
+    }
   };
   return (
     <Panel title={mode === 'contract' ? 'Soạn và phê duyệt hợp đồng' : 'Soạn và phê duyệt phụ lục'}>

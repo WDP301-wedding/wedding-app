@@ -4,6 +4,7 @@ import { randomUUID } from 'expo-crypto';
 
 import type { components } from '@/lib/api/generated/schema';
 import { ApiClientError, createApiClient, type ApiClient } from '@/lib/api/client';
+import { sharedResourceStore } from '@/screens/hy/resource-store';
 
 type Role = components['schemas']['CurrentUserResponse']['data']['roles'][number];
 
@@ -129,6 +130,7 @@ export class AndroidIdentitySession {
   private restoreOperation: Promise<AndroidSessionSnapshot> | null = null;
   private refreshOperation: Promise<AndroidCredential> | null = null;
   private proactiveTimer: ReturnType<typeof setTimeout> | null = null;
+  private appStateSubscription: { remove: () => void } | null = null;
   private state: AndroidSessionSnapshot = anonymousSnapshot;
   private readonly listeners = new Set<() => void>();
 
@@ -137,7 +139,7 @@ export class AndroidIdentitySession {
     private readonly refreshStore: RefreshStore,
   ) {
     if (typeof AppState !== 'undefined' && AppState.addEventListener) {
-      AppState.addEventListener('change', (nextAppState) => {
+      this.appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
         if (nextAppState === 'active' && this.state.status === 'authenticated') {
           // If token has been around for > 8 minutes, proactively refresh on resume
           if (Date.now() - this.authenticatedAt > 480_000) {
@@ -148,6 +150,18 @@ export class AndroidIdentitySession {
         }
       });
     }
+  }
+
+  dispose(): void {
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+      this.appStateSubscription = null;
+    }
+    if (this.proactiveTimer) {
+      clearTimeout(this.proactiveTimer);
+      this.proactiveTimer = null;
+    }
+    this.listeners.clear();
   }
 
   snapshot(): AndroidSessionSnapshot {
@@ -380,6 +394,7 @@ export class AndroidIdentitySession {
     this.state = anonymousSnapshot;
     this.notify();
     await this.refreshStore.clear();
+    sharedResourceStore.clear();
   }
 }
 

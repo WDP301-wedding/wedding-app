@@ -33,8 +33,20 @@ jobs:
           node-version-file: '.node-version'
           cache: npm
 
+      - name: Restore node_modules cache
+        id: node-modules-cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            node_modules
+            ~/.npm/_npx
+          key: ${{ runner.os }}-app-node-modules-${{ hashFiles('package-lock.json', '.node-version') }}
+          restore-keys: |
+            ${{ runner.os }}-app-node-modules-
+
       - name: Install locked dependencies
-        run: npm ci
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Check Expo SDK health
         run: npx --yes expo-doctor@1.20.4
@@ -110,7 +122,17 @@ jobs:
 
       - name: Run automated tests (optional)
         continue-on-error: true
-        run: npm run test:coverage || true
+        run: npm test || true
+
+      - name: Restore Metro build cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            .expo
+            .metro-cache
+          key: ${{ runner.os }}-app-metro-${{ hashFiles('package-lock.json', '.node-version') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-app-metro-${{ hashFiles('package-lock.json', '.node-version') }}-
 
       - name: Export Android JavaScript bundle
         run: npm run build

@@ -5,11 +5,10 @@ import { Pressable, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 
 import {
-  AndroidIdentitySession,
-  createIdentityApi,
-  createSecureRefreshStore,
+  type AndroidIdentitySession,
   type AndroidSessionSnapshot,
 } from '@/features/identity-access/session';
+import { sharedDeviceSession } from '@/features/identity-access/device-session';
 import { type, useWeddingTheme } from '@/theme';
 
 import { CoupleOverviewScreen } from './couple-overview';
@@ -18,13 +17,11 @@ import { IdentityScreen } from './identity-screen';
 
 export { IdentityScreen };
 
-const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
-
 export function HomeScreen({
   initialResetToken,
   initialBookingId,
   initialScreen,
-  session = deviceSession,
+  session = sharedDeviceSession,
 }: Readonly<{
   initialResetToken?: string | null;
   initialBookingId?: string | undefined;
@@ -36,6 +33,12 @@ export function HomeScreen({
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'login' | 'reset-request'>('login');
+
+  useEffect(() => {
+    return session.subscribe(() => {
+      setSnapshot(session.snapshot());
+    });
+  }, [session]);
 
   useEffect(() => {
     let active = true;

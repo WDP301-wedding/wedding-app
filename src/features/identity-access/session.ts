@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
 
@@ -75,7 +75,9 @@ export function createSecureRefreshStore(): RefreshStore {
           if (typeof window !== 'undefined' && window.localStorage) {
             window.localStorage.removeItem(refreshTokenKey);
           }
-        } catch {}
+        } catch {
+          // ignore web storage error
+        }
       },
       read: async () => {
         try {
@@ -97,7 +99,9 @@ export function createSecureRefreshStore(): RefreshStore {
             if (typeof window !== 'undefined' && window.localStorage) {
               window.localStorage.removeItem(refreshTokenKey);
             }
-          } catch {}
+          } catch {
+            // ignore fallback error
+          }
           throw error;
         }
       },
@@ -120,18 +124,82 @@ export function createSecureRefreshStore(): RefreshStore {
 
 export class AndroidIdentitySession {
   private accessToken: string | null = null;
+  private currentRefreshToken: string | null = null;
+  private authenticatedAt: number = 0;
   private restoreOperation: Promise<AndroidSessionSnapshot> | null = null;
-  private state: AndroidSessionSnapshot = anonymousSnapshot;
-
   private refreshOperation: Promise<AndroidCredential> | null = null;
+  private proactiveTimer: ReturnType<typeof setTimeout> | null = null;
+  private state: AndroidSessionSnapshot = anonymousSnapshot;
+  private readonly listeners = new Set<() => void>();
 
   constructor(
     private readonly api: IdentityApi,
     private readonly refreshStore: RefreshStore,
-  ) {}
+  ) {
+    if (typeof AppState !== 'undefined' && AppState.addEventListener) {
+      AppState.addEventListener('change', (nextAppState) => {
+        if (nextAppState === 'active' && this.state.status === 'authenticated') {
+          // If token has been around for > 8 minutes, proactively refresh on resume
+          if (Date.now() - this.authenticatedAt > 480_000) {
+            void this.executeSingleFlightRefresh().catch(() => {
+              // Ignore failure on resume; authorize() will retry on demand
+            });
+          }
+        }
+      });
+    }
+  }
 
   snapshot(): AndroidSessionSnapshot {
     return this.state;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Ignore subscriber errors
+      }
+    }
+  }
+
+  private scheduleProactiveRefresh(): void {
+    if (this.proactiveTimer) {
+      clearTimeout(this.proactiveTimer);
+      this.proactiveTimer = null;
+    }
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+    // Access token TTL is 600s (10 min). Proactively refresh at 510s (8.5 min).
+    this.proactiveTimer = setTimeout(() => {
+      if (this.state.status === 'authenticated') {
+        void this.executeSingleFlightRefresh().catch(() => {
+          // If transient network failure, retry in 30s
+          this.proactiveTimer = setTimeout(() => {
+            if (this.state.status === 'authenticated') {
+              void this.executeSingleFlightRefresh().catch(() => {
+                // Ignore secondary failure; authorize() will handle when user acts
+              });
+            }
+          }, 30_000);
+          if (typeof this.proactiveTimer?.unref === 'function') {
+            this.proactiveTimer.unref();
+          }
+        });
+      }
+    }, 510_000);
+    if (typeof this.proactiveTimer?.unref === 'function') {
+      this.proactiveTimer.unref();
+    }
   }
 
   async discardRevokedSession(): Promise<void> {
@@ -213,6 +281,7 @@ export class AndroidIdentitySession {
           ...this.state,
           denial: error.status === 403 ? 'forbidden' : 'not-found',
         };
+        this.notify();
       }
       throw error;
     }
@@ -241,6 +310,9 @@ export class AndroidIdentitySession {
       const nextCred = await this.api.refreshSession(refreshToken);
       await this.refreshStore.replace(nextCred.refreshToken);
       this.accessToken = nextCred.accessToken;
+      this.currentRefreshToken = nextCred.refreshToken;
+      this.authenticatedAt = Date.now();
+      this.scheduleProactiveRefresh();
       if (this.state.status === 'authenticated') {
         this.state = {
           ...this.state,
@@ -249,6 +321,7 @@ export class AndroidIdentitySession {
             sessionId: nextCred.sessionId,
           },
         };
+        this.notify();
       }
       return nextCred;
     } catch (error) {
@@ -276,6 +349,9 @@ export class AndroidIdentitySession {
   private async installCredential(credential: AndroidCredential): Promise<AndroidSessionSnapshot> {
     await this.refreshStore.replace(credential.refreshToken);
     this.accessToken = credential.accessToken;
+    this.currentRefreshToken = credential.refreshToken;
+    this.authenticatedAt = Date.now();
+    this.scheduleProactiveRefresh();
     try {
       const actor = await this.api.getCurrentUser(credential.accessToken);
       this.state = {
@@ -284,16 +360,25 @@ export class AndroidIdentitySession {
         actor,
         denial: null,
       };
+      this.notify();
       return this.state;
     } catch (error) {
-      await this.clear();
+      if (error instanceof ApiClientError && error.status === 401) {
+        await this.clear();
+      }
       throw error;
     }
   }
 
   private async clear(): Promise<void> {
+    if (this.proactiveTimer) {
+      clearTimeout(this.proactiveTimer);
+      this.proactiveTimer = null;
+    }
     this.accessToken = null;
+    this.currentRefreshToken = null;
     this.state = anonymousSnapshot;
+    this.notify();
     await this.refreshStore.clear();
   }
 }

@@ -4,11 +4,10 @@ import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  AndroidIdentitySession,
-  createIdentityApi,
-  createSecureRefreshStore,
+  type AndroidIdentitySession,
   type AndroidSessionSnapshot,
 } from '@/features/identity-access/session';
+import { sharedDeviceSession } from '@/features/identity-access/device-session';
 import {
   createCoupleBillingGateway,
   type BillingView,
@@ -58,7 +57,7 @@ type EntryProps = Readonly<{
   onAttemptCreated?: (bookingId: string, attemptId: string) => void;
 }>;
 
-const deviceSession = new AndroidIdentitySession(createIdentityApi(), createSecureRefreshStore());
+const deviceSession = sharedDeviceSession;
 const billing = createCoupleBillingGateway();
 
 export function AndroidBillingPage({
@@ -74,8 +73,12 @@ export function AndroidBillingPage({
     void session.restore().then((value) => {
       if (active) setSnapshot(value);
     });
+    const unsubscribe = session.subscribe(() => {
+      if (active) setSnapshot(session.snapshot());
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [session]);
 

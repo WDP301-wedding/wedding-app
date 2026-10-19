@@ -47,7 +47,12 @@ export function V2PrepareTab(props: V0CommonProps) {
     data: seatingData,
     loading: seatingLoading,
     reload: reloadSeating,
-  } = useHyResource(seatingLoader);
+  } = useHyResource(seatingLoader, { enabled: segment === 'seating' });
+
+  const bookingPortalUrl =
+    portalUrl && props.activeBooking?.bookingId
+      ? `${portalUrl.replace(/\/+$/, '')}/bookings/${props.activeBooking.bookingId}/seating`
+      : portalUrl;
 
   return (
     <View style={{ flex: 1, backgroundColor: hy.canvas }}>
@@ -79,20 +84,22 @@ export function V2PrepareTab(props: V0CommonProps) {
                 </Text>
                 <Text style={{ fontSize: 13, color: hy.secondary, lineHeight: 18 }}>
                   Giao diện kéo thả nhóm khách vào bàn tiệc và chỉnh sửa vị trí không gian sảnh được
-                  thực hiện trên phiên bản Web của Hỷ Yến.
+                  thực hiện trên phiên bản Web của Hỷ Yến theo đúng tiệc cưới của bạn.
                 </Text>
               </View>
               <HyButton
                 label="Mở trình duyệt để xếp bàn"
                 onPress={() => {
-                  if (portalUrl) void openBrowserAsync(portalUrl);
+                  if (bookingPortalUrl) void openBrowserAsync(bookingPortalUrl);
                 }}
               />
             </HyCard>
 
-            {/* Confirmed Hall & Layout Info */}
+            {/* Confirmed Hall & Planning Headcount Info */}
             <HyCard>
-              <Text style={{ fontSize: 15, fontWeight: '700' }}>Sơ đồ bàn đã xác nhận</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700' }}>
+                Thông tin sảnh & khách kế hoạch
+              </Text>
               <View style={{ gap: 8, marginTop: 4 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ fontSize: 13, color: hy.muted }}>Sảnh tiệc</Text>
@@ -103,20 +110,30 @@ export function V2PrepareTab(props: V0CommonProps) {
                   <Text style={{ fontSize: 13, fontWeight: '600' }}>{props.facts.shiftTime}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 13, color: hy.muted }}>Khách kế hoạch</Text>
+                  <Text style={{ fontSize: 13, color: hy.muted }}>Khách kế hoạch (hợp đồng)</Text>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: hy.primary }}>
                     {props.facts.planningHeadcount} khách
                   </Text>
                 </View>
               </View>
+              <Text style={{ fontSize: 11, color: hy.muted, marginTop: 4 }}>
+                Số khách kế hoạch do Cặp đôi hoặc Quản lý nhập độc lập, không suy ra từ số ghế của
+                sơ đồ.
+              </Text>
             </HyCard>
 
-            {/* Seating Layout Options / Confirmed Items */}
+            {/* Seating Layout Options (Reference Templates) */}
             {seatingLoading && !seatingData ? (
               <HyState kind="loading" />
             ) : seatingData?.options?.items && seatingData.options.items.length > 0 ? (
               <HyCard>
-                <Text style={{ fontSize: 15, fontWeight: '700' }}>Tùy chọn bố cục sơ đồ</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700' }}>
+                  Tùy chọn bố cục mẫu tham khảo
+                </Text>
+                <Text style={{ fontSize: 12, color: hy.secondary, marginBottom: 4 }}>
+                  Các mẫu bố cục không gian tương thích với sảnh tiệc. Sơ đồ chính thức cần được xác
+                  nhận trên Web.
+                </Text>
                 {seatingData.options.items.map((opt) => (
                   <View
                     key={opt.layoutTemplateVersionId}
@@ -141,7 +158,7 @@ export function V2PrepareTab(props: V0CommonProps) {
                       />
                     </View>
                     <Text style={{ fontSize: 12, color: hy.secondary }}>
-                      Sức chứa: {opt.totalSeatCapacity} chỗ ({opt.minGuests} – {opt.maxGuests}{' '}
+                      Sức chứa mẫu: {opt.totalSeatCapacity} chỗ ({opt.minGuests} – {opt.maxGuests}{' '}
                       khách)
                     </Text>
                     {opt.warning ? (
@@ -158,7 +175,8 @@ export function V2PrepareTab(props: V0CommonProps) {
                   Sơ đồ bàn hoạt động theo nhóm khách
                 </Text>
                 <Text style={{ fontSize: 12, color: hy.muted, textAlign: 'center' }}>
-                  Không bắt buộc phải có danh sách tên từng khách mời trước khi sắp xếp bàn.
+                  Chưa có sơ đồ bàn chính thức. Sơ đồ hoạt động theo nhóm khách mà không bắt buộc
+                  phải có danh sách tên từng khách mời.
                 </Text>
               </HyCard>
             )}

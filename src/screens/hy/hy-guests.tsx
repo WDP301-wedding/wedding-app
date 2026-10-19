@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
 import {
   HyText as Text,
@@ -38,9 +38,11 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   const [selected, setSelected] = useState<Guest | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Planned headcount quick edit state
+  // Planned headcount quick edit state - 0 is a valid explicit value, no arbitrary 250 fallback
   const [editHeadcountOpen, setEditHeadcountOpen] = useState(false);
-  const [headcountValue, setHeadcountValue] = useState(String(facts.planningHeadcount || 250));
+  const [headcountValue, setHeadcountValue] = useState(
+    typeof facts.planningHeadcount === 'number' ? String(facts.planningHeadcount) : '0',
+  );
   const [headcountSaving, setHeadcountSaving] = useState(false);
   const [headcountError, setHeadcountError] = useState<string | null>(null);
 
@@ -82,23 +84,48 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   }, [session, activeBooking]);
 
   const { data, error, loading, reload } = useHyResource(loader);
-  const guests = data?.guests.filter((g) => g.status === 'ACTIVE') ?? [];
-  const groups = data?.groups.filter((g) => g.status === 'ACTIVE') ?? [];
-
-  const currentHeadcount = data?.guestPlan?.planningHeadcount ?? facts.planningHeadcount;
-  const currentPlanRevision = data?.guestPlan?.revision ?? activeBooking?.revision ?? 1;
-
-  const filtered = guests.filter(
-    (g) =>
-      (!group || g.guestGroupId === group) && normalize(g.name).includes(normalize(search.trim())),
+  const guests = useMemo(
+    () => data?.guests.filter((g) => g.status === 'ACTIVE') ?? [],
+    [data?.guests],
   );
+  const groups = useMemo(
+    () => data?.groups.filter((g) => g.status === 'ACTIVE') ?? [],
+    [data?.groups],
+  );
+  const groupMap = useMemo(() => new Map(groups.map((g) => [g.guestGroupId, g])), [groups]);
 
-  const selectedGroup = groups.find((g) => g.guestGroupId === selected?.guestGroupId);
+  const currentHeadcount = data?.guestPlan?.planningHeadcount ?? facts.planningHeadcount ?? 0;
+
+  const normalizedSearch = useMemo(() => normalize(search.trim()), [search]);
+  const filtered = useMemo(() => {
+    if (!normalizedSearch && !group) return guests;
+    return guests.filter((g) => {
+      if (group && g.guestGroupId !== group) return false;
+      if (!normalizedSearch) return true;
+      return normalize(g.name).includes(normalizedSearch);
+    });
+  }, [guests, group, normalizedSearch]);
+
+  const selectedGroup = selected ? groupMap.get(selected.guestGroupId) : undefined;
 
   const handleSaveHeadcount = async () => {
-    const num = parseInt(headcountValue.trim(), 10);
-    if (isNaN(num) || num < 0 || num > 2000) {
-      setHeadcountError('Vui lòng nhập số khách hợp lệ (0 – 2000).');
+    const trimmed = headcountValue.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      setHeadcountError(
+        'Vui lòng nhập số nguyên hợp lệ (ví dụ: 150). Không chấp nhận số thập phân hoặc chữ.',
+      );
+      return;
+    }
+    const num = Number(trimmed);
+    if (!Number.isSafeInteger(num) || num < 0) {
+      setHeadcountError('Vui lòng nhập số khách nguyên không âm.');
+      return;
+    }
+    const freshPlan = data?.guestPlan;
+    if (!freshPlan) {
+      setHeadcountError(
+        'Chưa tải được kế hoạch khách từ máy chủ. Vui lòng làm mới trang trước khi cập nhật.',
+      );
       return;
     }
     if (!session || !activeBooking || !billing.updateGuestPlan) {
@@ -109,7 +136,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
     setHeadcountError(null);
     try {
       await session.authorize((t) =>
-        billing.updateGuestPlan!(t, activeBooking.bookingId, currentPlanRevision, num),
+        billing.updateGuestPlan!(t, activeBooking.bookingId, freshPlan.revision, num),
       );
       setEditHeadcountOpen(false);
       await reload();
@@ -290,7 +317,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
         ) : (
           <HyCard style={{ padding: 0, overflow: 'hidden', gap: 0 }}>
             {filtered.map((guest) => {
-              const g = groups.find((x) => x.guestGroupId === guest.guestGroupId);
+              const g = groupMap.get(guest.guestGroupId);
               const initials = guest.name
                 .split(/\s+/)
                 .filter(Boolean)

@@ -24,8 +24,19 @@ export function V0GuestsSubflow({ activeBooking, facts, session }: V0CommonProps
       try {
         const [loadedGroups, loadedGuests] = await session.authorize(async (token) => {
           const gGroups = await coupleBilling.loadGuestGroups(token, activeBooking.bookingId);
-          const gGuests = await coupleBilling.loadGuests(token, activeBooking.bookingId);
-          return [gGroups, gGuests.items] as const;
+          let firstPage = await coupleBilling.loadGuests(token, activeBooking.bookingId);
+          const allGuests = [...firstPage.items];
+          let page = firstPage;
+          const seen = new Set<string>();
+          while (page.nextCursor) {
+            const cursor = page.nextCursor;
+            if (seen.has(cursor)) break;
+            seen.add(cursor);
+            page = await coupleBilling.loadGuests(token, activeBooking.bookingId, cursor);
+            if (page.sourceSequence !== firstPage.sourceSequence) break;
+            allGuests.push(...page.items);
+          }
+          return [gGroups, allGuests] as const;
         });
         if (active) {
           setGroups(loadedGroups);

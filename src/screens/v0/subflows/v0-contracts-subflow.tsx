@@ -13,8 +13,35 @@ export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [contract, setContract] = useState<CommercialContractView | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const handleLoadMoreContracts = async () => {
+    if (!session || !activeBooking?.bookingId || !contract?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await session.authorize((token) =>
+        coupleBilling.loadContracts(token, activeBooking.bookingId, contract.nextCursor!),
+      );
+      setContract((prev) =>
+        prev
+          ? {
+              ...prev,
+              nextCursor: more.nextCursor,
+              revisions: [...prev.revisions, ...more.revisions],
+            }
+          : more,
+      );
+    } catch (caught) {
+      Alert.alert(
+        'Lỗi tải thêm lịch sử',
+        caught instanceof Error ? caught.message : 'Không thể tải thêm các phiên bản hợp đồng.',
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -186,6 +213,27 @@ export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
               Chưa có phiên bản hợp đồng nào.
             </Text>
           )}
+
+          {contract.nextCursor ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tải thêm lịch sử hợp đồng"
+              disabled={loadingMore}
+              onPress={() => void handleLoadMoreContracts()}
+              style={[
+                styles.outlineButton,
+                { borderColor: tokens.rule, marginTop: 12, alignItems: 'center' },
+              ]}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={tokens.primary} />
+              ) : (
+                <Text style={{ fontSize: 13, color: tokens.primary, fontWeight: '600' }}>
+                  Tải thêm các phiên bản cũ hơn
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       ) : !loading ? (
         <View style={styles.emptyCard}>

@@ -27,6 +27,7 @@ import {
   V0PrintSubflow,
   V0ScheduleSubflow,
 } from './v0-subflows';
+import type { Profile } from '@/features/identity-access/experience-api';
 import type { V0CommonProps, V0Screen } from './v0-types';
 
 export interface V0CompanionShellProps extends Omit<V0CommonProps, 'onNavigate'> {
@@ -125,7 +126,19 @@ export function V0CompanionShell({
     return () => sub.remove();
   }, [screen, back]);
 
-  // Load unread count from API
+  const [overriddenProfile, setOverriddenProfile] = useState<Profile | null>(null);
+  const currentProfile = overriddenProfile ?? profile ?? null;
+
+  const onProfileUpdatedProp = props.onProfileUpdated;
+  const handleProfileUpdated = useCallback(
+    (updated: Profile) => {
+      setOverriddenProfile(updated);
+      onProfileUpdatedProp?.(updated);
+    },
+    [onProfileUpdatedProp],
+  );
+
+  // Load unread count from API once on session change (not on every screen transition)
   useEffect(() => {
     let active = true;
     if (session) {
@@ -139,16 +152,17 @@ export function V0CompanionShell({
     return () => {
       active = false;
     };
-  }, [session, screen]);
+  }, [session]);
 
   const common: V0CommonProps = {
     ...props,
     session,
-    profile,
+    profile: currentProfile,
     activeBooking,
     allBookings,
     onSelectBooking,
     onSwitchBooking,
+    onProfileUpdated: handleProfileUpdated,
     onNavigate: navigate,
     onBack: back,
   };
@@ -176,7 +190,13 @@ export function V0CompanionShell({
       case 'finance':
         return <V2PaymentsTab {...common} />;
       case 'notifications':
-        return <V0NotificationsSubflow {...common} />;
+        return (
+          <V0NotificationsSubflow
+            {...common}
+            initialUnreadCount={unreadCount}
+            onUnreadCountChanged={setUnreadCount}
+          />
+        );
       case 'guests':
         return <HyGuests {...common} />;
       case 'account':

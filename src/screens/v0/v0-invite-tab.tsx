@@ -4,6 +4,7 @@ import { Alert, BackHandler, Share as NativeShare } from 'react-native';
 import {
   createAppInvitationGateway,
   type AppDesignView,
+  type AppInvitationGateway,
   type AppPublicationView,
 } from '@/features/invitation-studio/app-invitation-api';
 import type { V0CommonProps } from './v0-types';
@@ -27,7 +28,9 @@ export function V0InviteTab({
   onNavigate,
   session,
 }: V0InviteTabProps) {
-  const gateway = invitationGateway ?? createAppInvitationGateway();
+  const fallbackGatewayRef = useRef<AppInvitationGateway | null>(null);
+  const gateway =
+    invitationGateway ?? (fallbackGatewayRef.current ??= createAppInvitationGateway());
 
   // Internal screen view: 'preview' | 'edit' | 'share'
   const [subscreen, setSubscreen] = useState<'preview' | 'edit' | 'share'>(initialSubscreen);
@@ -224,7 +227,7 @@ export function V0InviteTab({
     return undefined;
   }, [subscreen, handleBackFromEdit, onNavigate]);
 
-  const handleSelectDesign = async (design: AppDesignView) => {
+  const doSelectDesign = async (design: AppDesignView) => {
     if (!session || !activeBooking?.bookingId) return;
     const reqId = ++activeRequestCounterRef.current;
     setLoading(true);
@@ -252,6 +255,22 @@ export function V0InviteTab({
       }
     } finally {
       if (reqId === activeRequestCounterRef.current) setLoading(false);
+    }
+  };
+
+  const handleSelectDesign = (design: AppDesignView) => {
+    if (design.designId === selectedDesign?.designId) return;
+    if (isDirty) {
+      Alert.alert(
+        'Hủy thay đổi?',
+        'Bạn có thay đổi chưa lưu trên thiệp hiện tại. Chuyển sang mẫu khác sẽ làm mất các nội dung này. Bạn có muốn chuyển?',
+        [
+          { text: 'Ở lại', style: 'cancel' },
+          { text: 'Chuyển mẫu', style: 'destructive', onPress: () => void doSelectDesign(design) },
+        ],
+      );
+    } else {
+      void doSelectDesign(design);
     }
   };
 

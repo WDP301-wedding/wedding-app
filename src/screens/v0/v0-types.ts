@@ -61,4 +61,5 @@ export interface V0CommonProps {
       }[]
     | undefined;
   readonly onSelectBooking?: ((bookingId: string) => void) | undefined;
+  readonly onProfileUpdated?: ((updated: Profile) => void) | undefined;
 }

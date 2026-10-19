@@ -403,6 +403,18 @@ export function AndroidBillingScreen({
               onContinue={() => {
                 void run(async () => {
                   await openCheckout(checkout.checkoutUrl);
+                  try {
+                    const value = await authorize((token) =>
+                      gateway.loadAttempt(token, view.bookingId, checkout.paymentAttemptId),
+                    );
+                    await intents.finishCheckout(view.bookingId, value);
+                    setAttempt(value);
+                    setNeedsAttemptStatus(false);
+                    if (completed(value)) setCheckout(null);
+                    await load();
+                  } catch {
+                    // Reconcile status will continue on manual check or next load
+                  }
                 });
               }}
             />

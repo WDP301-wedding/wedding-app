@@ -37,10 +37,121 @@ export function InvitePreviewView({
   onSelectDesign: (item: AppDesignView) => void;
 }) {
   const [full, setFull] = useState(false);
+  const renderSection = (
+    sec: {
+      readonly kind: 'HERO' | 'MESSAGE' | 'EVENT' | 'TIMELINE' | 'SEATING' | 'FOOTER';
+      readonly textKey: ('brideName' | 'groomName' | 'greeting' | 'message' | 'footer') | null;
+      readonly derivedAssetId: string | null;
+    },
+    idx: number,
+  ) => {
+    switch (sec.kind) {
+      case 'HERO': {
+        const textVal = sec.textKey ? selectedDesign?.textFields[sec.textKey] : null;
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center', gap: 4 }}>
+            <Text style={{ fontSize: 11, letterSpacing: 2, color: hy.muted }}>THIỆP MỜI</Text>
+            <Text
+              style={{
+                fontFamily: hy.display,
+                fontSize: 26,
+                lineHeight: 34,
+                textAlign: 'center',
+                color: hy.primary,
+              }}
+            >
+              {textVal || coupleDisplay}
+            </Text>
+            {sec.derivedAssetId && (
+              <Text style={{ fontSize: 10, color: hy.muted }}>
+                [Tài nguyên bìa: #{sec.derivedAssetId.slice(0, 8)}]
+              </Text>
+            )}
+            <View style={{ height: 1, width: 40, backgroundColor: hy.gold, marginVertical: 4 }} />
+          </View>
+        );
+      }
+      case 'MESSAGE': {
+        const textVal = sec.textKey ? selectedDesign?.textFields[sec.textKey] : null;
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center', gap: 2 }}>
+            {greeting && !textVal && (
+              <Text style={{ textAlign: 'center', fontSize: 13 }}>{greeting}</Text>
+            )}
+            <Text style={{ textAlign: 'center', fontSize: 13, color: hy.secondary }}>
+              {textVal || message || 'Trân trọng kính mời quý khách'}
+            </Text>
+            {sec.derivedAssetId && (
+              <Text style={{ fontSize: 10, color: hy.muted }}>
+                [Tài nguyên ảnh: #{sec.derivedAssetId.slice(0, 8)}]
+              </Text>
+            )}
+          </View>
+        );
+      }
+      case 'EVENT': {
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontWeight: '600', textAlign: 'center', fontSize: 13 }}>
+              {facts.formattedDate}
+            </Text>
+            <Text style={{ fontSize: 12, textAlign: 'center', color: hy.muted }}>
+              {facts.hallName} · {facts.shiftTime}
+            </Text>
+            <Text style={{ fontSize: 12, textAlign: 'center' }}>{facts.venueName}</Text>
+            {sec.derivedAssetId && (
+              <Text style={{ fontSize: 10, color: hy.muted }}>
+                [Tài nguyên sảnh/bản đồ: #{sec.derivedAssetId.slice(0, 8)}]
+              </Text>
+            )}
+          </View>
+        );
+      }
+      case 'TIMELINE': {
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: hy.primary }}>
+              Chương trình hôn lễ
+            </Text>
+            <Text style={{ fontSize: 11, textAlign: 'center', color: hy.muted }}>
+              (Lịch trình theo kịch bản xác nhận với nhà hàng)
+            </Text>
+          </View>
+        );
+      }
+      case 'SEATING': {
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: hy.primary }}>
+              Sơ đồ chỗ ngồi
+            </Text>
+            <Text style={{ fontSize: 11, textAlign: 'center', color: hy.muted }}>
+              {selectedDesign?.includesSeating
+                ? 'Thiết kế có hiển thị bàn tiệc được xếp'
+                : 'Thiết kế không kèm sơ đồ bàn'}
+            </Text>
+          </View>
+        );
+      }
+      case 'FOOTER': {
+        const textVal = sec.textKey ? selectedDesign?.textFields[sec.textKey] : null;
+        return (
+          <View key={`sec-${idx}`} style={{ alignItems: 'center' }}>
+            <Text style={{ fontSize: 11, textAlign: 'center', color: hy.muted }}>
+              {textVal || footer || 'Rất hân hạnh được đón tiếp!'}
+            </Text>
+          </View>
+        );
+      }
+      default:
+        return null;
+    }
+  };
+  const hasSections = selectedDesign?.sections && selectedDesign.sections.length > 0;
   const card = () => (
     <View
       style={{
-        aspectRatio: 3 / 4,
+        minHeight: 380,
         width: '100%',
         borderRadius: 20,
         backgroundColor: hy.canvas,
@@ -49,7 +160,7 @@ export function InvitePreviewView({
         padding: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 14,
+        gap: 12,
         overflow: 'hidden',
       }}
     >
@@ -79,30 +190,38 @@ export function InvitePreviewView({
           bottom: -45,
         }}
       />
-      <Text style={{ fontSize: 12, letterSpacing: 3, color: hy.muted }}>THIỆP MỜI</Text>
-      <Text
-        style={{
-          fontFamily: hy.display,
-          fontSize: 32,
-          lineHeight: 42,
-          textAlign: 'center',
-          color: hy.primary,
-        }}
-      >
-        {coupleDisplay}
-      </Text>
-      <View style={{ height: 1, width: 48, backgroundColor: hy.gold }} />
-      {greeting && <Text style={{ textAlign: 'center', fontSize: 13 }}>{greeting}</Text>}
-      {message && (
-        <Text style={{ textAlign: 'center', fontSize: 13, color: hy.secondary }}>{message}</Text>
-      )}
-      <Text style={{ fontWeight: '600', textAlign: 'center' }}>{facts.formattedDate}</Text>
-      <Text style={{ fontSize: 13, textAlign: 'center', color: hy.muted }}>
-        {facts.hallName} · {facts.shiftTime}
-      </Text>
-      <Text style={{ fontSize: 13, textAlign: 'center' }}>{facts.venueName}</Text>
-      {footer && (
-        <Text style={{ fontSize: 12, textAlign: 'center', color: hy.muted }}>{footer}</Text>
+      {hasSections ? (
+        selectedDesign.sections.map((sec, idx) => renderSection(sec, idx))
+      ) : (
+        <>
+          <Text style={{ fontSize: 12, letterSpacing: 3, color: hy.muted }}>THIỆP MỜI</Text>
+          <Text
+            style={{
+              fontFamily: hy.display,
+              fontSize: 32,
+              lineHeight: 42,
+              textAlign: 'center',
+              color: hy.primary,
+            }}
+          >
+            {coupleDisplay}
+          </Text>
+          <View style={{ height: 1, width: 48, backgroundColor: hy.gold }} />
+          {greeting && <Text style={{ textAlign: 'center', fontSize: 13 }}>{greeting}</Text>}
+          {message && (
+            <Text style={{ textAlign: 'center', fontSize: 13, color: hy.secondary }}>
+              {message}
+            </Text>
+          )}
+          <Text style={{ fontWeight: '600', textAlign: 'center' }}>{facts.formattedDate}</Text>
+          <Text style={{ fontSize: 13, textAlign: 'center', color: hy.muted }}>
+            {facts.hallName} · {facts.shiftTime}
+          </Text>
+          <Text style={{ fontSize: 13, textAlign: 'center' }}>{facts.venueName}</Text>
+          {footer && (
+            <Text style={{ fontSize: 12, textAlign: 'center', color: hy.muted }}>{footer}</Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -139,8 +258,8 @@ export function InvitePreviewView({
           </View>
           <HyCard>
             <Text style={{ fontSize: 13, color: hy.secondary }}>
-              Bản xem nội dung trên mobile. Bố cục in chính thức được lưu theo phiên bản thiết kế
-              của nhà hàng.
+              Bản xem nội dung trên mobile (Textual preview). Bố cục in chính thức và trang web
+              thiệp được hiển thị đầy đủ theo thiết kế gốc của nhà hàng.
             </Text>
             <HyButton label="Tùy chọn thiệp & bản in" variant="text" onPress={onMorePress} />
           </HyCard>

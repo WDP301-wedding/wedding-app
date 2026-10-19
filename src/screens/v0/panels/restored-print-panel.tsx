@@ -23,12 +23,14 @@ import { styles } from './panels.styles';
 
 export interface RestoredPrintPanelProps extends ContextProps {
   invitationGateway?: AppInvitationGateway;
+  onOrdersChanged?: (orders: readonly AppPrintOrderView[]) => void;
 }
 
 export function RestoredPrintPanel({
   activeBooking,
   session,
   invitationGateway,
+  onOrdersChanged,
 }: RestoredPrintPanelProps) {
   const inv = invitationGateway ?? invitations;
   const bookingId = activeBooking?.bookingId;
@@ -48,13 +50,15 @@ export function RestoredPrintPanel({
       );
       setOrders(o);
       setDesigns(d);
+      onOrdersChanged?.(o);
       setError(null);
     } catch (e) {
       setOrders([]);
       setDesigns([]);
+      onOrdersChanged?.([]);
       setError(message(e));
     }
-  }, [session, bookingId, inv]);
+  }, [session, bookingId, inv, onOrdersChanged]);
   useEffect(() => {
     const task = setTimeout(() => void load(), 0);
     return () => clearTimeout(task);
@@ -191,9 +195,13 @@ export function RestoredPrintPanel({
             onPress={() =>
               void session
                 .authorize((token) => api.getPrintOrder(token, bookingId, order.orderId))
-                .then((fresh) =>
-                  setOrders((old) => old.map((o) => (o.orderId === fresh.orderId ? fresh : o))),
-                )
+                .then((fresh) => {
+                  setOrders((old) => {
+                    const updated = old.map((o) => (o.orderId === fresh.orderId ? fresh : o));
+                    onOrdersChanged?.(updated);
+                    return updated;
+                  });
+                })
                 .catch((e) => setError(message(e)))
             }
           />

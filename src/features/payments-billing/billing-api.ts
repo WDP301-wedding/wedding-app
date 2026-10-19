@@ -60,10 +60,25 @@ export interface CoupleBillingGateway {
     body: BalanceBody,
     key: string,
   ): Promise<CheckoutView>;
-  loadContracts?(this: void, token: string, bookingId: string): Promise<CommercialContractView>;
-  loadAppendices?(this: void, token: string, bookingId: string): Promise<CommercialAppendixView>;
+  loadContracts?(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialContractView>;
+  loadAppendices?(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialAppendixView>;
   loadIncidentals?(this: void, token: string, bookingId: string): Promise<IncidentalExpensesView>;
-  loadFinalInvoices?(this: void, token: string, bookingId: string): Promise<CommercialInvoiceView>;
+  loadFinalInvoices?(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialInvoiceView>;
   loadGuestGroups?(this: void, token: string, bookingId: string): Promise<GuestGroupView>;
   loadGuests?(
     this: void,
@@ -80,10 +95,25 @@ export interface CoupleBillingGateway {
 }
 
 export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
-  loadContracts(this: void, token: string, bookingId: string): Promise<CommercialContractView>;
-  loadAppendices(this: void, token: string, bookingId: string): Promise<CommercialAppendixView>;
+  loadContracts(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialContractView>;
+  loadAppendices(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialAppendixView>;
   loadIncidentals(this: void, token: string, bookingId: string): Promise<IncidentalExpensesView>;
-  loadFinalInvoices(this: void, token: string, bookingId: string): Promise<CommercialInvoiceView>;
+  loadFinalInvoices(
+    this: void,
+    token: string,
+    bookingId: string,
+    cursor?: string,
+  ): Promise<CommercialInvoiceView>;
   loadGuestGroups(this: void, token: string, bookingId: string): Promise<GuestGroupView>;
   loadGuests(
     this: void,
@@ -228,17 +258,17 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       });
       return checkout(data);
     },
-    async loadContracts(token, bookingId) {
+    async loadContracts(token, bookingId, cursor) {
       const { data } = await api().GET('/bookings/{bookingId}/contracts', {
-        params: { path: { bookingId } },
+        params: { path: { bookingId }, ...(cursor ? { query: { cursor } } : {}) },
         headers: headers(token),
         cache: 'no-store',
       });
       return required(data) as CommercialContractView;
     },
-    async loadAppendices(token, bookingId) {
+    async loadAppendices(token, bookingId, cursor) {
       const { data } = await api().GET('/bookings/{bookingId}/contract-appendices', {
-        params: { path: { bookingId } },
+        params: { path: { bookingId }, ...(cursor ? { query: { cursor } } : {}) },
         headers: headers(token),
         cache: 'no-store',
       });
@@ -252,9 +282,9 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       });
       return required(data) as IncidentalExpensesView;
     },
-    async loadFinalInvoices(token, bookingId) {
+    async loadFinalInvoices(token, bookingId, cursor) {
       const { data } = await api().GET('/bookings/{bookingId}/final-invoices', {
-        params: { path: { bookingId } },
+        params: { path: { bookingId }, ...(cursor ? { query: { cursor } } : {}) },
         headers: headers(token),
         cache: 'no-store',
       });

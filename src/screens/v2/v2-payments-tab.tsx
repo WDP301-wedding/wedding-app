@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus, View } from 'react-native';
 import {
   HyText as Text,
@@ -15,52 +15,248 @@ import { hy } from '@/theme';
 import {
   createCoupleBillingGateway,
   type AttemptView,
+  type BillingView,
+  type BalanceBody,
 } from '@/features/payments-billing/billing-api';
-import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
+import { createBillingIntents } from '@/features/payments-billing/billing-intents';
 import { FileTextIcon, WalletIcon } from '@/components/v0-icons';
 import { openBrowserAsync } from 'expo-web-browser';
 import { readPublicEnv } from '@/lib/env';
-import { createDeterministicIdempotencyKey } from '@/lib/idempotency';
+import { ApiClientError } from '@/lib/api/client';
+import { money } from '@/lib/formatters';
+import { completed, kinds } from '../billing-sections';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from '../hy/use-hy-resource';
 
 const billing = createCoupleBillingGateway();
-const api = createRestoredFlowsGateway();
 
-function money(v: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
-}
+const sourceLabels: Record<string, string> = {
+  BASE_BOOKING: 'Tiệc cơ sở',
+  CONTRACT: 'Hợp đồng',
+  CONTRACT_APPENDIX: 'Phụ lục hợp đồng',
+  INCIDENTAL_FINALIZATION: 'Quyết toán phát sinh',
+  INVOICE_ADJUSTMENT: 'Điều chỉnh hóa đơn',
+  PRINT_ORDER: 'Đơn đặt in',
+  PAYMENT_ATTEMPT: 'Giao dịch thanh toán',
+  PRINT_CREDIT: 'Tín dụng in ấn',
+  MANUAL_REFUND: 'Hoàn tiền thủ công',
+};
 
 export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonProps) {
   const portalUrl = readPublicEnv().EXPO_PUBLIC_WEB_PORTAL_URL;
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [attemptResult, setAttemptResult] = useState<AttemptView | null>(null);
+  const busyRef = useRef(false);
+
+  // Pagination for history
+  const [extraHistory, setExtraHistory] = useState<readonly BillingView['history'][number][]>([]);
+  const [pagedNextCursor, setPagedNextCursor] = useState<string | null | undefined>(undefined);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const prevBookingIdRef = useRef<string | null>(null);
+  if (prevBookingIdRef.current !== (activeBooking?.bookingId ?? null)) {
+    prevBookingIdRef.current = activeBooking?.bookingId ?? null;
+    if (extraHistory.length > 0) setExtraHistory([]);
+    if (pagedNextCursor !== undefined) setPagedNextCursor(undefined);
+  }
+
+  const sessionSnapshot = session?.snapshot();
+  const accountId =
+    sessionSnapshot?.status === 'authenticated' ? sessionSnapshot.actor.accountId : 'device';
+  const intents = useMemo(() => createBillingIntents(accountId), [accountId]);
 
   const loader = useCallback(async () => {
     if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
     const bookingId = activeBooking.bookingId;
-    const [viewRes, contractsRes] = await Promise.allSettled([
-      session.authorize((t) => billing.load(t, bookingId)),
-      session.authorize((t) => api.readContracts(t, bookingId)),
-    ]);
-    return {
-      view: viewRes.status === 'fulfilled' ? viewRes.value : null,
-      contracts: contractsRes.status === 'fulfilled' ? contractsRes.value : null,
-      billingError:
-        viewRes.status === 'rejected'
-          ? viewRes.reason instanceof Error
-            ? viewRes.reason.message
-            : 'Chưa tải được số dư'
-          : null,
-    };
+    try {
+      const view = await session.authorize((t) => billing.load(t, bookingId));
+      return {
+        view,
+        billingError: null,
+      };
+    } catch (err: unknown) {
+      const errorMsg =
+        err instanceof ApiClientError && (err.code || err.requestId)
+          ? `${err.message} (${[err.code ? `Mã: ${err.code}` : null, err.requestId ? `ID: ${err.requestId}` : null].filter(Boolean).join(', ')})`
+          : err instanceof Error
+            ? err.message
+            : 'Chưa tải được số dư';
+      return {
+        view: null,
+        billingError: errorMsg,
+      };
+    }
   }, [session, activeBooking]);
 
   const { data, loading, reload } = useHyResource(loader);
 
+  const historyList = useMemo(() => {
+    const base = data?.view?.history ?? [];
+    if (extraHistory.length === 0) return base;
+    const existingIds = new Set(base.map((e) => e.ledgerEntryId));
+    const newItems = extraHistory.filter((e) => !existingIds.has(e.ledgerEntryId));
+    return [...base, ...newItems];
+  }, [data?.view?.history, extraHistory]);
+
+  const nextCursor =
+    pagedNextCursor !== undefined ? pagedNextCursor : (data?.view?.nextCursor ?? null);
+
+  const reconcileAttempt = useCallback(
+    async (attemptId: string) => {
+      if (!session || !activeBooking) return;
+      const bookingId = activeBooking.bookingId;
+      try {
+        const res = await session.authorize((t) => billing.loadAttempt(t, bookingId, attemptId));
+        setAttemptResult(res);
+        if (completed(res)) {
+          await intents.finishCheckout(bookingId, res);
+        }
+      } catch {
+        // Silently preserve state if network temporarily fails
+      }
+    },
+    [session, activeBooking, intents],
+  );
+
+  // Recover in-flight checkout attempt when booking mounts
+  useEffect(() => {
+    if (!activeBooking || !session) return;
+    const bookingId = activeBooking.bookingId;
+    let active = true;
+    void (async () => {
+      try {
+        const recovered = await intents.recoverCheckout(bookingId);
+        if (recovered?.checkout?.paymentAttemptId && active) {
+          const attemptId = recovered.checkout.paymentAttemptId;
+          setActiveAttemptId(attemptId);
+          await reconcileAttempt(attemptId);
+        }
+      } catch {
+        // Recovery read error handled gracefully
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [activeBooking, intents, session, reconcileAttempt]);
+
+  // Listen for AppState changes to re-query payment status on returning to foreground
+  const appState = useRef(AppState.currentState);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        void reload();
+        if (activeBooking && session) {
+          void (async () => {
+            const bookingId = activeBooking.bookingId;
+            const targetAttemptId =
+              activeAttemptId ??
+              (await intents.recoverCheckout(bookingId))?.checkout?.paymentAttemptId ??
+              null;
+            if (targetAttemptId) {
+              await reconcileAttempt(targetAttemptId);
+            }
+          })();
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [activeAttemptId, session, activeBooking, reload, intents, reconcileAttempt]);
+
+  // Manual status check for pending or unknown attempt
+  const handleCheckAttemptStatus = async () => {
+    if (!session || !activeBooking || !activeAttemptId || checkingStatus) return;
+    setCheckingStatus(true);
+    try {
+      await reconcileAttempt(activeAttemptId);
+      await reload();
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  // Handle Balance Payment checkout
+  const handleProceedToVNPay = async () => {
+    if (busyRef.current) return;
+    if (!session || !activeBooking || outstanding <= 0) return;
+    if (data?.view?.billingRevision === undefined) {
+      setPayError(
+        'Chưa tải được phiên bản số dư máy chủ. Vui lòng tải lại trang trước khi thanh toán.',
+      );
+      return;
+    }
+    if (attemptResult && !completed(attemptResult)) {
+      setPayError(
+        'Giao dịch trước đó đang được xử lý. Vui lòng kiểm tra trạng thái trước khi tạo giao dịch mới.',
+      );
+      return;
+    }
+    busyRef.current = true;
+    setPaying(true);
+    setPayError(null);
+    try {
+      const expectedBillingRevision = data.view.billingRevision;
+      const checkout = await intents.runCheckout(
+        activeBooking.bookingId,
+        { expectedBillingRevision },
+        (idempotencyKey, stableBody) =>
+          session.authorize((t) =>
+            billing.startBalance(
+              t,
+              activeBooking.bookingId,
+              stableBody as BalanceBody,
+              idempotencyKey,
+            ),
+          ),
+      );
+      setConfirmOpen(false);
+      setActiveAttemptId(checkout.paymentAttemptId);
+      // Open VNPay securely
+      await openBrowserAsync(checkout.checkoutUrl);
+      // Immediately reconcile after returning from browser
+      await reconcileAttempt(checkout.paymentAttemptId);
+      await reload();
+    } catch (caught: unknown) {
+      setPayError(
+        caught instanceof Error
+          ? caught.message
+          : 'Chưa thể khởi tạo giao dịch thanh toán. Vui lòng thử lại.',
+      );
+    } finally {
+      busyRef.current = false;
+      setPaying(false);
+    }
+  };
+
+  const handleLoadMoreHistory = async () => {
+    if (!session || !activeBooking || !nextCursor || loadingMore || !data?.view) return;
+    setLoadingMore(true);
+    try {
+      const res = await session.authorize((t) =>
+        billing.load(t, activeBooking.bookingId, {
+          cursor: nextCursor,
+          throughBillingRevision: data.view!.billingRevision,
+        }),
+      );
+      setExtraHistory((prev) => [...prev, ...res.history]);
+      setPagedNextCursor(res.nextCursor);
+    } catch {
+      // keep existing entries
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const totals = data?.view?.totals;
+  const hasTotals = Boolean(totals);
   const netPaid = totals?.netPaidVnd ?? 0;
   const acceptedCharges = totals?.acceptedChargesVnd ?? 0;
   const outstanding = totals?.outstandingVnd ?? 0;
@@ -71,69 +267,7 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
 
   const phase = activeBooking?.phase ?? 'DRAFT';
   const pre = phase === 'DRAFT' || phase === 'AWAITING_DEPOSIT';
-
-  // Listen for AppState changes to re-query payment status on returning to foreground
-  const appState = useRef(AppState.currentState);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // App has returned to the foreground!
-        void reload();
-        if (activeAttemptId && session && activeBooking) {
-          void session
-            .authorize((t) => billing.loadAttempt(t, activeBooking.bookingId, activeAttemptId))
-            .then((res) => {
-              setAttemptResult(res);
-            })
-            .catch(() => {});
-        }
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [activeAttemptId, session, activeBooking, reload]);
-
-  // Handle Balance Payment checkout
-  const handleProceedToVNPay = async () => {
-    if (!session || !activeBooking || outstanding <= 0) return;
-    setPaying(true);
-    setPayError(null);
-    try {
-      const key = createDeterministicIdempotencyKey(
-        'payment-balance',
-        activeBooking.bookingId,
-        data?.view?.billingRevision ?? activeBooking.revision,
-        { amountVnd: outstanding },
-      );
-      const checkout = await session.authorize((t) =>
-        billing.startBalance(
-          t,
-          activeBooking.bookingId,
-          {
-            expectedBillingRevision: data?.view?.billingRevision ?? activeBooking.revision,
-          },
-          key,
-        ),
-      );
-      setConfirmOpen(false);
-      setActiveAttemptId(checkout.paymentAttemptId);
-      // Open VNPay securely
-      await openBrowserAsync(checkout.checkoutUrl);
-      // Immediately refresh billing state
-      await reload();
-    } catch (caught: any) {
-      setPayError(
-        caught instanceof Error
-          ? caught.message
-          : 'Chưa thể khởi tạo giao dịch thanh toán. Vui lòng thử lại.',
-      );
-    } finally {
-      setPaying(false);
-    }
-  };
+  const isTerminalPhase = phase === 'CANCELLED' || phase === 'COMPLETED';
 
   const documents = [
     ['contracts', 'Hợp đồng thương mại', 'Phiên bản hợp đồng, điều khoản & tệp PDF'],
@@ -148,6 +282,19 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
       <HyScreen onRefresh={() => void reload()} refreshing={loading}>
         {/* Offline notice if any */}
         <OfflineBanner visible={false} />
+
+        {/* Billing Error Notice if loading failed */}
+        {data?.billingError && data.view === null && (
+          <HyCard style={{ backgroundColor: hy.errorBg, borderColor: hy.error, gap: 8 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: hy.error }}>
+              Lỗi tải số dư thanh toán
+            </Text>
+            <Text style={{ fontSize: 13, color: hy.secondary, lineHeight: 18 }}>
+              {data.billingError}
+            </Text>
+            <HyButton label="Thử lại" onPress={() => void reload()} />
+          </HyCard>
+        )}
 
         {/* Payment Attempt Result Banner (4 states) */}
         {attemptResult && (
@@ -223,6 +370,15 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
                 Mã giao dịch: {attemptResult.paymentAttemptId}
               </Text>
             ) : null}
+            {!completed(attemptResult) && (
+              <HyButton
+                label={checkingStatus ? 'Đang kiểm tra kết quả…' : 'Kiểm tra lại trạng thái'}
+                variant="outline"
+                disabled={checkingStatus}
+                busy={checkingStatus}
+                onPress={() => void handleCheckAttemptStatus()}
+              />
+            )}
           </HyCard>
         )}
 
@@ -284,13 +440,13 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
                     fontFamily: hy.bold,
                   }}
                 >
-                  {totals ? money(netPaid) : '—'}
+                  {hasTotals ? money(netPaid) : '—'}
                 </Text>
                 <Text style={{ fontSize: 12, color: hy.muted, marginTop: 2 }}>
-                  Tổng chi phí: {totals ? money(acceptedCharges) : '—'}
+                  Tổng chi phí: {hasTotals ? money(acceptedCharges) : '—'}
                 </Text>
                 <Text style={{ fontSize: 12, color: hy.primary, fontWeight: '600' }}>
-                  Còn lại: {totals ? money(outstanding) : '—'}
+                  Còn lại: {hasTotals ? money(outstanding) : '—'}
                 </Text>
               </View>
             </View>
@@ -310,16 +466,32 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
                 fontFamily: hy.bold,
               }}
             >
-              {totals ? money(outstanding) : 'Chưa xác định'}
+              {hasTotals ? money(outstanding) : 'Chưa xác định'}
             </Text>
           </View>
 
-          {pre ? (
+          {!hasTotals ? (
+            <HyButton
+              label={data?.billingError ? 'Thử lại tải số dư' : 'Đang tải thông tin số dư…'}
+              disabled={loading || !data?.billingError}
+              onPress={() => void reload()}
+            />
+          ) : pre ? (
             <HyButton
               label="Hoàn tất đặt cọc trên Web"
               onPress={() => {
                 if (portalUrl) void openBrowserAsync(portalUrl);
               }}
+            />
+          ) : isTerminalPhase ? (
+            <HyButton label="Tiệc cưới đã kết thúc vòng đời" disabled onPress={() => {}} />
+          ) : attemptResult && !completed(attemptResult) ? (
+            <HyButton
+              label="Giao dịch đang xử lý (Kiểm tra lại)"
+              variant="outline"
+              disabled={checkingStatus}
+              busy={checkingStatus}
+              onPress={() => void handleCheckAttemptStatus()}
             />
           ) : outstanding > 0 ? (
             <HyButton
@@ -353,52 +525,63 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
         ))}
 
         {/* Transaction History Section */}
-        {data?.view?.history && data.view.history.length > 0 && (
+        {historyList.length > 0 && (
           <HyCard style={{ gap: 12 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700' }}>Lịch sử giao dịch</Text>
-            {data.view.history.map((tx: any, idx: number) => (
-              <View
-                key={tx.attemptId || idx}
-                style={{
-                  paddingVertical: 10,
-                  borderBottomWidth: idx < data.view!.history.length - 1 ? 1 : 0,
-                  borderBottomColor: hy.rule,
-                  gap: 4,
-                }}
-              >
+            <Text style={{ fontSize: 16, fontWeight: '700' }}>Lịch sử giao dịch sổ cái</Text>
+            {historyList.map((entry, idx) => {
+              const isPayment = entry.kind === 'PAYMENT';
+              const isRefund = entry.kind === 'REFUND';
+              const isAdjustment = entry.kind === 'CREDIT_ADJUSTMENT';
+              const badgeStatus = isPayment ? 'done' : isRefund ? 'waiting' : 'neutral';
+              const badgeLabel = kinds[entry.kind] ?? entry.kind;
+              const sourceName = sourceLabels[entry.sourceType] ?? entry.sourceType;
+              return (
                 <View
+                  key={entry.ledgerEntryId}
                   style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    paddingVertical: 10,
+                    borderBottomWidth: idx < historyList.length - 1 ? 1 : 0,
+                    borderBottomColor: hy.rule,
+                    gap: 4,
                   }}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: '600' }}>{money(tx.amountVnd)}</Text>
-                  <HyBadge
-                    status={
-                      tx.state === 'SETTLED' || tx.state === 'SUCCESS'
-                        ? 'done'
-                        : tx.state === 'PENDING'
-                          ? 'waiting'
-                          : 'locked'
-                    }
-                    label={
-                      tx.state === 'SETTLED' || tx.state === 'SUCCESS'
-                        ? 'Đã ghi nhận'
-                        : tx.state === 'PENDING'
-                          ? 'Đang xử lý'
-                          : 'Không thành công'
-                    }
-                  />
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: '600',
+                        color: isRefund || isAdjustment ? hy.secondary : hy.ink,
+                      }}
+                    >
+                      {isRefund ? `-${money(entry.amountVnd)}` : money(entry.amountVnd)}
+                    </Text>
+                    <HyBadge status={badgeStatus} label={badgeLabel} />
+                  </View>
+                  <Text style={{ fontSize: 12, color: hy.muted }}>
+                    {entry.occurredAt
+                      ? new Date(entry.occurredAt).toLocaleString('vi-VN')
+                      : 'Giao dịch hệ thống'}
+                    {sourceName ? ` · ${sourceName}` : ''}
+                    {entry.paymentAttemptId ? ` · Mã: ${entry.paymentAttemptId.slice(0, 8)}…` : ''}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 12, color: hy.muted }}>
-                  {tx.createdAt
-                    ? new Date(tx.createdAt).toLocaleString('vi-VN')
-                    : 'Giao dịch hệ thống'}
-                  {tx.method ? ` · ${tx.method}` : ''}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
+            {nextCursor && (
+              <HyButton
+                label={loadingMore ? 'Đang tải thêm…' : 'Tải thêm lịch sử'}
+                variant="outline"
+                disabled={loadingMore}
+                busy={loadingMore}
+                onPress={() => void handleLoadMoreHistory()}
+              />
+            )}
           </HyCard>
         )}
       </HyScreen>

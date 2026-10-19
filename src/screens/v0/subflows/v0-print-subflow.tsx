@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ScrollView, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import {
@@ -10,43 +10,17 @@ import { useWeddingTheme } from '@/theme';
 import { RestoredPrintPanel } from '../restored-flow-controls';
 import type { V0CommonProps } from '../v0-types';
 import { styles } from './subflows.styles';
-import { money, printStatusMeta } from './subflows-common';
+import { money } from '@/lib/formatters';
+import { printStatusMeta } from './subflows-common';
 
 export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
-  const gateway = invitationGateway ?? createAppInvitationGateway();
+  const fallbackGatewayRef = useRef<ReturnType<typeof createAppInvitationGateway> | null>(null);
+  const gateway =
+    invitationGateway ?? (fallbackGatewayRef.current ??= createAppInvitationGateway());
 
   const [orders, setOrders] = useState<readonly AppPrintOrderView[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [currentTime] = useState(() => Date.now());
-
-  useEffect(() => {
-    let active = true;
-    void (async () => {
-      if (!session || !activeBooking?.bookingId) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const items = await session.authorize((token) =>
-          gateway.listPrintOrders(token, activeBooking.bookingId),
-        );
-        if (active) setOrders(items);
-      } catch (caught) {
-        if (active) {
-          setError(
-            caught instanceof Error ? caught.message : 'Chưa tải được danh sách đơn in thiệp.',
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [session, activeBooking?.bookingId, gateway]);
 
   return (
     <ScrollView
@@ -58,6 +32,7 @@ export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0
         activeBooking={activeBooking}
         session={session}
         invitationGateway={gateway}
+        onOrdersChanged={setOrders}
       />
 
       {/* Read-Only MVP Notice */}
@@ -75,14 +50,6 @@ export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0
           tế của đơn in.
         </Text>
       </View>
-
-      {loading && <ActivityIndicator color={tokens.primary} style={{ marginVertical: 16 }} />}
-
-      {error ? (
-        <View style={[styles.emptyCard, { borderColor: tokens.champagne, marginBottom: 16 }]}>
-          <Text style={{ color: tokens.tagWarmText, fontSize: 13 }}>{error}</Text>
-        </View>
-      ) : null}
 
       {orders.length > 0 ? (
         orders.map((order) => {
@@ -230,7 +197,7 @@ export function V0PrintSubflow({ activeBooking, invitationGateway, session }: V0
             </View>
           );
         })
-      ) : !loading ? (
+      ) : orders.length === 0 ? (
         <View style={styles.emptyCard}>
           <FileTextIcon size={24} color={tokens.sage} />
           <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>

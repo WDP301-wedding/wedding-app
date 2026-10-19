@@ -116,39 +116,47 @@ export function useInviteSave({
       }, 3500);
     } catch (caught: unknown) {
       if (caught instanceof ApiClientError && caught.status === 409) {
+        const isRevisionConflict =
+          caught.code === 'REVISION_CONFLICT' ||
+          caught.code === 'CONCURRENT_MODIFICATION' ||
+          caught.code === 'STALE_REVISION';
         setEditError(
-          'Xung đột phiên bản (409): Thiệp cưới đã được cập nhật từ phiên làm việc khác.',
+          `Xung đột (${caught.code}): ${caught.message} (Yêu cầu #${caught.requestId.slice(0, 8)})`,
         );
-        try {
-          const fresh = await session.authorize((token) =>
-            gateway.getDesign(token, activeBooking.bookingId, selectedDesign.designId),
-          );
-          setConflictState({
-            hasConflict: true,
-            serverRevision: fresh.revisionNumber,
-            clientRevision: selectedDesign.revisionNumber,
-            serverDesign: fresh,
-          });
-        } catch {
-          setConflictState({
-            hasConflict: true,
-            serverRevision: null,
-            clientRevision: selectedDesign.revisionNumber,
-            serverDesign: null,
-          });
+        if (isRevisionConflict) {
+          try {
+            const fresh = await session.authorize((token) =>
+              gateway.getDesign(token, activeBooking.bookingId, selectedDesign.designId),
+            );
+            setConflictState({
+              hasConflict: true,
+              serverRevision: fresh.revisionNumber,
+              clientRevision: selectedDesign.revisionNumber,
+              serverDesign: fresh,
+            });
+          } catch {
+            setConflictState({
+              hasConflict: true,
+              serverRevision: null,
+              clientRevision: selectedDesign.revisionNumber,
+              serverDesign: null,
+            });
+          }
         }
       } else if (caught instanceof ApiClientError && caught.kind === 'timeout') {
         setEditError(
-          'Quá thời gian kết nối tới máy chủ (Timeout). Dữ liệu được giữ nguyên, bạn có thể bấm Lưu lại để thử lại an toàn với cùng mã giao dịch.',
+          `Quá thời gian kết nối (${caught.code}): ${caught.message} (Yêu cầu #${caught.requestId.slice(0, 8)}). Bạn có thể bấm Lưu lại để gửi lại an toàn.`,
         );
       } else if (caught instanceof ApiClientError && caught.kind === 'network') {
         setEditError(
-          'Lỗi kết nối mạng trước khi nhận kết quả. Bạn có thể bấm Lưu lại để gửi lại an toàn.',
+          `Lỗi kết nối mạng (${caught.code}): ${caught.message}. Bạn có thể bấm Lưu lại để gửi lại an toàn.`,
         );
       } else if (caught instanceof ApiClientError && caught.status === 401) {
-        setEditError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.');
+        setEditError('Phiên đăng nhập đã hết hạn (401). Vui lòng đăng nhập lại để tiếp tục.');
       } else if (caught instanceof ApiClientError && caught.status === 403) {
-        setEditError('Bạn không có quyền chỉnh sửa thiệp cưới này.');
+        setEditError(
+          `Không có quyền chỉnh sửa (${caught.code}): ${caught.message} (Yêu cầu #${caught.requestId.slice(0, 8)})`,
+        );
       } else {
         setEditError(
           caught instanceof Error

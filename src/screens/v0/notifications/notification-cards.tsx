@@ -337,7 +337,7 @@ export function getDestinationScreen(purpose: string): V0Screen | null {
     case 'DEPOSIT_ELIGIBLE':
     case 'PAYMENT':
     case 'REFUND':
-      return 'billing';
+      return 'payments';
     case 'PRINT':
       return 'print';
     case 'GUEST_PLAN':
@@ -345,6 +345,18 @@ export function getDestinationScreen(purpose: string): V0Screen | null {
       return 'guests';
     case 'FINAL_INVOICE':
       return 'invoices';
+    case 'PUBLICATION_CHANGED':
+      return 'invite';
+    case 'MEDIA_CUTOFF':
+      return 'media';
+    case 'PASSWORD_OTP':
+    case 'ACCESS_PROMOTED':
+      return 'account';
+    case 'WORKSPACE_INVITATION':
+    case 'CANCELLATION_NOTICE':
+    case 'D3_REMINDER':
+    case 'COMPLETION_NOTICE':
+      return 'overview';
     default:
       return null;
   }

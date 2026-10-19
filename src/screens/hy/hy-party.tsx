@@ -24,16 +24,13 @@ import { createAppInvitationGateway } from '@/features/invitation-studio/app-inv
 import { createCoupleBillingGateway } from '@/features/payments-billing/billing-api';
 import { openBrowserAsync } from 'expo-web-browser';
 import { readPublicEnv } from '@/lib/env';
+import { formatVnd } from '@/lib/formatters';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from './use-hy-resource';
 
 const api = createRestoredFlowsGateway();
 const invitation = createAppInvitationGateway();
 const coupleBilling = createCoupleBillingGateway();
-
-function formatVnd(amount: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-}
 
 export function HyParty({
   activeBooking,
@@ -45,10 +42,10 @@ export function HyParty({
 }: V0CommonProps) {
   const loader = useCallback(async () => {
     if (!session || !activeBooking) throw new Error('Chưa chọn tiệc cưới.');
-    const [proposal, contracts, designs, billingRes, restaurant] = await Promise.allSettled([
+    // Only fetch needed resources: proposal, contracts, billing, and restaurant catalog (designs unused here)
+    const [proposal, contracts, billingRes, restaurant] = await Promise.allSettled([
       session.authorize((t) => api.loadProposal(t, activeBooking.bookingId)),
       session.authorize((t) => api.readContracts(t, activeBooking.bookingId)),
-      session.authorize((t) => invitation.listDesigns(t, activeBooking.bookingId)),
       session.authorize((t) => coupleBilling.load(t, activeBooking.bookingId)),
       invitation.getRestaurantCatalog().catch(() => null),
     ]);
@@ -57,7 +54,6 @@ export function HyParty({
     return {
       proposal: proposal.value,
       contracts: contracts.status === 'fulfilled' ? contracts.value : null,
-      designs: designs.status === 'fulfilled' ? designs.value : null,
       billing: billingRes.status === 'fulfilled' ? billingRes.value : null,
       restaurant: restaurant.status === 'fulfilled' ? restaurant.value : null,
     };
@@ -82,27 +78,35 @@ export function HyParty({
     ? Math.max(0, Math.ceil((eventTime - now) / 86400000))
     : null;
 
-  // Derive 6 journey stages strictly from API status
-  const contractApproved = data?.contracts?.revisions?.some((r) => r.state === 'APPROVED');
+  // Derive stages strictly from current active revision facts (not stale historical revisions)
+  const currentContractApproved = data?.contracts?.revisions?.[0]?.state === 'APPROVED';
   const hasEffectiveTimeline = Boolean(data?.proposal?.effectiveTimeline);
   const remainingVnd = data?.billing?.totals.outstandingVnd ?? 0;
+
+  const bothAgreed = currentContractApproved && hasEffectiveTimeline;
+  const stage2Meta = bothAgreed
+    ? 'Hợp đồng & kịch bản đã thống nhất'
+    : currentContractApproved && !hasEffectiveTimeline
+      ? 'Hợp đồng đã duyệt · Cần thống nhất kịch bản'
+      : !currentContractApproved && hasEffectiveTimeline
+        ? 'Kịch bản đã có · Cần phê duyệt hợp đồng'
+        : 'Cần xem lại hợp đồng và kịch bản';
 
   const steps = [
     {
       num: 1,
       label: 'Tư vấn',
-      status: 'done' as const,
-      meta: 'Đã hoàn tất tư vấn sảnh & gói dịch vụ',
+      status: data?.proposal ? ('done' as const) : ('waiting' as const),
+      meta: data?.proposal
+        ? 'Đã hoàn tất tư vấn sảnh & gói dịch vụ'
+        : 'Đang chuẩn bị thông tin gói dịch vụ',
       go: () => onNavigate('catalog'),
     },
     {
       num: 2,
       label: 'Thoả thuận',
-      status: contractApproved || hasEffectiveTimeline ? ('done' as const) : ('waiting' as const),
-      meta:
-        contractApproved || hasEffectiveTimeline
-          ? 'Hợp đồng & kịch bản đã thống nhất'
-          : 'Cần xem lại hợp đồng và kịch bản',
+      status: bothAgreed ? ('done' as const) : ('waiting' as const),
+      meta: stage2Meta,
       go: () => onNavigate('contracts'),
     },
     {

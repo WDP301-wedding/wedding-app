@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
@@ -12,7 +12,34 @@ export function V0InvoicesSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [invoicesData, setInvoicesData] = useState<CommercialInvoiceView | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleLoadMoreInvoices = async () => {
+    if (!session || !activeBooking?.bookingId || !invoicesData?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await session.authorize((token) =>
+        coupleBilling.loadFinalInvoices(token, activeBooking.bookingId, invoicesData.nextCursor!),
+      );
+      setInvoicesData((prev) =>
+        prev
+          ? {
+              ...prev,
+              nextCursor: more.nextCursor,
+              revisions: [...prev.revisions, ...more.revisions],
+            }
+          : more,
+      );
+    } catch (caught) {
+      Alert.alert(
+        'Lỗi tải thêm hóa đơn',
+        caught instanceof Error ? caught.message : 'Không thể tải thêm các hóa đơn quyết toán.',
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -75,49 +102,72 @@ export function V0InvoicesSubflow({ activeBooking, session }: V0CommonProps) {
         </View>
       ) : null}
 
-      {revisions.length > 0 ? (
-        revisions.map((rev) => (
-          <View
-            key={rev.invoiceRevisionId}
-            style={[
-              styles.calloutCard,
-              { backgroundColor: tokens.surface, borderColor: tokens.rule, marginBottom: 12 },
-            ]}
-          >
+      {revisions.length > 0
+        ? revisions.map((rev) => (
             <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
+              key={rev.invoiceRevisionId}
+              style={[
+                styles.calloutCard,
+                { backgroundColor: tokens.surface, borderColor: tokens.rule, marginBottom: 12 },
+              ]}
             >
-              <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.text }}>
-                Bản hóa đơn #{rev.revisionNumber} ({rev.invoiceNumber})
-              </Text>
-              <StatusTag tone="success">#{rev.invoiceRevisionId.slice(0, 8)}</StatusTag>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.text }}>
+                  Bản hóa đơn #{rev.revisionNumber} ({rev.invoiceNumber})
+                </Text>
+                <StatusTag tone="success">#{rev.invoiceRevisionId.slice(0, 8)}</StatusTag>
+              </View>
+
+              <View style={[styles.factRow, { marginTop: 8 }]}>
+                <Text style={{ fontSize: 12, color: tokens.muted }}>Tổng tiền quyết toán:</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.primary }}>
+                  {money(rev.document.totalVnd)}
+                </Text>
+              </View>
+
+              {rev.issuedAt ? (
+                <Text style={{ fontSize: 11, color: tokens.muted, marginTop: 4 }}>
+                  Ngày phát hành: {new Date(rev.issuedAt).toLocaleDateString('vi-VN')}
+                </Text>
+              ) : null}
+
+              {rev.documentDigest ? (
+                <Text style={{ fontSize: 10, color: tokens.earth, marginTop: 2 }}>
+                  Mã xác thực: {rev.documentDigest.slice(0, 16)}…
+                </Text>
+              ) : null}
             </View>
+          ))
+        : null}
 
-            <View style={[styles.factRow, { marginTop: 8 }]}>
-              <Text style={{ fontSize: 12, color: tokens.muted }}>Tổng tiền quyết toán:</Text>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: tokens.primary }}>
-                {money(rev.document.totalVnd)}
-              </Text>
-            </View>
+      {invoicesData?.nextCursor ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Tải thêm lịch sử hóa đơn"
+          disabled={loadingMore}
+          onPress={() => void handleLoadMoreInvoices()}
+          style={[
+            styles.outlineButton,
+            { borderColor: tokens.rule, marginVertical: 12, alignItems: 'center' },
+          ]}
+        >
+          {loadingMore ? (
+            <ActivityIndicator size="small" color={tokens.primary} />
+          ) : (
+            <Text style={{ fontSize: 13, color: tokens.primary, fontWeight: '600' }}>
+              Tải thêm các hóa đơn cũ hơn
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
 
-            {rev.issuedAt ? (
-              <Text style={{ fontSize: 11, color: tokens.muted, marginTop: 4 }}>
-                Ngày phát hành: {new Date(rev.issuedAt).toLocaleDateString('vi-VN')}
-              </Text>
-            ) : null}
-
-            {rev.documentDigest ? (
-              <Text style={{ fontSize: 10, color: tokens.earth, marginTop: 2 }}>
-                Mã xác thực: {rev.documentDigest.slice(0, 16)}…
-              </Text>
-            ) : null}
-          </View>
-        ))
-      ) : !loading ? (
+      {!loading && revisions.length === 0 ? (
         <View style={styles.emptyCard}>
           <FileTextIcon size={24} color={tokens.sage} />
           <Text style={[styles.emptyCardTitle, { color: tokens.text }]}>

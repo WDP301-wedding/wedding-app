@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -34,18 +34,32 @@ export { styles };
 const notificationGateway = createNotificationGateway();
 const INSTALLATION_STORAGE_KEY = 'wedding.notifications.installation-id';
 
-export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
+export interface V0NotificationsSubflowProps extends V0CommonProps {
+  readonly initialUnreadCount?: number;
+  readonly onUnreadCountChanged?: (count: number) => void;
+}
+
+export function V0NotificationsSubflow({
+  onNavigate,
+  session,
+  activeBooking,
+  allBookings,
+  onSelectBooking,
+  initialUnreadCount,
+  onUnreadCountChanged,
+}: V0NotificationsSubflowProps) {
   const { tokens } = useWeddingTheme();
   const [tab, setTab] = useState<'inbox' | 'devices' | 'preferences'>('inbox');
   const [inbox, setInbox] = useState<readonly InboxItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [unreadCount, setUnreadCount] = useState<number>(initialUnreadCount ?? 0);
   const [preferences, setPreferences] = useState<NotificationPreferencesView | null>(null);
   const [installations, setInstallations] = useState<readonly AndroidInstallationItem[]>([]);
   const [loading, setLoading] = useState(Boolean(session));
   const [error, setError] = useState<string | null>(null);
   const [stableInstallationId, setStableInstallationId] = useState<string | null>(null);
+  const mutatingRef = useRef(false);
 
   // Initialize or read stable device installation ID from SecureStore
   useEffect(() => {
@@ -69,39 +83,80 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
     };
   }, []);
 
-  const loadData = useCallback(async () => {
+  const loadInboxData = useCallback(async () => {
     if (!session) {
       setLoading(false);
       return;
     }
     setError(null);
     try {
-      const [inboxRes, unreadRes, prefsRes, installsRes] = await Promise.all([
+      const [inboxRes, unreadRes] = await Promise.all([
         session.authorize((token) => notificationGateway.listInbox(token, { limit: 30 })),
         session.authorize((token) => notificationGateway.countUnread(token)),
-        session.authorize((token) => notificationGateway.getPreferences(token)),
-        session.authorize((token) => notificationGateway.listInstallations(token)),
       ]);
       setInbox(inboxRes.items);
       setNextCursor(inboxRes.nextCursor ?? null);
       setUnreadCount(unreadRes);
-      setPreferences(prefsRes);
-      setInstallations(installsRes);
+      onUnreadCountChanged?.(unreadRes);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Không thể tải thông báo. Vui lòng kiểm tra kết nối.',
+          : 'Không thể tải hộp thư thông báo. Vui lòng kiểm tra kết nối.',
       );
     } finally {
       setLoading(false);
     }
+  }, [session, onUnreadCountChanged]);
+
+  const loadPreferencesData = useCallback(async () => {
+    if (!session) return;
+    try {
+      const prefs = await session.authorize((token) => notificationGateway.getPreferences(token));
+      setPreferences(prefs);
+    } catch {
+      // Non-blocking preference error
+    }
+  }, [session]);
+
+  const loadInstallationsData = useCallback(async () => {
+    if (!session) return;
+    try {
+      const list = await session.authorize((token) => notificationGateway.listInstallations(token));
+      setInstallations(list);
+    } catch {
+      // Non-blocking installation error
+    }
   }, [session]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadData();
-  }, [loadData]);
+    const task = setTimeout(() => {
+      void loadInboxData();
+    }, 0);
+    return () => clearTimeout(task);
+  }, [loadInboxData]);
+
+  useEffect(() => {
+    const task = setTimeout(() => {
+      if (tab === 'preferences' && !preferences) {
+        void loadPreferencesData();
+      } else if (tab === 'devices' && installations.length === 0) {
+        void loadInstallationsData();
+      }
+    }, 0);
+    return () => clearTimeout(task);
+  }, [tab, preferences, installations.length, loadPreferencesData, loadInstallationsData]);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    await loadInboxData();
+    if (tab === 'preferences') {
+      await loadPreferencesData();
+    } else if (tab === 'devices') {
+      await loadInstallationsData();
+    }
+    setLoading(false);
+  }, [loadInboxData, loadPreferencesData, loadInstallationsData, tab]);
 
   const handleLoadMoreInbox = async () => {
     if (!session || !nextCursor || loadingMore) return;
@@ -123,7 +178,8 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
   };
 
   const handleMarkRead = async (item: InboxItem) => {
-    if (!session || item.readAt) return;
+    if (!session || item.readAt || mutatingRef.current) return;
+    mutatingRef.current = true;
     try {
       await session.authorize((token) =>
         notificationGateway.readNotification(token, item.id, item.revision),
@@ -131,14 +187,21 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       setInbox((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, readAt: new Date().toISOString() } : i)),
       );
-      setUnreadCount((c) => Math.max(0, c - 1));
+      setUnreadCount((c) => {
+        const nextCount = Math.max(0, c - 1);
+        onUnreadCountChanged?.(nextCount);
+        return nextCount;
+      });
     } catch (caught) {
       Alert.alert('Lỗi', caught instanceof Error ? caught.message : 'Không thể đánh dấu đã đọc.');
+    } finally {
+      mutatingRef.current = false;
     }
   };
 
   const handleMarkAllRead = async () => {
-    if (!session || inbox.length === 0) return;
+    if (!session || inbox.length === 0 || mutatingRef.current) return;
+    mutatingRef.current = true;
     const latestDate = inbox[0]?.createdAt ?? new Date().toISOString();
     try {
       await session.authorize((token) =>
@@ -146,12 +209,15 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
       );
       setInbox((prev) => prev.map((i) => ({ ...i, readAt: i.readAt || new Date().toISOString() })));
       setUnreadCount(0);
+      onUnreadCountChanged?.(0);
       Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc.');
     } catch (caught) {
       Alert.alert(
         'Lỗi',
         caught instanceof Error ? caught.message : 'Không thể đánh dấu tất cả đã đọc.',
       );
+    } finally {
+      mutatingRef.current = false;
     }
   };
 
@@ -159,7 +225,8 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
     field: 'reminderEmail' | 'reminderPush',
     value: boolean,
   ) => {
-    if (!session || !preferences) return;
+    if (!session || !preferences || mutatingRef.current) return;
+    mutatingRef.current = true;
     const oldPrefs = { ...preferences };
     const updated = { ...preferences, [field]: value };
     setPreferences(updated);
@@ -177,6 +244,8 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
         'Lỗi cập nhật tùy chọn',
         caught instanceof Error ? caught.message : 'Không thể cập nhật tùy chọn thông báo.',
       );
+    } finally {
+      mutatingRef.current = false;
     }
   };
 
@@ -190,18 +259,22 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
           text: 'Hủy đăng ký',
           style: 'destructive',
           onPress: async () => {
-            if (!session) return;
+            if (!session || mutatingRef.current) return;
+            mutatingRef.current = true;
             try {
               await session.authorize((token) =>
                 notificationGateway.revokeInstallation(token, item.id, item.revision),
               );
               Alert.alert('Thành công', 'Đã hủy đăng ký thiết bị thành công.');
-              await loadData();
+              await loadInboxData();
+              await loadInstallationsData();
             } catch (caught) {
               Alert.alert(
                 'Lỗi hủy thiết bị',
                 caught instanceof Error ? caught.message : 'Không thể hủy thiết bị.',
               );
+            } finally {
+              mutatingRef.current = false;
             }
           },
         },
@@ -303,6 +376,21 @@ export function V0NotificationsSubflow({ onNavigate, session }: V0CommonProps) {
                   onMarkRead={() => handleMarkRead(item)}
                   onNavigateDetail={() => {
                     void handleMarkRead(item);
+                    const notifBookingId = item.resource?.bookingId;
+                    if (notifBookingId && notifBookingId !== activeBooking?.bookingId) {
+                      const targetBooking = allBookings?.find(
+                        (b) => b.bookingId === notifBookingId,
+                      );
+                      if (targetBooking && onSelectBooking) {
+                        onSelectBooking(notifBookingId);
+                      } else {
+                        Alert.alert(
+                          'Không có quyền truy cập',
+                          'Bạn không có quyền xem tiệc cưới này hoặc tiệc cưới không tồn tại trong tài khoản của bạn.',
+                        );
+                        return;
+                      }
+                    }
                     if (dest) onNavigate(dest);
                   }}
                 />

@@ -52,6 +52,7 @@ export function RestoredCommercialPanel({
   mode,
 }: ContextProps & { mode: 'contract' | 'appendix' }) {
   const bookingId = activeBooking?.bookingId;
+  const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState<{
     proposal: Proposal;
     contracts: CommercialContractView;
@@ -144,9 +145,10 @@ export function RestoredCommercialPanel({
     }
   }, [session, bookingId, mode]);
   useEffect(() => {
+    if (!expanded) return;
     const task = setTimeout(() => void load(), 0);
     return () => clearTimeout(task);
-  }, [load]);
+  }, [expanded, load]);
   if (!session || !bookingId) return null;
   const revisions = mode === 'contract' ? data?.contracts.revisions : data?.appendices?.revisions;
   const send = async (
@@ -273,122 +275,140 @@ export function RestoredCommercialPanel({
   return (
     <Panel title={mode === 'contract' ? 'Soạn và phê duyệt hợp đồng' : 'Soạn và phê duyệt phụ lục'}>
       <ErrorNote error={error ?? mutation.error} />
-      {loading && <ActivityIndicator />}
-      <Button
-        label="Tải lại dữ liệu thương mại"
-        disabled={loading || mutation.pending}
-        onPress={() => void load()}
-      />
-      {data && (
+      {!expanded ? (
+        <Button
+          label={
+            mode === 'contract' ? 'Mở trình soạn & duyệt hợp đồng' : 'Mở trình soạn & duyệt phụ lục'
+          }
+          disabled={mutation.pending}
+          onPress={() => setExpanded(true)}
+        />
+      ) : (
         <>
-          <Field label="Họ tên cô dâu" value={bride} onChange={setBride} />
-          <Field label="Họ tên chú rể" value={groom} onChange={setGroom} />
+          {loading && <ActivityIndicator />}
           <Button
-            label="Lưu tên pháp lý"
+            label="Thu gọn trình soạn thảo"
             disabled={mutation.pending}
-            onPress={() => void saveNames()}
+            onPress={() => setExpanded(false)}
           />
-          {data.finalized && mode === 'appendix' ? (
-            <Text>Đã phát hành hóa đơn quyết toán; không tạo phụ lục mới.</Text>
-          ) : (
+          <Button
+            label="Tải lại dữ liệu thương mại"
+            disabled={loading || mutation.pending}
+            onPress={() => void load()}
+          />
+          {data && (
             <>
-              <Text>Dòng dịch vụ lấy từ máy chủ. Đơn giá và tổng tiền do máy chủ tính.</Text>
-              {lines.map((line, index) => (
-                <View style={styles.panel} key={`${index}:${line.sourceId}`}>
+              <Field label="Họ tên cô dâu" value={bride} onChange={setBride} />
+              <Field label="Họ tên chú rể" value={groom} onChange={setGroom} />
+              <Button
+                label="Lưu tên pháp lý"
+                disabled={mutation.pending}
+                onPress={() => void saveNames()}
+              />
+              {data.finalized && mode === 'appendix' ? (
+                <Text>Đã phát hành hóa đơn quyết toán; không tạo phụ lục mới.</Text>
+              ) : (
+                <>
+                  <Text>Dòng dịch vụ lấy từ máy chủ. Đơn giá và tổng tiền do máy chủ tính.</Text>
+                  {lines.map((line, index) => (
+                    <View style={styles.panel} key={`${index}:${line.sourceId}`}>
+                      <Text>
+                        {line.category} · {line.name}
+                      </Text>
+                      <Field
+                        label={`Số lượng ${line.name}`}
+                        value={String(line.quantity)}
+                        onChange={(v) =>
+                          setLines((old) =>
+                            old.map((l, i) =>
+                              i === index ? { ...l, quantity: /^\d+$/.test(v) ? Number(v) : 0 } : l,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        label={`Bỏ dòng ${index + 1}`}
+                        disabled={mutation.pending}
+                        onPress={() => setLines((old) => old.filter((_, i) => i !== index))}
+                      />
+                    </View>
+                  ))}
+                  <Text>Thêm gói thực đơn từ danh mục:</Text>
+                  {data.menus.map((menu) => (
+                    <Button
+                      key={menu.id}
+                      label={`${menu.name} · ${money(menu.priceVndPerTable)}/bàn`}
+                      disabled={mutation.pending || lines.length >= 50}
+                      onPress={() =>
+                        setLines((old) => [
+                          ...old,
+                          {
+                            category: 'MENU',
+                            sourceId: menu.id,
+                            sourceRevisionId: menu.versionId,
+                            quantity: 1,
+                            name: menu.name,
+                          },
+                        ])
+                      }
+                    />
+                  ))}
                   <Text>
-                    {line.category} · {line.name}
+                    Các dòng in ấn/dịch vụ đã có được giữ đúng nguồn. Dịch vụ mới cần nguồn thương
+                    mại thật từ nhà hàng.
                   </Text>
                   <Field
-                    label={`Số lượng ${line.name}`}
-                    value={String(line.quantity)}
-                    onChange={(v) =>
-                      setLines((old) =>
-                        old.map((l, i) =>
-                          i === index ? { ...l, quantity: /^\d+$/.test(v) ? Number(v) : 0 } : l,
-                        ),
-                      )
-                    }
+                    label="Lý do điều chỉnh / rút duyệt"
+                    value={reason}
+                    multiline
+                    onChange={setReason}
                   />
                   <Button
-                    label={`Bỏ dòng ${index + 1}`}
+                    label={mode === 'contract' ? 'Tạo bản nháp hợp đồng' : 'Tạo bản nháp phụ lục'}
                     disabled={mutation.pending}
-                    onPress={() => setLines((old) => old.filter((_, i) => i !== index))}
+                    onPress={() => void send('create')}
                   />
+                </>
+              )}
+              {revisions?.map((rev) => (
+                <View key={rev.revisionId} style={styles.panel}>
+                  <Text>
+                    Phiên bản #{rev.revisionNumber} · {rev.state}
+                  </Text>
+                  <Text>
+                    Cặp đôi:{' '}
+                    {rev.approvals.some((a) => a.party === 'COUPLE') ? 'Đã duyệt' : 'Chưa duyệt'} ·
+                    Nhà hàng:{' '}
+                    {rev.approvals.some((a) => a.party === 'MANAGER') ? 'Đã duyệt' : 'Chưa duyệt'}
+                  </Text>
+                  {rev.state === 'DRAFT' && (
+                    <Button
+                      label={`Gửi duyệt bản ${rev.revisionNumber}`}
+                      disabled={mutation.pending}
+                      onPress={() => void send('submit', rev.revisionId)}
+                    />
+                  )}
+                  {rev.state === 'AWAITING_APPROVAL' &&
+                    !rev.approvals.some((a) => a.party === 'COUPLE') && (
+                      <Button
+                        label={`Phê duyệt bản ${rev.revisionNumber}`}
+                        disabled={mutation.pending}
+                        onPress={() => void send('approve', rev.revisionId)}
+                      />
+                    )}
+                  {mode === 'contract' &&
+                    rev.state === 'AWAITING_APPROVAL' &&
+                    rev.approvals.some((a) => a.party === 'COUPLE') && (
+                      <Button
+                        label={`Rút duyệt bản ${rev.revisionNumber}`}
+                        disabled={mutation.pending}
+                        onPress={() => void send('withdraw', rev.revisionId)}
+                      />
+                    )}
                 </View>
               ))}
-              <Text>Thêm gói thực đơn từ danh mục:</Text>
-              {data.menus.map((menu) => (
-                <Button
-                  key={menu.id}
-                  label={`${menu.name} · ${money(menu.priceVndPerTable)}/bàn`}
-                  disabled={mutation.pending || lines.length >= 50}
-                  onPress={() =>
-                    setLines((old) => [
-                      ...old,
-                      {
-                        category: 'MENU',
-                        sourceId: menu.id,
-                        sourceRevisionId: menu.versionId,
-                        quantity: 1,
-                        name: menu.name,
-                      },
-                    ])
-                  }
-                />
-              ))}
-              <Text>
-                Các dòng in ấn/dịch vụ đã có được giữ đúng nguồn. Dịch vụ mới cần nguồn thương mại
-                thật từ nhà hàng.
-              </Text>
-              <Field
-                label="Lý do điều chỉnh / rút duyệt"
-                value={reason}
-                multiline
-                onChange={setReason}
-              />
-              <Button
-                label={mode === 'contract' ? 'Tạo bản nháp hợp đồng' : 'Tạo bản nháp phụ lục'}
-                disabled={mutation.pending}
-                onPress={() => void send('create')}
-              />
             </>
           )}
-          {revisions?.map((rev) => (
-            <View key={rev.revisionId} style={styles.panel}>
-              <Text>
-                Phiên bản #{rev.revisionNumber} · {rev.state}
-              </Text>
-              <Text>
-                Cặp đôi:{' '}
-                {rev.approvals.some((a) => a.party === 'COUPLE') ? 'Đã duyệt' : 'Chưa duyệt'} · Nhà
-                hàng: {rev.approvals.some((a) => a.party === 'MANAGER') ? 'Đã duyệt' : 'Chưa duyệt'}
-              </Text>
-              {rev.state === 'DRAFT' && (
-                <Button
-                  label={`Gửi duyệt bản ${rev.revisionNumber}`}
-                  disabled={mutation.pending}
-                  onPress={() => void send('submit', rev.revisionId)}
-                />
-              )}
-              {rev.state === 'AWAITING_APPROVAL' &&
-                !rev.approvals.some((a) => a.party === 'COUPLE') && (
-                  <Button
-                    label={`Phê duyệt bản ${rev.revisionNumber}`}
-                    disabled={mutation.pending}
-                    onPress={() => void send('approve', rev.revisionId)}
-                  />
-                )}
-              {mode === 'contract' &&
-                rev.state === 'AWAITING_APPROVAL' &&
-                rev.approvals.some((a) => a.party === 'COUPLE') && (
-                  <Button
-                    label={`Rút duyệt bản ${rev.revisionNumber}`}
-                    disabled={mutation.pending}
-                    onPress={() => void send('withdraw', rev.revisionId)}
-                  />
-                )}
-            </View>
-          ))}
         </>
       )}
     </Panel>

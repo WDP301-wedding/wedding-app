@@ -19,7 +19,12 @@ const experience = createExperienceGateway();
 export function NativeAccountSettings({
   session,
   onSignedOut,
-}: Readonly<{ session: AndroidIdentitySession; onSignedOut: () => void }>) {
+  onProfileUpdated,
+}: Readonly<{
+  session: AndroidIdentitySession;
+  onSignedOut: () => void;
+  onProfileUpdated?: (updated: Profile) => void;
+}>) {
   const { brand, colors } = useWeddingTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
@@ -84,6 +89,7 @@ export function NativeAccountSettings({
       );
       setProfile(updated);
       setMessage('Đã lưu tên hiển thị.');
+      onProfileUpdated?.(updated);
     } catch (caught) {
       if (caught instanceof ApiClientError && caught.status === 409) {
         try {

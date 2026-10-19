@@ -3,12 +3,28 @@ import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
 import { HyText as Text, HyCard, HyRow, HyScreen, HySheet, HyButton } from '@/components/hy-ui';
 import { hy } from '@/theme';
+import type { Profile } from '@/features/identity-access/experience-api';
 import { NativeAccountSettings } from '../couple-overview';
 import { RestoredHealthPanel } from '../v0/restored-flow-controls';
 import type { V0CommonProps } from '../v0/v0-types';
-export function HyProfile({ profile, session, onLogout, onNavigate }: V0CommonProps) {
+
+export function HyProfile({
+  profile,
+  session,
+  onLogout,
+  onNavigate,
+  onProfileUpdated,
+}: V0CommonProps) {
   const [security, setSecurity] = useState(false);
   const [health, setHealth] = useState(false);
+  const [overriddenProfile, setOverriddenProfile] = useState<Profile | null>(null);
+  const activeProfile = overriddenProfile ?? profile ?? null;
+
+  const handleProfileUpdated = (updated: Profile) => {
+    setOverriddenProfile(updated);
+    onProfileUpdated?.(updated);
+  };
+
   return (
     <HyScreen>
       <HyCard>
@@ -26,10 +42,10 @@ export function HyProfile({ profile, session, onLogout, onNavigate }: V0CommonPr
           <Text style={{ fontFamily: hy.display, fontSize: 28, color: hy.primary }}>HY</Text>
         </View>
         <Text style={{ textAlign: 'center', fontFamily: hy.display, fontSize: 26 }}>
-          {profile?.displayName || 'Hồ sơ cặp đôi'}
+          {activeProfile?.displayName || 'Hồ sơ cặp đôi'}
         </Text>
-        {profile?.displayEmail && (
-          <Text style={{ textAlign: 'center', color: hy.muted }}>{profile.displayEmail}</Text>
+        {activeProfile?.displayEmail && (
+          <Text style={{ textAlign: 'center', color: hy.muted }}>{activeProfile.displayEmail}</Text>
         )}
       </HyCard>
       <HyRow
@@ -65,7 +81,11 @@ export function HyProfile({ profile, session, onLogout, onNavigate }: V0CommonPr
       />
       <HySheet visible={security} title="Hồ sơ & bảo mật" onClose={() => setSecurity(false)}>
         {session && onLogout ? (
-          <NativeAccountSettings session={session} onSignedOut={onLogout} />
+          <NativeAccountSettings
+            session={session}
+            onSignedOut={onLogout}
+            onProfileUpdated={handleProfileUpdated}
+          />
         ) : (
           <Text>Phiên đăng nhập không còn khả dụng.</Text>
         )}

@@ -9,8 +9,8 @@ import {
 } from '@/features/payments-billing/billing-api';
 import type { AppPrintOrderView } from '@/features/invitation-studio/app-invitation-api';
 
-export const money = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+import { money } from '@/lib/formatters';
+export { money };
 
 export const coupleBilling = createCoupleBillingGateway();
 

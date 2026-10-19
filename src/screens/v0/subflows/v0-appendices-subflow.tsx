@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
@@ -12,7 +12,34 @@ export function V0AppendicesSubflow({ activeBooking, session }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [appendixData, setAppendixData] = useState<CommercialAppendixView | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleLoadMoreAppendices = async () => {
+    if (!session || !activeBooking?.bookingId || !appendixData?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await session.authorize((token) =>
+        coupleBilling.loadAppendices(token, activeBooking.bookingId, appendixData.nextCursor!),
+      );
+      setAppendixData((prev) =>
+        prev
+          ? {
+              ...prev,
+              nextCursor: more.nextCursor,
+              revisions: [...prev.revisions, ...more.revisions],
+            }
+          : more,
+      );
+    } catch (caught) {
+      Alert.alert(
+        'Lỗi tải thêm phụ lục',
+        caught instanceof Error ? caught.message : 'Không thể tải thêm phụ lục hợp đồng.',
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -132,6 +159,27 @@ export function V0AppendicesSubflow({ activeBooking, session }: V0CommonProps) {
               ) : null}
             </View>
           ))}
+
+          {appendixData.nextCursor ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tải thêm lịch sử phụ lục"
+              disabled={loadingMore}
+              onPress={() => void handleLoadMoreAppendices()}
+              style={[
+                styles.outlineButton,
+                { borderColor: tokens.rule, marginTop: 12, alignItems: 'center' },
+              ]}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={tokens.primary} />
+              ) : (
+                <Text style={{ fontSize: 13, color: tokens.primary, fontWeight: '600' }}>
+                  Tải thêm các phụ lục cũ hơn
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
         </View>
       ) : !loading ? (
         <View style={styles.emptyCard}>

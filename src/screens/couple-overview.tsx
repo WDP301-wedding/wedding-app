@@ -94,16 +94,21 @@ export function CoupleOverviewScreen({
       setPending(true);
       setError(null);
       try {
-        const [page, prof, restaurant] = await Promise.all([
-          session.authorize((token) => experience.overview(token, cursor)),
-          session.authorize((token) => experience.profile(token)).catch(() => null),
-          invitation.getRestaurantCatalog().catch(() => null),
-        ]);
-        setOverview((old) =>
-          cursor && old ? { ...page, data: [...old.data, ...page.data] } : page,
-        );
-        if (prof) setProfile(prof);
-        if (restaurant?.displayName) setVenueName(restaurant.displayName);
+        if (cursor) {
+          // Pagination: only query subsequent bookings page without re-fetching profile and venue
+          const page = await session.authorize((token) => experience.overview(token, cursor));
+          setOverview((old) => (old ? { ...page, data: [...old.data, ...page.data] } : page));
+        } else {
+          // Initial or full refresh: query overview, profile, and restaurant catalog concurrently
+          const [page, prof, restaurant] = await Promise.all([
+            session.authorize((token) => experience.overview(token)),
+            session.authorize((token) => experience.profile(token)).catch(() => null),
+            invitation.getRestaurantCatalog().catch(() => null),
+          ]);
+          setOverview(page);
+          if (prof) setProfile(prof);
+          if (restaurant?.displayName) setVenueName(restaurant.displayName);
+        }
         setLastRefreshedAt(new Date());
       } catch (caught) {
         if (caught instanceof ApiClientError && [401, 403, 404].includes(caught.status ?? 0)) {
@@ -126,24 +131,25 @@ export function CoupleOverviewScreen({
     async (id: string) => {
       currentBookingRequestIdRef.current += 1;
       const reqId = currentBookingRequestIdRef.current;
+      // Synchronously clear previous booking data to prevent cross-booking identity bleeding
       setPending(true);
       setError(null);
+      setPlan(null);
+      setCanonicalBride('');
+      setCanonicalGroom('');
+
       try {
         const result = await session.authorize((token) => planning.loadConfirmed(token, id));
         if (reqId !== currentBookingRequestIdRef.current) return;
         if (result.status === 'confirmed') {
           setPlan(result.snapshot);
-          // Load canonical couple names from consultation profile, contract snapshot, or invitation designs
+
+          // Legal name resolution with strict legal precedence:
+          // 1. Authoritative signed/approved Contract document (highest precedence)
+          // 2. Consultation profile (fallback if contract document names not present)
+          // NEVER overwrite legal names with decorative invitation draft text.
           try {
-            const consultationId = result.snapshot.consultationId;
-            if (consultationId && typeof experience.coupleProfile === 'function') {
-              const cProfile = await session
-                .authorize((token) => experience.coupleProfile(token, consultationId))
-                .catch(() => null);
-              if (reqId !== currentBookingRequestIdRef.current) return;
-              if (cProfile?.brideName) setCanonicalBride(cProfile.brideName.trim());
-              if (cProfile?.groomName) setCanonicalGroom(cProfile.groomName.trim());
-            }
+            let namesResolved = false;
 
             if (typeof billing.loadContracts === 'function') {
               const contracts = await session
@@ -152,24 +158,34 @@ export function CoupleOverviewScreen({
               if (reqId !== currentBookingRequestIdRef.current) return;
               const latestContract = contracts?.revisions?.[0]?.document;
               if (latestContract) {
-                if (latestContract.brideName) setCanonicalBride(latestContract.brideName.trim());
-                if (latestContract.groomName) setCanonicalGroom(latestContract.groomName.trim());
-                if (latestContract.restaurantName)
+                const b = latestContract.brideName?.trim();
+                const g = latestContract.groomName?.trim();
+                if (b && g) {
+                  setCanonicalBride(b);
+                  setCanonicalGroom(g);
+                  namesResolved = true;
+                } else {
+                  if (b) setCanonicalBride(b);
+                  if (g) setCanonicalGroom(g);
+                }
+                if (latestContract.restaurantName) {
                   setVenueName(latestContract.restaurantName.trim());
+                }
               }
             }
 
-            if (typeof invitation.listDesigns === 'function') {
-              const designs = await session
-                .authorize((token) => invitation.listDesigns(token, id))
-                .catch(() => []);
-              if (reqId !== currentBookingRequestIdRef.current) return;
-              const firstDesign = designs[0];
-              if (firstDesign?.textFields) {
-                if (firstDesign.textFields.brideName)
-                  setCanonicalBride((prev) => prev || firstDesign.textFields.brideName!.trim());
-                if (firstDesign.textFields.groomName)
-                  setCanonicalGroom((prev) => prev || firstDesign.textFields.groomName!.trim());
+            // Fallback to consultation couple profile ONLY if names not yet fully resolved from contract
+            if (!namesResolved) {
+              const consultationId = result.snapshot.consultationId;
+              if (consultationId && typeof experience.coupleProfile === 'function') {
+                const cProfile = await session
+                  .authorize((token) => experience.coupleProfile(token, consultationId))
+                  .catch(() => null);
+                if (reqId !== currentBookingRequestIdRef.current) return;
+                const bName = cProfile?.brideName;
+                const gName = cProfile?.groomName;
+                if (bName) setCanonicalBride((prev) => prev || bName.trim());
+                if (gName) setCanonicalGroom((prev) => prev || gName.trim());
               }
             }
           } catch {
@@ -274,6 +290,7 @@ export function CoupleOverviewScreen({
         onSelectBooking={(bId) => void open(bId)}
         invitationGateway={invitation}
         onLogout={onLogout}
+        onProfileUpdated={(updated) => setProfile(updated)}
         onSwitchBooking={handleSwitchBooking}
       />
     );

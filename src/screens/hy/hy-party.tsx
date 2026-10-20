@@ -84,56 +84,62 @@ export function HyParty({
   const isCancelled = phase === 'CANCELLED';
   const isCompleted = phase === 'COMPLETED';
 
+  const isConfirmedOrLater = phase === 'CONFIRMED' || isCompleted;
+
   // Derive stages strictly from current active revision facts (not stale historical revisions)
   const currentContractApproved = data?.contracts?.revisions?.[0]?.state === 'APPROVED';
   const hasEffectiveTimeline = Boolean(data?.proposal?.effectiveTimeline);
   const remainingVnd = data?.billing?.totals.outstandingVnd ?? 0;
 
-  const bothAgreed = currentContractApproved && hasEffectiveTimeline;
-  const stage2Meta = bothAgreed
-    ? 'Hợp đồng & kịch bản đã thống nhất'
-    : currentContractApproved && !hasEffectiveTimeline
-      ? 'Hợp đồng đã duyệt · Cần thống nhất kịch bản'
-      : !currentContractApproved && hasEffectiveTimeline
-        ? 'Kịch bản đã có · Cần phê duyệt hợp đồng'
-        : 'Cần xem lại hợp đồng và kịch bản';
+  const bothAgreed = isConfirmedOrLater || (currentContractApproved && hasEffectiveTimeline);
+  const stage2Meta =
+    isConfirmedOrLater || bothAgreed
+      ? 'Hợp đồng & kịch bản đã thống nhất'
+      : currentContractApproved && !hasEffectiveTimeline
+        ? 'Hợp đồng đã duyệt · Cần thống nhất kịch bản'
+        : !currentContractApproved && hasEffectiveTimeline
+          ? 'Kịch bản đã có · Cần phê duyệt hợp đồng'
+          : 'Cần xem lại hợp đồng và kịch bản';
 
   const steps = [
     {
       num: 1,
       label: 'Tư vấn',
-      status: data?.proposal ? ('done' as const) : ('waiting' as const),
-      meta: data?.proposal
-        ? 'Đã hoàn tất tư vấn sảnh & gói dịch vụ'
-        : 'Đang chuẩn bị thông tin gói dịch vụ',
+      status: isConfirmedOrLater || data?.proposal ? ('done' as const) : ('waiting' as const),
+      badgeLabel: isConfirmedOrLater || data?.proposal ? '✓ Xong' : 'Chờ bạn',
+      meta:
+        isConfirmedOrLater || data?.proposal
+          ? 'Đã hoàn tất tư vấn sảnh & gói dịch vụ'
+          : 'Đang chuẩn bị thông tin gói dịch vụ',
       go: () => onNavigate('catalog'),
     },
     {
       num: 2,
       label: 'Thoả thuận',
       status: bothAgreed ? ('done' as const) : ('waiting' as const),
+      badgeLabel: bothAgreed ? '✓ Xong' : 'Chờ bạn',
       meta: stage2Meta,
       go: () => onNavigate('contracts'),
     },
     {
       num: 3,
       label: 'Đặt cọc',
-      status:
-        phase === 'CONFIRMED' || isCompleted
-          ? ('done' as const)
-          : phase === 'AWAITING_DEPOSIT'
-            ? ('waiting' as const)
-            : ('waiting' as const),
-      meta:
-        phase === 'CONFIRMED' || isCompleted
-          ? 'Đã ghi nhận tiền đặt cọc'
-          : 'Cần hoàn tất đặt cọc để mở khóa đầy đủ',
+      status: isConfirmedOrLater
+        ? ('done' as const)
+        : phase === 'AWAITING_DEPOSIT'
+          ? ('waiting' as const)
+          : ('waiting' as const),
+      badgeLabel: isConfirmedOrLater ? '✓ Xong' : 'Chờ bạn',
+      meta: isConfirmedOrLater
+        ? 'Đã ghi nhận tiền đặt cọc'
+        : 'Cần hoàn tất đặt cọc để mở khóa đầy đủ',
       go: () => onNavigate('payments'),
     },
     {
       num: 4,
       label: 'Chuẩn bị',
       status: pre ? ('locked' as const) : isCompleted ? ('done' as const) : ('waiting' as const),
+      badgeLabel: pre ? '🔒 Mở sau đặt cọc' : isCompleted ? '✓ Xong' : 'Chờ bạn',
       meta: pre
         ? 'Mở sau khi đặt cọc'
         : isCompleted
@@ -145,6 +151,7 @@ export function HyParty({
       num: 5,
       label: 'Ngày cưới',
       status: pre ? ('locked' as const) : isCompleted ? ('done' as const) : ('waiting' as const),
+      badgeLabel: pre ? '🔒 Mở sau đặt cọc' : isCompleted ? '✓ Xong' : 'Chờ bạn',
       meta: pre
         ? 'Mở sau khi đặt cọc'
         : isCompleted
@@ -160,6 +167,13 @@ export function HyParty({
         : remainingVnd > 0
           ? ('waiting' as const)
           : ('done' as const),
+      badgeLabel: pre
+        ? '🔒 Mở sau đặt cọc'
+        : !isCompleted
+          ? '🔒 Mở sau ngày cưới'
+          : remainingVnd > 0
+            ? 'Cần quyết toán'
+            : '✓ Xong',
       meta: !isCompleted
         ? 'Mở sau ngày cưới'
         : remainingVnd > 0
@@ -459,7 +473,7 @@ export function HyParty({
                   }}
                 >
                   <Text style={{ fontSize: 14, fontWeight: '600' }}>{st.label}</Text>
-                  <HyBadge status={st.status} />
+                  <HyBadge status={st.status} label={st.badgeLabel} />
                 </View>
                 <Text style={{ fontSize: 12, color: hy.secondary, marginTop: 2 }}>{st.meta}</Text>
               </View>

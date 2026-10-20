@@ -255,7 +255,7 @@ export function HyBadge({
   const configs = {
     done: { bg: hy.successBg, fg: hy.success, defaultLabel: '✓ Xong' },
     waiting: { bg: hy.warningBg, fg: hy.warning, defaultLabel: 'Chờ bạn' },
-    locked: { bg: hy.surfaceMuted, fg: hy.muted, defaultLabel: '🔒 Mở sau đặt cọc' },
+    locked: { bg: hy.surfaceMuted, fg: hy.muted, defaultLabel: '🔒 Chưa mở' },
     info: { bg: hy.infoBg, fg: hy.info, defaultLabel: 'Thông tin' },
     neutral: { bg: hy.surfaceMuted, fg: hy.secondary, defaultLabel: '' },
   };

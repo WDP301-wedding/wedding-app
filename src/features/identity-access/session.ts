@@ -125,6 +125,23 @@ export function createSecureRefreshStore(): RefreshStore {
   };
 }
 
+function isIgnorableLogoutError(error: unknown): boolean {
+  if (error instanceof ApiClientError) {
+    return (
+      error.status === 401 ||
+      error.status === 404 ||
+      error.code === 'AUTHENTICATION_REQUIRED' ||
+      error.message === 'Authentication is required.'
+    );
+  }
+  if (error && typeof error === 'object') {
+    const errObj = error as Record<string, unknown>;
+    if (errObj['status'] === 401 || errObj['status'] === 404) return true;
+    if (errObj['message'] === 'Authentication is required.') return true;
+  }
+  return false;
+}
+
 export class AndroidIdentitySession {
   private accessToken: string | null = null;
   private currentRefreshToken: string | null = null;
@@ -266,7 +283,15 @@ export class AndroidIdentitySession {
   async logout(): Promise<void> {
     const token = this.accessToken;
     try {
-      if (token !== null) await this.api.logout(token);
+      if (token !== null) {
+        try {
+          await this.api.logout(token);
+        } catch (error) {
+          if (!isIgnorableLogoutError(error)) {
+            throw error;
+          }
+        }
+      }
     } finally {
       await this.clear();
     }
@@ -432,9 +457,15 @@ export function createIdentityApi(client?: ApiClient): IdentityApi {
       return normalizeActor(requireData(data).data);
     },
     async logout(accessToken) {
-      await api().DELETE('/auth/sessions/current', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      try {
+        await api().DELETE('/auth/sessions/current', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+      } catch (error) {
+        if (!isIgnorableLogoutError(error)) {
+          throw error;
+        }
+      }
     },
     async refreshSession(refreshToken) {
       const { data } = await api().POST('/auth/android-session-refreshes', {

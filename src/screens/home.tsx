@@ -131,7 +131,10 @@ export function HomeScreen({
           accessibilityLabel="Đăng xuất"
           testID="logout-button"
           onPress={() => {
-            void session.logout().finally(() => setSnapshot(session.snapshot()));
+            void session
+              .logout()
+              .catch(() => {})
+              .finally(() => setSnapshot(session.snapshot()));
           }}
           style={({ pressed }) => [
             styles.authPrimaryAction,
@@ -151,7 +154,10 @@ export function HomeScreen({
       initialScreen={initialScreen}
       session={session}
       onLogout={() => {
-        void session.logout().finally(() => setSnapshot(session.snapshot()));
+        void session
+          .logout()
+          .catch(() => {})
+          .finally(() => setSnapshot(session.snapshot()));
       }}
     />
   );

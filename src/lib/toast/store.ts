@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export type ToastKind = 'success' | 'error' | 'info' | 'warning';
 export interface ToastOptions {
   message: string;
@@ -41,7 +43,8 @@ function publish(next: Snapshot) {
 function schedule() {
   if (timer) clearTimeout(timer);
   timer = undefined;
-  if (!foreground || !snapshot.items[0] || remaining <= 0 || reader) return;
+  if (!snapshot.items[0] || remaining <= 0) return;
+  if (!foreground && Platform.OS !== 'web') return;
   deadline = Date.now() + remaining;
   timer = setTimeout(() => {
     const first = snapshot.items[0];
@@ -77,7 +80,11 @@ export function show(options: ToastOptions): string {
     message: options.message,
     durationMs:
       options.durationMs ??
-      (kind === 'error' || kind === 'warning' ? policy.errorMs : policy.successMs),
+      (kind === 'error' || kind === 'warning'
+        ? policy.errorMs
+        : reader
+          ? policy.errorMs
+          : policy.successMs),
   };
   const wasEmpty = snapshot.items.length === 0;
   const queued = [...snapshot.items, item];
@@ -146,6 +153,5 @@ export const toastStore = {
   },
   setScreenReader: (enabled: boolean) => {
     reader = enabled;
-    schedule();
   },
 };

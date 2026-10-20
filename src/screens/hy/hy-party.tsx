@@ -264,11 +264,13 @@ export function HyParty({
       {/* Hero Countdown Card */}
       <HyEnter>
         <View style={{ backgroundColor: hy.primary, borderRadius: 24, padding: 20, gap: 14 }}>
-          {allBookings && allBookings.length >= 2 ? (
+          {onSwitchBooking ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Đổi tiệc cưới"
-              onPress={() => onSwitchBooking?.()}
+              accessibilityLabel={
+                allBookings && allBookings.length >= 2 ? 'Đổi tiệc cưới' : 'Về danh sách tiệc'
+              }
+              onPress={() => onSwitchBooking()}
               style={{
                 minHeight: 44,
                 borderWidth: 1,
@@ -280,7 +282,7 @@ export function HyParty({
               }}
             >
               <Text style={{ color: hy.canvas, fontSize: 13, fontWeight: '500' }}>
-                {facts.hallName || 'Đổi tiệc cưới'} ⌄
+                {facts.hallName || 'Tiệc cưới'} ⌄
               </Text>
             </Pressable>
           ) : (

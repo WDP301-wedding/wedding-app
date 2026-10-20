@@ -35,6 +35,7 @@ export interface V0NotificationsSubflowProps extends V0CommonProps {
 
 export function V0NotificationsSubflow({
   onNavigate,
+  onBack,
   session,
   activeBooking,
   allBookings,
@@ -316,8 +317,8 @@ export function V0NotificationsSubflow({
       <View style={styles.pageHeader}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Về tài khoản"
-          onPress={() => onNavigate('account')}
+          accessibilityLabel="Quay lại"
+          onPress={() => (onBack ? onBack() : onNavigate('overview'))}
           style={styles.backButton}
         >
           <Text style={[styles.backGlyph, { color: tokens.primary }]}>‹</Text>

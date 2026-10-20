@@ -10,6 +10,7 @@ import {
   AccessibilityInfo,
   Animated,
   AppState,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -105,22 +106,29 @@ export function ToastHost({
 }
 export function ToastProvider({ children }: PropsWithChildren) {
   useEffect(() => {
-    toastStore.setForeground(AppState.currentState === 'active');
+    toastStore.setForeground(Platform.OS === 'web' || AppState.currentState === 'active');
     const app = AppState.addEventListener('change', (state) =>
-      toastStore.setForeground(state === 'active'),
+      toastStore.setForeground(Platform.OS === 'web' || state === 'active'),
     );
     let active = true;
-    void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
-      if (active) toastStore.setScreenReader(enabled);
-    });
-    const reader = AccessibilityInfo.addEventListener(
-      'screenReaderChanged',
-      toastStore.setScreenReader,
-    );
+    if (Platform.OS !== 'web') {
+      void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
+        if (active) toastStore.setScreenReader(enabled);
+      });
+      const reader = AccessibilityInfo.addEventListener(
+        'screenReaderChanged',
+        toastStore.setScreenReader,
+      );
+      return () => {
+        active = false;
+        app.remove();
+        reader.remove();
+        toast.clear();
+      };
+    }
     return () => {
       active = false;
       app.remove();
-      reader.remove();
       toast.clear();
     };
   }, []);

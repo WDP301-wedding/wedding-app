@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { createApiClient, type ApiClient } from '../../lib/api/client';
 import type { components, operations } from '../../lib/api/generated/schema';
 import { createDeterministicIdempotencyKey } from '../../lib/idempotency';
@@ -22,6 +23,9 @@ export type GuestGroupView =
   operations['listGuestGroups']['responses'][200]['content']['application/json']['data'];
 export type NamedGuestView =
   operations['listNamedGuests']['responses'][200]['content']['application/json']['data'];
+export type GuestItem = NamedGuestView['items'][number];
+export type PersonalInvitationLinkView =
+  operations['issueReadOnlyGuestInvitation']['responses'][201]['content']['application/json']['data'];
 
 export type BillingContext = Readonly<{
   bookingId: string;
@@ -85,6 +89,7 @@ export interface CoupleBillingGateway {
     token: string,
     bookingId: string,
     cursor?: string,
+    status?: 'ACTIVE' | 'ARCHIVED',
   ): Promise<NamedGuestView>;
   downloadContractPdf?(
     this: void,
@@ -92,6 +97,41 @@ export interface CoupleBillingGateway {
     bookingId: string,
     revisionId: string,
   ): Promise<Blob>;
+  createGuest?(
+    this: void,
+    token: string,
+    bookingId: string,
+    body: {
+      readonly name: string;
+      readonly guestGroupId: string;
+      readonly phone?: string | null;
+      readonly operationalNote?: string | null;
+    },
+    key?: string,
+  ): Promise<GuestItem>;
+  updateGuest?(
+    this: void,
+    token: string,
+    bookingId: string,
+    guestId: string,
+    body: {
+      readonly expectedRevision: number;
+      readonly name?: string;
+      readonly guestGroupId?: string;
+      readonly phone?: string | null;
+      readonly operationalNote?: string | null;
+      readonly status?: 'ACTIVE' | 'ARCHIVED';
+    },
+    key?: string,
+  ): Promise<GuestItem>;
+  issueGuestInvitationLink?(
+    this: void,
+    token: string,
+    bookingId: string,
+    guestId: string,
+    expectedRevision: number,
+    key?: string,
+  ): Promise<PersonalInvitationLinkView>;
 }
 
 export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
@@ -120,6 +160,7 @@ export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
     token: string,
     bookingId: string,
     cursor?: string,
+    status?: 'ACTIVE' | 'ARCHIVED',
   ): Promise<NamedGuestView>;
   downloadContractPdf(
     this: void,
@@ -127,6 +168,41 @@ export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
     bookingId: string,
     revisionId: string,
   ): Promise<Blob>;
+  createGuest?(
+    this: void,
+    token: string,
+    bookingId: string,
+    body: {
+      readonly name: string;
+      readonly guestGroupId: string;
+      readonly phone?: string | null;
+      readonly operationalNote?: string | null;
+    },
+    key?: string,
+  ): Promise<GuestItem>;
+  updateGuest?(
+    this: void,
+    token: string,
+    bookingId: string,
+    guestId: string,
+    body: {
+      readonly expectedRevision: number;
+      readonly name?: string;
+      readonly guestGroupId?: string;
+      readonly phone?: string | null;
+      readonly operationalNote?: string | null;
+      readonly status?: 'ACTIVE' | 'ARCHIVED';
+    },
+    key?: string,
+  ): Promise<GuestItem>;
+  issueGuestInvitationLink?(
+    this: void,
+    token: string,
+    bookingId: string,
+    guestId: string,
+    expectedRevision: number,
+    key?: string,
+  ): Promise<PersonalInvitationLinkView>;
   loadGuestPlan?(
     this: void,
     token: string,
@@ -162,7 +238,16 @@ export interface CoupleCommercialBillingGateway extends CoupleBillingGateway {
   ): Promise<
     operations['readSeatingPlan']['responses'][200]['content']['application/json']['data']
   >;
+  loadCurrentSeatingPlan?(
+    this: void,
+    token: string,
+    bookingId: string,
+  ): Promise<
+    operations['readSeatingPlan']['responses'][200]['content']['application/json']['data'] | null
+  >;
 }
+export type SeatingPlanData =
+  operations['readSeatingPlan']['responses'][200]['content']['application/json']['data'];
 function required<T>(data: { readonly data: T } | undefined): T {
   if (data?.data === undefined || data.data === null)
     throw new Error('Không nhận được dữ liệu thanh toán. Giữ nguyên yêu cầu để thử lại.');
@@ -299,9 +384,15 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       });
       return required(data) as GuestGroupView;
     },
-    async loadGuests(token, bookingId, cursor) {
+    async loadGuests(token, bookingId, cursor, status) {
+      const query: { cursor?: string; status?: 'ACTIVE' | 'ARCHIVED' } = {};
+      if (cursor) query.cursor = cursor;
+      if (status) query.status = status;
       const { data } = await api().GET('/bookings/{bookingId}/guests', {
-        params: { path: { bookingId }, ...(cursor ? { query: { cursor } } : {}) },
+        params: {
+          path: { bookingId },
+          ...(Object.keys(query).length > 0 ? { query } : {}),
+        },
         headers: headers(token),
         cache: 'no-store',
       });
@@ -368,6 +459,61 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       return required(
         data,
       ) as operations['readSeatingPlan']['responses'][200]['content']['application/json']['data'];
+    },
+    async loadCurrentSeatingPlan(token, bookingId) {
+      const baseUrl = readPublicEnv().EXPO_PUBLIC_API_BASE_URL;
+      const res = await fetch(`${baseUrl}/bookings/${bookingId}/seating-plans/current`, {
+        headers: headers(token),
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('Chưa thể tải sơ đồ bàn hiện tại.');
+      }
+      const json = await res.json();
+      return (json?.data as SeatingPlanData) ?? null;
+    },
+    async createGuest(token, bookingId, body, key) {
+      const idempKey = key ?? randomUUID();
+      const { data } = await api().POST('/bookings/{bookingId}/guests', {
+        params: {
+          path: { bookingId },
+          header: { 'Idempotency-Key': idempKey },
+        },
+        headers: headers(token),
+        body,
+        cache: 'no-store',
+      });
+      return required(data) as GuestItem;
+    },
+    async updateGuest(token, bookingId, guestId, body, key) {
+      const idempKey = key ?? randomUUID();
+      const { data } = await api().PATCH('/bookings/{bookingId}/guests/{guestId}', {
+        params: {
+          path: { bookingId, guestId },
+          header: { 'Idempotency-Key': idempKey },
+        },
+        headers: headers(token),
+        body,
+        cache: 'no-store',
+      });
+      return required(data) as GuestItem;
+    },
+    async issueGuestInvitationLink(token, bookingId, guestId, expectedRevision, key) {
+      const idempKey = key ?? randomUUID();
+      const { data } = await api().POST(
+        '/bookings/{bookingId}/guests/{guestId}/personalized-invitations',
+        {
+          params: {
+            path: { bookingId, guestId },
+            header: { 'Idempotency-Key': idempKey },
+          },
+          headers: headers(token),
+          body: { expectedRevision },
+          cache: 'no-store',
+        },
+      );
+      return required(data) as PersonalInvitationLinkView;
     },
   };
 }

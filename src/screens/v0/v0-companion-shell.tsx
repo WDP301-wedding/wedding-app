@@ -115,16 +115,35 @@ export function V0CompanionShell({
     [externalNavigate, activeBooking, onSwitchBooking],
   );
 
-  const back = useCallback(() => navigate(parent(screen)), [navigate, screen]);
+  const back = useCallback(() => {
+    if (initialScreen === 'account' && screen === 'account' && onSwitchBooking) {
+      onSwitchBooking();
+      return;
+    }
+    navigate(parent(screen));
+  }, [initialScreen, screen, onSwitchBooking, navigate]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (screen === 'overview') return false;
+      if (initialScreen === 'account' && screen === 'account') {
+        if (onSwitchBooking) {
+          onSwitchBooking();
+          return true;
+        }
+        return false;
+      }
+      if (screen === 'overview') {
+        if (onSwitchBooking) {
+          onSwitchBooking();
+          return true;
+        }
+        return false;
+      }
       back();
       return true;
     });
     return () => sub.remove();
-  }, [screen, back]);
+  }, [initialScreen, screen, back, onSwitchBooking]);
 
   const [overriddenProfile, setOverriddenProfile] = useState<Profile | null>(null);
   const currentProfile = overriddenProfile ?? profile ?? null;
@@ -242,7 +261,8 @@ export function V0CompanionShell({
   return (
     <View style={{ flex: 1, backgroundColor: hy.canvas, paddingTop: insets.top }}>
       {/* Top Header */}
-      <View
+      {screen !== 'notifications' && (
+        <View
         style={{
           minHeight: 64,
           paddingHorizontal: 16,
@@ -254,7 +274,7 @@ export function V0CompanionShell({
           backgroundColor: hy.canvas,
         }}
       >
-        {!isTabScreen && (
+        {!isTabScreen ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Quay lại"
@@ -263,7 +283,25 @@ export function V0CompanionShell({
           >
             <Text style={{ fontSize: 28, color: hy.primary }}>‹</Text>
           </Pressable>
-        )}
+        ) : onSwitchBooking ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Đổi tiệc cưới"
+            onPress={onSwitchBooking}
+            style={{
+              minHeight: 44,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingRight: 6,
+            }}
+          >
+            <Text style={{ fontSize: 24, color: hy.primary, marginRight: 2, marginTop: -2 }}>
+              ‹
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: hy.primary }}>Đổi tiệc</Text>
+          </Pressable>
+        ) : null}
 
         {/* Title or Booking Switcher */}
         {allBookings && allBookings.length >= 2 ? (
@@ -297,6 +335,22 @@ export function V0CompanionShell({
               </Text>
             </View>
           </Pressable>
+        ) : activeBooking && screen === 'overview' ? (
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: hy.bold,
+                fontSize: 18,
+                lineHeight: 24,
+                fontWeight: '700',
+                color: hy.ink,
+              }}
+              numberOfLines={1}
+            >
+              {activeBooking.hallName}
+            </Text>
+            <Text style={{ fontSize: 12, color: hy.muted }}>{props.facts.formattedDate}</Text>
+          </View>
         ) : (
           <Text
             style={{
@@ -326,7 +380,7 @@ export function V0CompanionShell({
             position: 'relative',
           }}
         >
-          <BellIcon color={screen === 'notifications' ? hy.primary : hy.muted} />
+          <BellIcon color={hy.muted} />
           {unreadCount > 0 && (
             <View
               style={{
@@ -377,6 +431,7 @@ export function V0CompanionShell({
           </Text>
         </Pressable>
       </View>
+      )}
 
       {/* Screen Subtree (keyed by booking ID for clean resets when switching bookings) */}
       <View key={activeBooking?.bookingId ?? 'no-booking'} style={{ flex: 1 }}>
@@ -539,6 +594,31 @@ export function V0CompanionShell({
                 </Pressable>
               );
             })}
+
+            {onSwitchBooking && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Về danh sách tiệc cưới"
+                onPress={() => {
+                  setSwitcherOpen(false);
+                  onSwitchBooking();
+                }}
+                style={{
+                  marginTop: 6,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: hy.rule,
+                  backgroundColor: hy.surface,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: hy.primary }}>
+                  ‹ Về danh sách tiệc cưới
+                </Text>
+              </Pressable>
+            )}
           </View>
         </HySheet>
       )}

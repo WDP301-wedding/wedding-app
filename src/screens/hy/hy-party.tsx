@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { usePartyResources } from './use-party-resources';
+import React, { useEffect, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
 import {
   HyText as Text,
@@ -19,23 +20,10 @@ import {
   ClockIcon,
 } from '@/components/v0-icons';
 import { hy } from '@/theme';
-import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
-import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
-import { createCoupleBillingGateway } from '@/features/payments-billing/billing-api';
 import { openBrowserAsync } from 'expo-web-browser';
 import { readPublicEnv } from '@/lib/env';
 import { formatVnd } from '@/lib/formatters';
 import type { V0CommonProps } from '../v0/v0-types';
-import { useHyResource } from './use-hy-resource';
-import { sharedResourceStore } from './resource-store';
-
-const api = createRestoredFlowsGateway();
-const invitation = createAppInvitationGateway();
-const coupleBilling = createCoupleBillingGateway();
-
-type ProposalView = Awaited<ReturnType<typeof api.loadProposal>>;
-type ContractsView = Awaited<ReturnType<typeof api.readContracts>>;
-type RestaurantView = Awaited<ReturnType<typeof invitation.getRestaurantCatalog>>;
 
 const HyCountdown = React.memo(function HyCountdown({
   eventDate,
@@ -90,51 +78,7 @@ export function HyParty({
   allBookings,
 }: V0CommonProps) {
   const bookingId = activeBooking?.bookingId;
-  const loader = useCallback(async () => {
-    if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
-    const cachedProposal = sharedResourceStore.get<ProposalView>(`booking:${bookingId}:proposal`);
-    const cachedContracts = sharedResourceStore.get<ContractsView>(
-      `booking:${bookingId}:contracts`,
-    );
-    const cachedRestaurant = sharedResourceStore.get<RestaurantView>('restaurantCatalog');
-
-    // Reuse already confirmed proposal and contracts from booking entry if available
-    const [proposal, contracts, billingRes, restaurant] = await Promise.allSettled([
-      cachedProposal
-        ? Promise.resolve(cachedProposal)
-        : session.authorize((t) => api.loadProposal(t, bookingId)),
-      cachedContracts
-        ? Promise.resolve(cachedContracts)
-        : session.authorize((t) => api.readContracts(t, bookingId)),
-      session.authorize((t) => coupleBilling.load(t, bookingId)),
-      cachedRestaurant
-        ? Promise.resolve(cachedRestaurant)
-        : invitation.getRestaurantCatalog().catch(() => null),
-    ]);
-
-    if (proposal.status === 'rejected') throw proposal.reason;
-    if (proposal.status === 'fulfilled' && !cachedProposal) {
-      sharedResourceStore.set(`booking:${bookingId}:proposal`, proposal.value, 60_000);
-    }
-    if (contracts.status === 'fulfilled' && contracts.value && !cachedContracts) {
-      sharedResourceStore.set(`booking:${bookingId}:contracts`, contracts.value, 60_000);
-    }
-    if (restaurant.status === 'fulfilled' && restaurant.value && !cachedRestaurant) {
-      sharedResourceStore.set('restaurantCatalog', restaurant.value, 300_000);
-    }
-
-    return {
-      proposal: proposal.value,
-      contracts: contracts.status === 'fulfilled' ? contracts.value : null,
-      billing: billingRes.status === 'fulfilled' ? billingRes.value : null,
-      restaurant: restaurant.status === 'fulfilled' ? restaurant.value : null,
-    };
-  }, [bookingId, session]);
-
-  const { data, error, loading, reload } = useHyResource(loader, {
-    key: bookingId ? `booking:${bookingId}:party-overview` : undefined,
-    ttlMs: 60_000,
-  });
+  const { data, error, sectionError, loading, reload } = usePartyResources(session, bookingId);
   const phase = activeBooking?.phase ?? 'DRAFT';
   const pre = phase === 'DRAFT' || phase === 'AWAITING_DEPOSIT';
   const isCancelled = phase === 'CANCELLED';
@@ -282,7 +226,7 @@ export function HyParty({
   if (isCompleted && remainingVnd > 0) {
     rawTodos.push({
       title: 'Thanh toán số dư quyết toán',
-      description: `Còn lại ${formatVnd(remainingVnd)} sau khi tính phụ lục và chi phí phát sinh.`,
+      description: `Còn lại ${data.billing ? formatVnd(remainingVnd) : '—'} sau khi tính phụ lục và chi phí phát sinh.`,
       buttonLabel: 'Thanh toán ngay',
       onAction: () => onNavigate('payments'),
     });
@@ -431,6 +375,14 @@ export function HyParty({
         />
       )}
 
+      {sectionError && (
+        <HyState
+          kind="error"
+          title="Một phần thông tin chưa tải được"
+          body={sectionError}
+          onRetry={() => void reload()}
+        />
+      )}
       {/* 6-step Journey Timeline */}
       <HyCard>
         <View
@@ -568,7 +520,7 @@ export function HyParty({
                 fontFamily: hy.bold,
               }}
             >
-              {formatVnd(paidVnd)}
+              {data.billing ? formatVnd(paidVnd) : '—'}
             </Text>
           </View>
 
@@ -596,13 +548,13 @@ export function HyParty({
             <View style={{ gap: 2 }}>
               <Text style={{ fontSize: 12, color: hy.muted }}>Còn lại</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: hy.ink }}>
-                {formatVnd(remainingVnd)}
+                {data.billing ? formatVnd(remainingVnd) : '—'}
               </Text>
             </View>
             <View style={{ gap: 2, alignItems: 'flex-end' }}>
               <Text style={{ fontSize: 12, color: hy.muted }}>Tổng chi phí</Text>
               <Text style={{ fontSize: 14, fontWeight: '700', color: hy.ink }}>
-                {formatVnd(totalVnd)}
+                {data.billing ? formatVnd(totalVnd) : '—'}
               </Text>
             </View>
           </View>

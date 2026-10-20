@@ -1,3 +1,5 @@
+import { useResultFeedback } from '@/lib/toast/feedback';
+import { toast } from '@/lib/toast/store';
 import React, { useEffect, useState } from 'react';
 import { useAppInsets } from '@/lib/safe-area';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
@@ -67,6 +69,7 @@ export function IdentityScreen({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useResultFeedback({ error: error, success: message });
 
   const submit = () => {
     if (pending) return;
@@ -83,6 +86,7 @@ export function IdentityScreen({
         .login(email.trim(), password)
         .then((nextSnapshot) => {
           setPending(false);
+          toast.success('Đã đăng nhập.');
           onAuthenticated(nextSnapshot);
         })
         .catch((caught: unknown) => {

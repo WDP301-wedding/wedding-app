@@ -1,4 +1,5 @@
 import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
+import { sharedResourceStore, resourcePolicy } from '@/screens/hy/resource-store';
 import { createApiClient, type ApiClient } from '@/lib/api/client';
 
 export type ConfirmedPlanningSnapshot = Readonly<{
@@ -35,12 +36,19 @@ export function createPlanningGateway(
   return {
     ...createRestoredFlowsGateway(client),
     async loadConfirmed(accessToken, bookingId) {
-      const { data } = await api().GET('/bookings/{bookingId}/proposal', {
-        params: { path: { bookingId } },
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (data === undefined) throw new Error('The planning response did not include data.');
-      const value = data.data;
+      const value = await sharedResourceStore.fetchWithDeduplication(
+        `booking:${bookingId}:proposal`,
+        async () => {
+          const { data } = await api().GET('/bookings/{bookingId}/proposal', {
+            params: { path: { bookingId } },
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (data === undefined) throw new Error('The planning response did not include data.');
+          return data.data;
+        },
+        resourcePolicy.bookingTtlMs,
+        true,
+      );
       if (value.capabilities.accessLevel !== 'FULL') {
         return { status: 'not-confirmed', snapshot: null };
       }

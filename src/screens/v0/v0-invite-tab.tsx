@@ -1,6 +1,8 @@
+import { toast } from '@/lib/toast/store';
+import { useResultFeedback, notify } from '@/lib/toast/feedback';
 import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Share as NativeShare } from 'react-native';
+import { BackHandler, Share as NativeShare } from 'react-native';
 import {
   createAppInvitationGateway,
   type AppDesignView,
@@ -61,6 +63,7 @@ export function V0InviteTab({
 
   // Toast and copy feedback state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  useResultFeedback({ error: publishError, success: toastMessage });
   const [copied, setCopied] = useState(false);
 
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -175,7 +178,7 @@ export function V0InviteTab({
 
   const handleBackFromEdit = useCallback(() => {
     if (isDirty) {
-      Alert.alert(
+      notify(
         'Hủy thay đổi?',
         'Bạn có thay đổi chưa lưu trên thiệp cưới. Bạn có chắc muốn quay lại?',
         [
@@ -261,7 +264,7 @@ export function V0InviteTab({
   const handleSelectDesign = (design: AppDesignView) => {
     if (design.designId === selectedDesign?.designId) return;
     if (isDirty) {
-      Alert.alert(
+      notify(
         'Hủy thay đổi?',
         'Bạn có thay đổi chưa lưu trên thiệp hiện tại. Chuyển sang mẫu khác sẽ làm mất các nội dung này. Bạn có muốn chuyển?',
         [
@@ -324,7 +327,7 @@ export function V0InviteTab({
 
   const handleOpenShare = async () => {
     if (!publicUrl) {
-      Alert.alert(
+      notify(
         'Thiệp chưa xuất bản',
         'Thiệp chưa có liên kết công khai. Vui lòng bấm Xuất bản thiệp cưới trước khi chia sẻ.',
       );
@@ -337,7 +340,7 @@ export function V0InviteTab({
         title: `Thiệp cưới ${coupleDisplay}`,
       });
       if (result.action === NativeShare.sharedAction) {
-        // Shared successfully
+        toast.info('Đã chuyển nội dung thiệp tới ứng dụng chia sẻ.');
       }
     } catch {
       // User dismissed or share error
@@ -346,23 +349,24 @@ export function V0InviteTab({
 
   const handleCopyLink = async () => {
     if (!publicUrl) {
-      Alert.alert('Thiệp chưa xuất bản', 'Chưa có liên kết công khai để sao chép.');
+      notify('Thiệp chưa xuất bản', 'Chưa có liên kết công khai để sao chép.');
       return;
     }
     try {
       await Clipboard.setStringAsync(publicUrl);
       setCopied(true);
+      toast.success('Đã sao chép liên kết thiệp.');
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
       copyTimeoutRef.current = setTimeout(() => {
         setCopied(false);
       }, 2500);
     } catch {
-      Alert.alert('Lỗi sao chép', 'Không thể sao chép liên kết vào bộ nhớ tạm.');
+      notify('Lỗi sao chép', 'Không thể sao chép liên kết vào bộ nhớ tạm.');
     }
   };
 
   const handleMorePress = () => {
-    Alert.alert('Tùy chọn thiệp cưới', undefined, [
+    notify('Tùy chọn thiệp cưới', undefined, [
       {
         text: 'Chỉnh sửa nội dung',
         onPress: () => {
@@ -444,7 +448,7 @@ export function V0InviteTab({
       loading={loading}
       loadError={loadError}
       designs={designs}
-      toastMessage={toastMessage}
+      toastMessage={null}
       onNavigate={onNavigate}
       onMorePress={handleMorePress}
       onEditPress={() => {

@@ -1,103 +1,100 @@
-interface CacheEntry<T> {
-  data: T;
+export const resourcePolicy = {
+  defaultTtlMs: 30_000,
+  bookingTtlMs: 60_000,
+  catalogTtlMs: 300_000,
+  maxEntries: 100,
+} as const;
+interface CacheEntry {
+  data: unknown;
   cachedAt: number;
   ttlMs: number;
 }
-
-interface InFlightEntry<T> {
-  promise: Promise<T>;
-  startedAt: number;
+interface Flight {
+  promise: Promise<unknown>;
+  forced: boolean;
 }
-
+/** A discarded request must never publish data to a new resource/session generation. */
+export class ResourceSupersededError extends Error {
+  constructor() {
+    super('Resource request was superseded.');
+    this.name = 'ResourceSupersededError';
+  }
+}
 class ResourceStore {
-  private readonly cache = new Map<string, CacheEntry<unknown>>();
-  private readonly inFlight = new Map<string, InFlightEntry<unknown>>();
-  private readonly maxEntries = 100;
-
+  private readonly cache = new Map<string, CacheEntry>();
+  private readonly inFlight = new Map<string, Flight>();
+  private scope: string | null = null;
+  setScope(scope: string): void {
+    if (scope === this.scope) return;
+    this.clear();
+    this.scope = scope;
+  }
   get<T>(key: string): T | null {
-    const entry = this.cache.get(key) as CacheEntry<T> | undefined;
+    const entry = this.cache.get(key);
     if (!entry) return null;
-    if (Date.now() - entry.cachedAt > entry.ttlMs) {
+    if (Date.now() - entry.cachedAt >= entry.ttlMs) {
       this.cache.delete(key);
       return null;
     }
-    return entry.data;
+    return entry.data as T;
   }
-
-  set<T>(key: string, data: T, ttlMs: number = 30_000): void {
-    if (this.cache.size >= this.maxEntries) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey) this.cache.delete(oldestKey);
+  set<T>(key: string, data: T, ttlMs: number = resourcePolicy.defaultTtlMs): void {
+    if (data === null || data === undefined || ttlMs <= 0) return;
+    this.cache.delete(key);
+    if (this.cache.size >= resourcePolicy.maxEntries) {
+      const oldest = this.cache.keys().next().value;
+      if (oldest !== undefined) this.cache.delete(oldest);
     }
     this.cache.set(key, { data, cachedAt: Date.now(), ttlMs });
   }
-
-  getInFlight<T>(key: string): Promise<T> | null {
-    const entry = this.inFlight.get(key);
-    return entry ? (entry.promise as Promise<T>) : null;
-  }
-
-  setInFlight<T>(key: string, promise: Promise<T>): void {
-    this.inFlight.set(key, { promise: promise as Promise<unknown>, startedAt: Date.now() });
-  }
-
-  clearInFlight(key: string, expectedPromise: Promise<unknown>): void {
-    const current = this.inFlight.get(key);
-    if (current && current.promise === expectedPromise) {
-      this.inFlight.delete(key);
-    }
-  }
-
   invalidate(pattern?: string | RegExp): void {
-    if (!pattern) {
-      this.cache.clear();
-      return;
-    }
-    for (const key of Array.from(this.cache.keys())) {
-      if (typeof pattern === 'string' ? key.includes(pattern) : pattern.test(key)) {
+    const keys = new Set([...this.cache.keys(), ...this.inFlight.keys()]);
+    for (const key of keys) {
+      if (pattern instanceof RegExp) pattern.lastIndex = 0;
+      if (!pattern || (typeof pattern === 'string' ? key.includes(pattern) : pattern.test(key))) {
         this.cache.delete(key);
+        this.inFlight.delete(key);
       }
     }
   }
-
-  async fetchWithDeduplication<T>(
+  fetchWithDeduplication<T>(
     key: string,
     fetcher: () => Promise<T>,
-    ttlMs: number = 30_000,
+    ttlMs: number = resourcePolicy.defaultTtlMs,
+    force = false,
   ): Promise<T> {
-    const cached = this.get<T>(key);
-    if (cached !== null) return cached;
-
-    const existingPromise = this.getInFlight<T>(key);
-    if (existingPromise !== null) return existingPromise;
-
-    let opPromise!: Promise<T>;
-    opPromise = (async () => {
-      try {
-        const data = await fetcher();
+    if (!force) {
+      const cached = this.get<T>(key);
+      if (cached !== null) return Promise.resolve(cached);
+    }
+    const current = this.inFlight.get(key);
+    if (current && (!force || current.forced)) return current.promise as Promise<T>;
+    const flight: Flight = { promise: Promise.resolve(), forced: force };
+    // Deferral installs ownership before even a synchronous fetcher can settle/throw.
+    const promise = Promise.resolve()
+      .then(fetcher)
+      .then((data) => {
+        if (this.inFlight.get(key) !== flight) throw new ResourceSupersededError();
         this.set(key, data, ttlMs);
         return data;
-      } finally {
-        this.clearInFlight(key, opPromise);
-      }
-    })();
-
-    this.setInFlight(key, opPromise);
-    return opPromise;
+      })
+      .finally(() => {
+        if (this.inFlight.get(key) === flight) this.inFlight.delete(key);
+      });
+    flight.promise = promise;
+    this.inFlight.set(key, flight);
+    return promise;
   }
-
   clear(): void {
     this.cache.clear();
     this.inFlight.clear();
   }
 }
-
 export const sharedResourceStore = new ResourceStore();
-
 export function fetchWithDeduplication<T>(
   key: string,
   fetcher: () => Promise<T>,
   options?: { ttlMs?: number; force?: boolean },
 ): Promise<T> {
-  return sharedResourceStore.fetchWithDeduplication(key, fetcher, options?.ttlMs);
+  return sharedResourceStore.fetchWithDeduplication(key, fetcher, options?.ttlMs, options?.force);
 }

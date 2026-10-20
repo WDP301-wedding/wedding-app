@@ -1,3 +1,6 @@
+import { sharedResourceStore } from '@/screens/hy/resource-store';
+import { toast } from '@/lib/toast/store';
+import { reportError } from '@/lib/toast/feedback';
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
@@ -20,8 +23,26 @@ export type DraftLine = Pick<Line, 'category' | 'sourceId' | 'sourceRevisionId' 
   name: string;
 };
 
-export const message = (e: unknown) =>
-  e instanceof Error ? e.message : 'Không thể xử lý yêu cầu. Vui lòng thử lại.';
+export const message = (e: unknown): string => {
+  if (e && typeof e === 'object') {
+    const errorWithDetails = e as { details?: { message?: string }[]; message?: string };
+    if (Array.isArray(errorWithDetails.details) && errorWithDetails.details.length > 0) {
+      const messages = errorWithDetails.details
+        .map((d) => d.message)
+        .filter((m): m is string => typeof m === 'string' && m.trim().length > 0);
+      if (messages.length > 0) {
+        return messages.join('. ');
+      }
+    }
+    if (
+      typeof errorWithDetails.message === 'string' &&
+      errorWithDetails.message.trim().length > 0
+    ) {
+      return errorWithDetails.message;
+    }
+  }
+  return e instanceof Error ? e.message : 'Không thể xử lý yêu cầu. Vui lòng thử lại.';
+};
 
 export const money = (v: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
@@ -120,9 +141,12 @@ export function useMutation(session: V0CommonProps['session']) {
     setError(null);
     try {
       await intents.run(scope, body, (key) => operation(key));
+      sharedResourceStore.invalidate(`booking:${scope.split(':')[0]}:`);
+      toast.success('Đã cập nhật.');
       return true;
     } catch (e) {
       setError(message(e));
+      reportError(e);
       return false;
     } finally {
       busy.current = false;

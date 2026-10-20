@@ -1,12 +1,6 @@
+import { notify } from '@/lib/toast/feedback';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
@@ -168,7 +162,7 @@ export function V0NotificationsSubflow({
       setInbox((prev) => [...prev, ...more.items]);
       setNextCursor(more.nextCursor ?? null);
     } catch (caught) {
-      Alert.alert(
+      notify(
         'Lỗi tải thêm',
         caught instanceof Error ? caught.message : 'Không thể tải thêm thông báo.',
       );
@@ -193,7 +187,7 @@ export function V0NotificationsSubflow({
         return nextCount;
       });
     } catch (caught) {
-      Alert.alert('Lỗi', caught instanceof Error ? caught.message : 'Không thể đánh dấu đã đọc.');
+      notify('Lỗi', caught instanceof Error ? caught.message : 'Không thể đánh dấu đã đọc.');
     } finally {
       mutatingRef.current = false;
     }
@@ -210,12 +204,9 @@ export function V0NotificationsSubflow({
       setInbox((prev) => prev.map((i) => ({ ...i, readAt: i.readAt || new Date().toISOString() })));
       setUnreadCount(0);
       onUnreadCountChanged?.(0);
-      Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc.');
+      notify('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc.');
     } catch (caught) {
-      Alert.alert(
-        'Lỗi',
-        caught instanceof Error ? caught.message : 'Không thể đánh dấu tất cả đã đọc.',
-      );
+      notify('Lỗi', caught instanceof Error ? caught.message : 'Không thể đánh dấu tất cả đã đọc.');
     } finally {
       mutatingRef.current = false;
     }
@@ -240,7 +231,7 @@ export function V0NotificationsSubflow({
       setPreferences(res);
     } catch (caught) {
       setPreferences(oldPrefs);
-      Alert.alert(
+      notify(
         'Lỗi cập nhật tùy chọn',
         caught instanceof Error ? caught.message : 'Không thể cập nhật tùy chọn thông báo.',
       );
@@ -250,7 +241,7 @@ export function V0NotificationsSubflow({
   };
 
   const handleRevokeDevice = (item: AndroidInstallationItem) => {
-    Alert.alert(
+    notify(
       'Hủy đăng ký thiết bị',
       'Bạn có chắc chắn muốn hủy đăng ký nhận thông báo đẩy trên thiết bị này?',
       [
@@ -265,11 +256,11 @@ export function V0NotificationsSubflow({
               await session.authorize((token) =>
                 notificationGateway.revokeInstallation(token, item.id, item.revision),
               );
-              Alert.alert('Thành công', 'Đã hủy đăng ký thiết bị thành công.');
+              notify('Thành công', 'Đã hủy đăng ký thiết bị thành công.');
               await loadInboxData();
               await loadInstallationsData();
             } catch (caught) {
-              Alert.alert(
+              notify(
                 'Lỗi hủy thiết bị',
                 caught instanceof Error ? caught.message : 'Không thể hủy thiết bị.',
               );
@@ -384,7 +375,7 @@ export function V0NotificationsSubflow({
                       if (targetBooking && onSelectBooking) {
                         onSelectBooking(notifBookingId);
                       } else {
-                        Alert.alert(
+                        notify(
                           'Không có quyền truy cập',
                           'Bạn không có quyền xem tiệc cưới này hoặc tiệc cưới không tồn tại trong tài khoản của bạn.',
                         );

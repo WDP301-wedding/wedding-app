@@ -1,5 +1,6 @@
+import { notify } from '@/lib/toast/feedback';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { LockIcon, RotateCcwIcon, StatusTag } from '@/components/v0-primitives';
 import {
@@ -50,7 +51,7 @@ export function V0SessionsSubflow({ onLogout, onNavigate, session }: V0CommonPro
   };
 
   const handleRevoke = (sessionId: string) => {
-    Alert.alert(
+    notify(
       'Thu hồi phiên đăng nhập',
       'Bạn có chắc chắn muốn đăng xuất phiên này từ xa? Thiết bị đó sẽ mất quyền truy cập ngay lập tức.',
       [
@@ -63,10 +64,10 @@ export function V0SessionsSubflow({ onLogout, onNavigate, session }: V0CommonPro
             setRevokingId(sessionId);
             try {
               await session.authorize((token) => experienceGateway.revokeSession(token, sessionId));
-              Alert.alert('Thành công', 'Đã thu hồi phiên đăng nhập thành công.');
+              notify('Thành công', 'Đã thu hồi phiên đăng nhập thành công.');
               await loadSessions();
             } catch (caught) {
-              Alert.alert(
+              notify(
                 'Lỗi thu hồi phiên',
                 caught instanceof Error ? caught.message : 'Không thể thu hồi phiên đăng nhập.',
               );

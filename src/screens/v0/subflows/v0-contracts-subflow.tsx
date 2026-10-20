@@ -1,5 +1,6 @@
+import { notify } from '@/lib/toast/feedback';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { FileTextIcon, StatusTag } from '@/components/v0-primitives';
 import { useWeddingTheme } from '@/theme';
@@ -35,7 +36,7 @@ export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
           : more,
       );
     } catch (caught) {
-      Alert.alert(
+      notify(
         'Lỗi tải thêm lịch sử',
         caught instanceof Error ? caught.message : 'Không thể tải thêm các phiên bản hợp đồng.',
       );
@@ -91,7 +92,7 @@ export function V0ContractsSubflow({ activeBooking, session }: V0CommonProps) {
       );
       await saveOrShareDownloadedFile(blob, `hop-dong-${revisionId}.pdf`, 'application/pdf');
     } catch (caught) {
-      Alert.alert(
+      notify(
         'Lỗi tải tệp PDF',
         caught instanceof Error ? caught.message : 'Không thể tải tệp PDF hợp đồng.',
       );

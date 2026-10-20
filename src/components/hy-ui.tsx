@@ -20,6 +20,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { hy, motion } from '@/theme';
+import { ToastHost } from '@/lib/toast/toast-host';
 
 export function HyText({ style, ...props }: TextProps) {
   const flat = StyleSheet.flatten(style);
@@ -552,6 +553,7 @@ export function HySheet({
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+      <ToastHost modal visible={visible} />
     </Modal>
   );
 }

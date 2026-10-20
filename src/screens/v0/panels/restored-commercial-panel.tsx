@@ -192,6 +192,15 @@ export function RestoredCommercialPanel({
       );
       return;
     }
+    if (action === 'create') {
+      const keys = lines.map((l) => `${l.category}/${l.sourceId}`);
+      if (new Set(keys).size !== lines.length) {
+        setError(
+          'Mỗi gói thực đơn hoặc dịch vụ chỉ được xuất hiện một dòng trong hợp đồng. Vui lòng xoá bớt các dòng bị trùng lặp.',
+        );
+        return;
+      }
+    }
     if (((mode === 'appendix' && action === 'create') || action === 'withdraw') && !reason.trim()) {
       setError('Vui lòng nhập lý do.');
       return;
@@ -332,49 +341,76 @@ export function RestoredCommercialPanel({
               ) : (
                 <>
                   <Text>Dòng dịch vụ lấy từ máy chủ. Đơn giá và tổng tiền do máy chủ tính.</Text>
-                  {lines.map((line, index) => (
-                    <View style={styles.panel} key={`${index}:${line.sourceId}`}>
-                      <Text>
-                        {line.category} · {line.name}
-                      </Text>
-                      <Field
-                        label={`Số lượng ${line.name}`}
-                        value={String(line.quantity)}
-                        onChange={(v) =>
-                          setLines((old) =>
-                            old.map((l, i) =>
-                              i === index ? { ...l, quantity: /^\d+$/.test(v) ? Number(v) : 0 } : l,
-                            ),
-                          )
-                        }
-                      />
-                      <Button
-                        label={`Bỏ dòng ${index + 1}`}
-                        disabled={mutation.pending}
-                        onPress={() => setLines((old) => old.filter((_, i) => i !== index))}
-                      />
-                    </View>
-                  ))}
+                  {lines.map((line, index) => {
+                    const isDuplicate = lines.some(
+                      (other, otherIdx) =>
+                        otherIdx !== index &&
+                        other.category === line.category &&
+                        other.sourceId === line.sourceId,
+                    );
+                    return (
+                      <View style={styles.panel} key={`${index}:${line.sourceId}`}>
+                        <Text>
+                          {line.category} · {line.name}
+                        </Text>
+                        {isDuplicate && (
+                          <Text style={{ color: '#D97706', fontSize: 13, fontWeight: '600' }}>
+                            ⚠️ Gói này đang bị trùng lặp. Vui lòng bấm “Bỏ dòng {index + 1}” để xoá
+                            dòng thừa.
+                          </Text>
+                        )}
+                        <Field
+                          label={`Số lượng ${line.name}`}
+                          value={String(line.quantity)}
+                          onChange={(v) =>
+                            setLines((old) =>
+                              old.map((l, i) =>
+                                i === index
+                                  ? { ...l, quantity: /^\d+$/.test(v) ? Number(v) : 0 }
+                                  : l,
+                              ),
+                            )
+                          }
+                        />
+                        <Button
+                          label={`Bỏ dòng ${index + 1}`}
+                          disabled={mutation.pending}
+                          onPress={() => setLines((old) => old.filter((_, i) => i !== index))}
+                        />
+                      </View>
+                    );
+                  })}
                   <Text>Thêm gói thực đơn từ danh mục:</Text>
-                  {data.menus.map((menu) => (
-                    <Button
-                      key={menu.id}
-                      label={`${menu.name} · ${money(menu.priceVndPerTable)}/bàn`}
-                      disabled={mutation.pending || lines.length >= 50}
-                      onPress={() =>
-                        setLines((old) => [
-                          ...old,
-                          {
-                            category: 'MENU',
-                            sourceId: menu.id,
-                            sourceRevisionId: menu.versionId,
-                            quantity: 1,
-                            name: menu.name,
-                          },
-                        ])
-                      }
-                    />
-                  ))}
+                  {data.menus.map((menu) => {
+                    const alreadyAdded = lines.some(
+                      (l) => l.category === 'MENU' && l.sourceId === menu.id,
+                    );
+                    return (
+                      <Button
+                        key={menu.id}
+                        label={`${menu.name} · ${money(menu.priceVndPerTable)}/bàn${alreadyAdded ? ' (Đã chọn)' : ''}`}
+                        disabled={mutation.pending || lines.length >= 50 || alreadyAdded}
+                        onPress={() => {
+                          if (alreadyAdded) {
+                            setError(
+                              `Gói thực đơn "${menu.name}" đã có trong hợp đồng. Vui lòng điều chỉnh số lượng ở dòng trên.`,
+                            );
+                            return;
+                          }
+                          setLines((old) => [
+                            ...old,
+                            {
+                              category: 'MENU',
+                              sourceId: menu.id,
+                              sourceRevisionId: menu.versionId,
+                              quantity: 1,
+                              name: menu.name,
+                            },
+                          ]);
+                        }}
+                      />
+                    );
+                  })}
                   <Text>
                     Các dòng in ấn/dịch vụ đã có được giữ đúng nguồn. Dịch vụ mới cần nguồn thương
                     mại thật từ nhà hàng.

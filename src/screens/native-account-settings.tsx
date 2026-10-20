@@ -1,7 +1,8 @@
+import { useResultFeedback, notify } from '@/lib/toast/feedback';
 import { HyText as Text, HyButton, HyInput } from '@/components/hy-ui';
 import '@/lib/alert';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import {
   createExperienceGateway,
@@ -44,6 +45,7 @@ export function NativeAccountSettings({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useResultFeedback({ error: error, success: message });
   const [sessions, setSessions] = useState<readonly SessionSummary[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
@@ -205,7 +207,7 @@ export function NativeAccountSettings({
   }
 
   const revoke = (sessionId: string) => {
-    Alert.alert(
+    notify(
       'Xác nhận thu hồi phiên',
       'Bạn có chắc chắn muốn thu hồi phiên đăng nhập này? Thiết bị đó sẽ bị đăng xuất ngay lập tức.',
       [

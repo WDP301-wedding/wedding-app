@@ -1,6 +1,7 @@
+import { notify } from '@/lib/toast/feedback';
 import '@/lib/alert';
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { HyText as Text, HyCard, HyRow, HyScreen, HySheet, HyButton } from '@/components/hy-ui';
 import { hy } from '@/theme';
 import type { Profile } from '@/features/identity-access/experience-api';
@@ -73,7 +74,7 @@ export function HyProfile({
         label="Đăng xuất"
         variant="outline"
         onPress={() =>
-          Alert.alert('Đăng xuất', 'Bạn muốn đăng xuất trên thiết bị này?', [
+          notify('Đăng xuất', 'Bạn muốn đăng xuất trên thiết bị này?', [
             { text: 'Ở lại', style: 'cancel' },
             { text: 'Đăng xuất', style: 'destructive', onPress: onLogout },
           ])

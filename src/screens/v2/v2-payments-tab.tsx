@@ -1,3 +1,5 @@
+import { toast } from '@/lib/toast/store';
+import { useResultFeedback, reportError } from '@/lib/toast/feedback';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus, View } from 'react-native';
 import {
@@ -252,10 +254,12 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  useResultFeedback({ error: payError });
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [attemptResult, setAttemptResult] = useState<AttemptView | null>(null);
   const busyRef = useRef(false);
+  const announcedResults = useRef(new Set<string>());
 
   // Pagination for history
   const [extraHistory, setExtraHistory] = useState<readonly BillingView['history'][number][]>([]);
@@ -322,13 +326,27 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
         setAttemptResult(res);
         if (completed(res)) {
           await intents.finishCheckout(bookingId, res);
+          const resultKey = `${accountId}:${bookingId}:${attemptId}:${res.status}:${res.applicationStatus}`;
+          if (!announcedResults.current.has(resultKey)) {
+            announcedResults.current.add(resultKey);
+            if (announcedResults.current.size > 20) {
+              const oldest = announcedResults.current.values().next().value;
+              if (oldest) announcedResults.current.delete(oldest);
+            }
+            if (res.status === 'SUCCEEDED' && res.applicationStatus === 'SUCCEEDED')
+              toast.success('Máy chủ đã ghi nhận thanh toán.');
+            else if (res.status === 'FAILED')
+              toast.info('Giao dịch chưa hoàn tất. Xem chi tiết trạng thái trước khi thử lại.');
+          }
           sharedResourceStore.invalidate(`booking:${bookingId}:billing`);
         }
       } catch {
-        // Silently preserve state if network temporarily fails
+        setPayError(
+          'Chưa đối soát được giao dịch. Kiểm tra lại trạng thái trước khi thanh toán tiếp.',
+        );
       }
     },
-    [session, bookingId, intents],
+    [session, bookingId, intents, accountId],
   );
 
   // Recover in-flight checkout attempt when booking mounts
@@ -457,8 +475,9 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
       );
       setExtraHistory((prev) => [...prev, ...res.history]);
       setPagedNextCursor(res.nextCursor);
-    } catch {
-      // keep existing entries
+    } catch (error) {
+      reportError(error);
+      // Preserve existing ledger entries.
     } finally {
       setLoadingMore(false);
     }

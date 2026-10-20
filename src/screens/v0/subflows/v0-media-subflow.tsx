@@ -1,6 +1,7 @@
+import { notify } from '@/lib/toast/feedback';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { ImageIcon, LockIcon } from '@/components/v0-primitives';
 import { createAppInvitationGateway } from '@/features/invitation-studio/app-invitation-api';
@@ -43,7 +44,7 @@ export function V0MediaSubflow({
 
   const handlePickAndUpload = async () => {
     if (isCutoffPassed) {
-      Alert.alert(
+      notify(
         'Đã quá thời hạn cutoff',
         `Thời hạn tải ảnh đã kết thúc vào ${cutoffFormatted} (72 giờ trước giờ bắt đầu tiệc cưới). Kho ảnh đã được khóa để nhà hàng chuẩn bị trình chiếu.`,
       );
@@ -53,21 +54,21 @@ export function V0MediaSubflow({
 
     const trimmedAlt = altText.trim().normalize('NFC');
     if (!trimmedAlt) {
-      Alert.alert(
+      notify(
         'Yêu cầu mô tả ảnh',
         'Vui lòng nhập mô tả ảnh (alt text) từ 1 đến 250 ký tự trước khi chọn tệp ảnh để tải lên.',
       );
       return;
     }
     if (trimmedAlt.length > 250) {
-      Alert.alert('Mô tả quá dài', 'Mô tả ảnh tối đa 250 ký tự.');
+      notify('Mô tả quá dài', 'Mô tả ảnh tối đa 250 ký tự.');
       return;
     }
 
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert(
+        notify(
           'Quyền truy cập thư viện ảnh',
           'Ứng dụng cần quyền truy cập thư viện ảnh để hai bạn chọn ảnh trình chiếu trong lễ cưới.',
         );
@@ -90,7 +91,7 @@ export function V0MediaSubflow({
       // 25 MiB maximum limit check
       const maxBytes = 25 * 1024 * 1024;
       if (pickedAsset.fileSize && pickedAsset.fileSize > maxBytes) {
-        Alert.alert(
+        notify(
           'Tệp quá lớn',
           `Dung lượng ảnh là ${(pickedAsset.fileSize / (1024 * 1024)).toFixed(1)} MiB, vượt quá giới hạn tối đa 25 MiB mỗi tệp ảnh.`,
         );
@@ -100,7 +101,7 @@ export function V0MediaSubflow({
       // Check allowed MIME types
       const mime = pickedAsset.mimeType ?? 'image/jpeg';
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
-        Alert.alert('Định dạng không hỗ trợ', 'Vui lòng chọn ảnh định dạng JPEG, PNG hoặc WebP.');
+        notify('Định dạng không hỗ trợ', 'Vui lòng chọn ảnh định dạng JPEG, PNG hoặc WebP.');
         return;
       }
 
@@ -141,27 +142,24 @@ export function V0MediaSubflow({
         },
       ]);
       setAltText('');
-      Alert.alert('Thành công', 'Đã tải ảnh lên kho ảnh cưới thành công.');
+      notify('Thành công', 'Đã tải ảnh lên kho ảnh cưới thành công.');
     } catch (caught: unknown) {
       if (caught instanceof ApiClientError && caught.status === 403) {
-        Alert.alert(
+        notify(
           'Đã khóa kho ảnh (403)',
           'Thời hạn tải ảnh đã kết thúc hoặc kho ảnh đã được khóa bởi người quản lý.',
         );
       } else if (caught instanceof ApiClientError && caught.status === 409) {
-        Alert.alert(
+        notify(
           'Xung đột phiên bản (409)',
           'Hồ sơ đặt tiệc vừa có cập nhật mới. Vui lòng làm mới trang trước khi tải ảnh tiếp.',
         );
       } else if (caught instanceof ApiClientError && caught.status === 413) {
-        Alert.alert(
-          'Tệp quá dung lượng (413)',
-          'Ảnh vượt quá dung lượng tối đa cho phép (25 MiB).',
-        );
+        notify('Tệp quá dung lượng (413)', 'Ảnh vượt quá dung lượng tối đa cho phép (25 MiB).');
       } else if (caught instanceof ApiClientError && caught.status === 422) {
-        Alert.alert('Tệp không hợp lệ (422)', 'Định dạng tệp ảnh không đúng chuẩn JPEG/PNG/WebP.');
+        notify('Tệp không hợp lệ (422)', 'Định dạng tệp ảnh không đúng chuẩn JPEG/PNG/WebP.');
       } else {
-        Alert.alert(
+        notify(
           'Lỗi tải ảnh',
           caught instanceof Error ? caught.message : 'Không thể tải ảnh lên kho ảnh.',
         );

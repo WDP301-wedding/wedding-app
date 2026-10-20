@@ -1,98 +1,83 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchWithDeduplication, sharedResourceStore } from './resource-store';
-
+import {
+  fetchWithDeduplication,
+  resourcePolicy,
+  ResourceSupersededError,
+  sharedResourceStore,
+} from './resource-store';
 export interface UseHyResourceOptions {
   readonly enabled?: boolean | undefined;
   readonly key?: string | undefined;
   readonly ttlMs?: number | undefined;
 }
-
 export function useHyResource<T>(loader: () => Promise<T>, options?: UseHyResourceOptions) {
   const enabled = options?.enabled ?? true;
   const resourceKey = options?.key;
-  const ttlMs = options?.ttlMs ?? 30_000;
-
-  const [data, setData] = useState<T | null>(() => {
-    if (resourceKey) {
-      return sharedResourceStore.get<T>(resourceKey);
-    }
-    return null;
-  });
-
-  const [loading, setLoading] = useState<boolean>(() => {
-    if (!enabled) return false;
-    if (resourceKey && sharedResourceStore.get<T>(resourceKey) !== null) {
-      return false;
-    }
-    return true;
-  });
-
-  const [error, setError] = useState<string | null>(null);
+  const ttlMs = options?.ttlMs ?? resourcePolicy.defaultTtlMs;
+  const [state, setState] = useState<{
+    key: string | undefined;
+    data: T | null;
+    loading: boolean;
+    error: string | null;
+  }>(() => ({
+    key: resourceKey,
+    data: resourceKey ? sharedResourceStore.get<T>(resourceKey) : null,
+    loading: enabled && (!resourceKey || sharedResourceStore.get<T>(resourceKey) === null),
+    error: null,
+  }));
   const generation = useRef(0);
-  const inFlightRef = useRef<Promise<T> | null>(null);
-  const prevKeyRef = useRef(resourceKey);
-
-  // Synchronously switch cached data if resourceKey changes to avoid showing previous booking
-  if (prevKeyRef.current !== resourceKey) {
-    prevKeyRef.current = resourceKey;
-    const cached = resourceKey ? sharedResourceStore.get<T>(resourceKey) : null;
-    setData(cached);
-    if (cached !== null) {
-      setLoading(false);
-      setError(null);
-    }
-  }
-
+  const inFlight = useRef<Promise<T> | null>(null);
   const reload = useCallback(
-    async (force: boolean = false) => {
+    async (force = true) => {
       if (!enabled) return;
       const request = ++generation.current;
-      const hasCached = resourceKey ? sharedResourceStore.get<T>(resourceKey) !== null : false;
-      if (!hasCached || force) {
-        setLoading(true);
-      }
-      setError(null);
+      setState((previous) => ({
+        key: resourceKey,
+        data: previous.key === resourceKey ? previous.data : null,
+        loading: true,
+        error: null,
+      }));
+      let promise: Promise<T> | null = null;
       try {
-        let promise: Promise<T>;
-        if (resourceKey) {
-          promise = fetchWithDeduplication(resourceKey, loader, { ttlMs, force });
-        } else {
-          promise = inFlightRef.current ?? loader();
-          inFlightRef.current = promise;
-        }
-
-        const value = await promise;
-        if (request === generation.current) {
-          setData(value);
-          setError(null);
-        }
-      } catch (e) {
-        if (request === generation.current) {
-          if (!hasCached) {
-            setData(null);
-          }
-          setError(e instanceof Error ? e.message : 'Chưa tải được dữ liệu. Hãy thử lại.');
-        }
+        promise = resourceKey
+          ? fetchWithDeduplication(resourceKey, loader, { ttlMs, force })
+          : (inFlight.current ?? Promise.resolve().then(loader));
+        if (!resourceKey) inFlight.current = promise;
+        const data = await promise;
+        if (request === generation.current)
+          setState({ key: resourceKey, data, loading: false, error: null });
+      } catch (error) {
+        if (request === generation.current)
+          setState((previous) => ({
+            ...previous,
+            loading: false,
+            error:
+              error instanceof ResourceSupersededError
+                ? null
+                : error instanceof Error
+                  ? error.message
+                  : 'Chưa tải được dữ liệu. Hãy thử lại.',
+          }));
       } finally {
-        if (inFlightRef.current) {
-          inFlightRef.current = null;
-        }
-        if (request === generation.current) {
-          setLoading(false);
-        }
+        if (promise && inFlight.current === promise) inFlight.current = null;
       }
     },
     [enabled, loader, resourceKey, ttlMs],
   );
-
   useEffect(() => {
     if (!enabled) return;
     const task = setTimeout(() => void reload(false), 0);
     return () => {
       clearTimeout(task);
       generation.current += 1;
+      inFlight.current = null;
     };
   }, [enabled, reload]);
-
-  return { data, loading: enabled ? loading : false, error, reload };
+  const sameResource = state.key === resourceKey;
+  return {
+    data: sameResource ? state.data : resourceKey ? sharedResourceStore.get<T>(resourceKey) : null,
+    loading: enabled && (!sameResource || state.loading),
+    error: sameResource ? state.error : null,
+    reload,
+  };
 }

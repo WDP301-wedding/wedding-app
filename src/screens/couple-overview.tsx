@@ -89,44 +89,55 @@ export function CoupleOverviewScreen({
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
   const currentBookingRequestIdRef = useRef(0);
+  const listGeneration = useRef(0);
 
   const load = useCallback(
     async (cursor?: string) => {
+      const generation = ++listGeneration.current;
       setPending(true);
       setError(null);
       try {
         if (cursor) {
           // Pagination: only query subsequent bookings page without re-fetching profile and venue
           const page = await session.authorize((token) => experience.overview(token, cursor));
+          if (generation !== listGeneration.current) return;
           setOverview((old) => (old ? { ...page, data: [...old.data, ...page.data] } : page));
         } else {
-          // Initial or full refresh: query overview, profile, and restaurant catalog concurrently
-          const cachedRestaurant = sharedResourceStore.get<{ displayName?: string }>(
-            'restaurantCatalog',
-          );
-          const [page, prof, restaurant] = await Promise.all([
-            session.authorize((token) => experience.overview(token)),
-            session.authorize((token) => experience.profile(token)).catch(() => null),
-            cachedRestaurant
-              ? Promise.resolve(cachedRestaurant)
-              : invitation.getRestaurantCatalog().catch(() => null),
-          ]);
+          void session
+            .authorize((token) => experience.profile(token))
+            .then((value) => {
+              if (generation === listGeneration.current) setProfile(value);
+            })
+            .catch(() => {
+              /* Optional account card retains its previous state. */
+            });
+          void sharedResourceStore
+            .fetchWithDeduplication(
+              'restaurantCatalog',
+              () => invitation.getRestaurantCatalog(),
+              300_000,
+            )
+            .then((value) => {
+              if (generation === listGeneration.current && value.displayName)
+                setVenueName(value.displayName);
+            })
+            .catch(() => {
+              /* Venue details do not block the booking list. */
+            });
+          const page = await session.authorize((token) => experience.overview(token));
+          if (generation !== listGeneration.current) return;
           setOverview(page);
-          if (prof) setProfile(prof);
-          if (restaurant) {
-            sharedResourceStore.set('restaurantCatalog', restaurant, 300_000);
-            if (restaurant.displayName) setVenueName(restaurant.displayName);
-          }
         }
         setLastRefreshedAt(new Date());
       } catch (caught) {
+        if (generation !== listGeneration.current) return;
         if (caught instanceof ApiClientError && [401, 403, 404].includes(caught.status ?? 0)) {
           setOverview(null);
           setPlan(null);
         }
         setError('Chưa tải được kế hoạch. Kiểm tra kết nối và thử lại.');
       } finally {
-        setPending(false);
+        if (generation === listGeneration.current) setPending(false);
       }
     },
     [session],
@@ -134,6 +145,10 @@ export function CoupleOverviewScreen({
 
   useEffect(() => {
     queueMicrotask(() => void load());
+    return () => {
+      listGeneration.current += 1;
+      currentBookingRequestIdRef.current += 1;
+    };
   }, [load]);
 
   const open = useCallback(
@@ -152,7 +167,7 @@ export function CoupleOverviewScreen({
         if (reqId !== currentBookingRequestIdRef.current) return;
         if (result.status === 'confirmed') {
           setPlan(result.snapshot);
-          sharedResourceStore.set(`booking:${id}:proposal`, result.snapshot, 60_000);
+          // Canonical raw proposal is cached by the planning gateway, not this UI projection.
 
           // Legal name resolution with strict legal precedence:
           // 1. Authoritative signed/approved Contract document (highest precedence)
@@ -162,13 +177,14 @@ export function CoupleOverviewScreen({
             let namesResolved = false;
 
             if (typeof billing.loadContracts === 'function') {
-              const contracts = await session
-                .authorize((token) => billing.loadContracts(token, id))
+              const contracts = await sharedResourceStore
+                .fetchWithDeduplication(
+                  `booking:${id}:contracts`,
+                  () => session.authorize((token) => billing.loadContracts(token, id)),
+                  60_000,
+                )
                 .catch(() => null);
               if (reqId !== currentBookingRequestIdRef.current) return;
-              if (contracts) {
-                sharedResourceStore.set(`booking:${id}:contracts`, contracts, 60_000);
-              }
               const latestContract = contracts?.revisions?.[0]?.document;
               if (latestContract) {
                 const b = latestContract.brideName?.trim();

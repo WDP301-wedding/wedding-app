@@ -1,3 +1,4 @@
+import { useResultFeedback } from '@/lib/toast/feedback';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
@@ -144,6 +145,7 @@ export function AndroidBillingScreen({
   const [pending, setPending] = useState(false);
   const [gated, setGated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useResultFeedback({ error: error });
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const busy = useRef(false);

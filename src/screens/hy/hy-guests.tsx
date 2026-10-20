@@ -1,3 +1,5 @@
+import { useResultFeedback } from '@/lib/toast/feedback';
+import { toast } from '@/lib/toast/store';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import {
@@ -123,6 +125,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   );
   const [headcountSaving, setHeadcountSaving] = useState(false);
   const [headcountError, setHeadcountError] = useState<string | null>(null);
+  useResultFeedback({ error: headcountError });
 
   const bookingId = activeBooking?.bookingId;
 
@@ -223,6 +226,8 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
       if (bookingId) {
         sharedResourceStore.invalidate(`booking:${bookingId}:guests-data`);
       }
+      toast.success('Đã cập nhật số khách dự kiến.');
+      sharedResourceStore.invalidate(`booking:${bookingId}:`);
       setEditHeadcountOpen(false);
       await reload();
     } catch (caught: any) {

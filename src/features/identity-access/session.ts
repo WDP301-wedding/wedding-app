@@ -1,3 +1,4 @@
+import { clearRequestMetrics } from '@/lib/api/request-metrics';
 import { AppState, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { randomUUID } from 'expo-crypto';
@@ -5,6 +6,7 @@ import { randomUUID } from 'expo-crypto';
 import type { components } from '@/lib/api/generated/schema';
 import { ApiClientError, createApiClient, type ApiClient } from '@/lib/api/client';
 import { sharedResourceStore } from '@/screens/hy/resource-store';
+import { toast } from '@/lib/toast/store';
 
 type Role = components['schemas']['CurrentUserResponse']['data']['roles'][number];
 
@@ -368,6 +370,8 @@ export class AndroidIdentitySession {
     this.scheduleProactiveRefresh();
     try {
       const actor = await this.api.getCurrentUser(credential.accessToken);
+      sharedResourceStore.setScope(`${actor.accountId}:${actor.sessionId}`);
+      toast.clear();
       this.state = {
         status: 'authenticated',
         access: actor.roles.includes('COUPLE') ? 'full' : 'denied',
@@ -391,10 +395,12 @@ export class AndroidIdentitySession {
     }
     this.accessToken = null;
     this.currentRefreshToken = null;
+    sharedResourceStore.clear();
+    toast.clear();
+    clearRequestMetrics();
     this.state = anonymousSnapshot;
     this.notify();
     await this.refreshStore.clear();
-    sharedResourceStore.clear();
   }
 }
 

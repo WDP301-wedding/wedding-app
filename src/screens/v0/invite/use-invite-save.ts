@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useResultFeedback } from '@/lib/toast/feedback';
 import type {
   AppDesignView,
   AppInvitationGateway,
@@ -51,6 +52,7 @@ export function useInviteSave({
 }: UseInviteSaveParams) {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  useResultFeedback({ error: editError });
   const [conflictState, setConflictState] = useState<ConflictState | null>(null);
 
   const pendingSaveRef = useRef(false);

@@ -1,4 +1,5 @@
 import '@/lib/alert';
+import { ToastProvider } from '@/lib/toast/toast-host';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router/stack';
 import { StatusBar } from 'expo-status-bar';
@@ -27,7 +28,7 @@ export default function RootLayout() {
       </View>
     );
   return (
-    <>
+    <ToastProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -42,6 +43,6 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="reset" options={{ headerShown: false }} />
       </Stack>
-    </>
+    </ToastProvider>
   );
 }

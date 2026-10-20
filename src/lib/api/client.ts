@@ -1,3 +1,4 @@
+import { beginRequestMetric } from './request-metrics';
 import { randomUUID } from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
 import createClient, { type Client } from 'openapi-fetch';
@@ -133,6 +134,8 @@ function createFetchWithPolicy(
     const sentRequestId = headers.get('x-request-id') ?? createRequestId();
     headers.set('x-request-id', sentRequestId);
 
+    const metric = beginRequestMetric(request, sentRequestId);
+    let outcome: 'ok' | 'error' | 'aborted' | 'timeout' = 'error';
     const controller = new AbortController();
     let timedOut = false;
     const abortFromCaller = () => controller.abort(request.signal.reason);
@@ -152,9 +155,12 @@ function createFetchWithPolicy(
       const response = await fetchImplementation(
         new Request(request, { headers, signal: controller.signal }),
       );
+      metric?.headers(response);
       await validateResponse(response, sentRequestId);
+      outcome = response.ok ? 'ok' : 'error';
       return response;
     } catch (error) {
+      outcome = timedOut ? 'timeout' : controller.signal.aborted ? 'aborted' : 'error';
       if (error instanceof ApiClientError) {
         throw error;
       }
@@ -187,6 +193,7 @@ function createFetchWithPolicy(
         cause: error,
       });
     } finally {
+      metric?.finish(outcome);
       clearTimeout(timeout);
       request.signal.removeEventListener('abort', abortFromCaller);
     }

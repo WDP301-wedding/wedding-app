@@ -129,6 +129,8 @@ export function V0InviteTab({
         );
         if (reqId !== activeRequestCounterRef.current) return;
         setDesigns(items);
+        setLoading(false);
+
         const firstItem = items[0];
         if (firstItem) {
           const detail = await session.authorize((token) =>

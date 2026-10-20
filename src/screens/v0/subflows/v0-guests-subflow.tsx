@@ -22,25 +22,35 @@ export function V0GuestsSubflow({ activeBooking, facts, session }: V0CommonProps
       setLoading(true);
       setError(null);
       try {
-        const [loadedGroups, loadedGuests] = await session.authorize(async (token) => {
-          const gGroups = await coupleBilling.loadGuestGroups(token, activeBooking.bookingId);
-          let firstPage = await coupleBilling.loadGuests(token, activeBooking.bookingId);
-          const allGuests = [...firstPage.items];
-          let page = firstPage;
-          const seen = new Set<string>();
-          while (page.nextCursor) {
-            const cursor = page.nextCursor;
-            if (seen.has(cursor)) break;
-            seen.add(cursor);
-            page = await coupleBilling.loadGuests(token, activeBooking.bookingId, cursor);
-            if (page.sourceSequence !== firstPage.sourceSequence) break;
-            allGuests.push(...page.items);
-          }
-          return [gGroups, allGuests] as const;
+        const [loadedGroups, firstPage] = await session.authorize(async (token) => {
+          return Promise.all([
+            coupleBilling.loadGuestGroups(token, activeBooking.bookingId),
+            coupleBilling.loadGuests(token, activeBooking.bookingId),
+          ]);
         });
         if (active) {
           setGroups(loadedGroups);
-          setGuests(loadedGuests);
+          setGuests(firstPage.items);
+          setLoading(false);
+        }
+
+        if (firstPage.nextCursor) {
+          let page = firstPage;
+          const seen = new Set<string>();
+          const accumulated = [...firstPage.items];
+          while (page.nextCursor && active) {
+            const cursor = page.nextCursor;
+            if (seen.has(cursor)) break;
+            seen.add(cursor);
+            page = await session.authorize((token) =>
+              coupleBilling.loadGuests(token, activeBooking.bookingId, cursor),
+            );
+            if (page.sourceSequence !== firstPage.sourceSequence) break;
+            accumulated.push(...page.items);
+            if (active) {
+              setGuests([...accumulated]);
+            }
+          }
         }
       } catch (caught) {
         if (active) {

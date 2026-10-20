@@ -1,6 +1,6 @@
 import { useResultFeedback } from '@/lib/toast/feedback';
 import { toast } from '@/lib/toast/store';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Linking, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import {
   HyText as Text,
@@ -127,10 +127,15 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   const [headcountError, setHeadcountError] = useState<string | null>(null);
   useResultFeedback({ error: headcountError });
 
+  const [additionalGuests, setAdditionalGuests] = useState<Guest[]>([]);
+  const [loadingAdditional, setLoadingAdditional] = useState(false);
+  const paginationRequestIdRef = useRef(0);
+
   const bookingId = activeBooking?.bookingId;
 
   const loader = useCallback(async () => {
     if (!session || !bookingId) throw new Error('Chưa chọn tiệc cưới.');
+    setAdditionalGuests([]);
     const [groupsRes, firstRes, attendanceRes, guestPlanRes] = await Promise.allSettled([
       session.authorize((t) => billing.loadGuestGroups(t, bookingId)),
       session.authorize((t) => billing.loadGuests(t, bookingId)),
@@ -148,31 +153,71 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
     const attendance = attendanceRes.status === 'fulfilled' ? attendanceRes.value : null;
     const guestPlan = guestPlanRes.status === 'fulfilled' ? guestPlanRes.value : null;
 
-    let page = first;
-    const guests = [...first.items];
-    const seen = new Set<string>();
-    while (page.nextCursor) {
-      const cursor = page.nextCursor;
-      if (seen.has(cursor))
-        throw new Error('Danh sách khách chưa được tải đầy đủ. Vui lòng tải lại.');
-      seen.add(cursor);
-      page = await session.authorize((t) => billing.loadGuests(t, bookingId, cursor));
-      if (page.sourceSequence !== first.sourceSequence)
-        throw new Error('Danh sách khách vừa thay đổi. Vui lòng tải lại.');
-      guests.push(...page.items);
-    }
-
-    return { groups, guests, attendance, guestPlan };
+    return {
+      groups,
+      guests: first.items,
+      nextCursor: first.nextCursor ?? null,
+      sourceSequence: first.sourceSequence,
+      attendance,
+      guestPlan,
+    };
   }, [session, bookingId]);
 
   const { data, error, loading, reload } = useHyResource(loader, {
     key: bookingId ? `booking:${bookingId}:guests-data` : undefined,
     ttlMs: 60_000,
   });
-  const guests = useMemo(
-    () => data?.guests.filter((g) => g.status === 'ACTIVE') ?? [],
-    [data?.guests],
+
+  // Background progressive pagination for remaining guests
+  useEffect(() => {
+    if (!data?.nextCursor || !session || !bookingId) return;
+
+    let active = true;
+    const reqId = ++paginationRequestIdRef.current;
+    void (async () => {
+      await Promise.resolve();
+      if (!active) return;
+      setLoadingAdditional(true);
+      let cursor: string | null = data.nextCursor;
+      const seen = new Set<string>();
+      const accumulated: Guest[] = [];
+
+      try {
+        while (cursor && active && reqId === paginationRequestIdRef.current) {
+          if (seen.has(cursor)) break;
+          seen.add(cursor);
+          const page = await session.authorize((t) => billing.loadGuests(t, bookingId, cursor!));
+          if (page.sourceSequence !== data.sourceSequence) {
+            if (active) void reload(true);
+            return;
+          }
+          accumulated.push(...page.items);
+          if (active && reqId === paginationRequestIdRef.current) {
+            setAdditionalGuests([...accumulated]);
+          }
+          cursor = page.nextCursor ?? null;
+        }
+      } catch {
+        // Non-blocking background pagination failure
+      } finally {
+        if (active && reqId === paginationRequestIdRef.current) {
+          setLoadingAdditional(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      paginationRequestIdRef.current += 1;
+    };
+  }, [data?.nextCursor, data?.sourceSequence, session, bookingId, reload]);
+
+  const allRawGuests = useMemo(
+    () => [...(data?.guests ?? []), ...additionalGuests],
+    [data?.guests, additionalGuests],
   );
+
+  const guests = useMemo(() => allRawGuests.filter((g) => g.status === 'ACTIVE'), [allRawGuests]);
   const groups = useMemo(
     () => data?.groups.filter((g) => g.status === 'ACTIVE') ?? [],
     [data?.groups],
@@ -257,6 +302,15 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
   const listEmpty = useMemo(() => {
     if (loading && !data) return <HyState kind="loading" />;
     if (error) return <HyState kind="error" body={error} onRetry={() => void reload()} />;
+    if (search && loadingAdditional) {
+      return (
+        <HyState
+          kind="loading"
+          title="Đang tìm kiếm…"
+          body="Đang nạp thêm danh sách khách mời để đối chiếu kết quả tìm kiếm…"
+        />
+      );
+    }
     return (
       <HyState
         kind="empty"
@@ -264,7 +318,7 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
         body="Danh sách tên là tùy chọn. Sơ đồ bàn tiệc vẫn hoạt động theo nhóm mà không cần nhập tên."
       />
     );
-  }, [loading, data, error, search, reload]);
+  }, [loading, data, error, search, loadingAdditional, reload]);
 
   const listHeader = useMemo(
     () => (
@@ -434,6 +488,13 @@ export function HyGuests({ activeBooking, facts, session, onNavigate }: V0Common
           renderItem={renderItem}
           ListHeaderComponent={listHeader}
           ListEmptyComponent={listEmpty}
+          ListFooterComponent={
+            loadingAdditional ? (
+              <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, color: hy.muted }}>Đang tải thêm khách mời…</Text>
+              </View>
+            ) : null
+          }
           contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

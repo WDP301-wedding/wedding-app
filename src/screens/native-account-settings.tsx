@@ -1,4 +1,5 @@
 import { useResultFeedback, notify } from '@/lib/toast/feedback';
+import { OtpResendCountdown } from '@/components/otp-resend-countdown';
 import { HyText as Text, HyButton, HyInput } from '@/components/hy-ui';
 import '@/lib/alert';
 import { useCallback, useEffect, useState } from 'react';
@@ -36,11 +37,7 @@ export function NativeAccountSettings({
   const [code, setCode] = useState('');
   const [remaining, setRemaining] = useState(0);
 
-  useEffect(() => {
-    if (remaining <= 0) return;
-    const timer = setTimeout(() => setRemaining((value) => Math.max(0, value - 1)), 1000);
-    return () => clearTimeout(timer);
-  }, [remaining]);
+  const finishCooldown = useCallback(() => setRemaining(0), []);
 
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -64,11 +61,12 @@ export function NativeAccountSettings({
   const load = useCallback(async () => {
     setPending(true);
     setError(null);
+    // These reads are independent. A slow/failed profile must not serialize session inventory.
+    void loadSessions();
     try {
       const value = await session.authorize((token) => experience.profile(token));
       setProfile(value);
       setName(value.displayName ?? '');
-      void loadSessions();
     } catch {
       setError('Không tải được hồ sơ từ máy chủ. Vui lòng kiểm tra mạng và thử lại.');
     } finally {
@@ -298,9 +296,11 @@ export function NativeAccountSettings({
               void changeRequest(true);
             })}
           {challenge && remaining > 0 && (
-            <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-              Gửi lại sau {remaining}s
-            </Text>
+            <OtpResendCountdown
+              seconds={remaining}
+              onComplete={finishCooldown}
+              style={[type.caption, { color: colors.secondaryLabel }]}
+            />
           )}
 
           <Text style={[type.title, { color: brand.display, marginTop: 24 }]}>

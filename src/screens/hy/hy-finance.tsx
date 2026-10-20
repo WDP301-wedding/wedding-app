@@ -1,3 +1,4 @@
+import { money } from '@/lib/formatters';
 import React, { useCallback } from 'react';
 import { View } from 'react-native';
 import {
@@ -17,8 +18,6 @@ import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from './use-hy-resource';
 const billing = createCoupleBillingGateway();
 const api = createRestoredFlowsGateway();
-const money = (v: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
 
 const FINANCE_RING_DOTS = Array.from({ length: 72 }, (_, i) => {
   const angle = i * 5;

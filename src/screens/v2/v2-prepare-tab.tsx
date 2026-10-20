@@ -18,6 +18,7 @@ import { V0InviteTab } from '../v0/v0-invite-tab';
 import { V0PrintSubflow } from '../v0/v0-subflows';
 import type { V0CommonProps } from '../v0/v0-types';
 import { useHyResource } from '../hy/use-hy-resource';
+import { resourcePolicy } from '../hy/resource-store';
 
 const billing = createCoupleBillingGateway();
 
@@ -27,27 +28,40 @@ export function V2PrepareTab(props: V0CommonProps) {
   const [segment, setSegment] = useState<PrepareSegment>('guests');
   const portalUrl = readPublicEnv().EXPO_PUBLIC_WEB_PORTAL_URL;
 
-  // Seating layout loader
+  const session = props.session;
+  const bookingId = props.activeBooking?.bookingId;
+  const seatingEnabled = segment === 'seating' && Boolean(session && bookingId);
   const seatingLoader = useCallback(async () => {
-    if (!props.session || !props.activeBooking || !billing.loadSeatingLayoutOptions) {
-      return { options: null, groups: [] };
-    }
-    const bookingId = props.activeBooking.bookingId;
-    const [optionsRes, groupsRes] = await Promise.allSettled([
-      props.session.authorize((t) => billing.loadSeatingLayoutOptions!(t, bookingId)),
-      props.session.authorize((t) => billing.loadGuestGroups(t, bookingId)),
-    ]);
-    return {
-      options: optionsRes.status === 'fulfilled' ? optionsRes.value : null,
-      groups: groupsRes.status === 'fulfilled' ? groupsRes.value : [],
-    };
-  }, [props.session, props.activeBooking]);
-
+    if (!session || !bookingId || !billing.loadSeatingLayoutOptions) return null;
+    return session.authorize((token) => billing.loadSeatingLayoutOptions!(token, bookingId));
+  }, [session, bookingId]);
+  const groupsLoader = useCallback(async () => {
+    if (!session || !bookingId) return [];
+    return session.authorize((token) => billing.loadGuestGroups(token, bookingId));
+  }, [session, bookingId]);
   const {
-    data: seatingData,
+    data: options,
     loading: seatingLoading,
-    reload: reloadSeating,
-  } = useHyResource(seatingLoader, { enabled: segment === 'seating' });
+    error: seatingError,
+    reload: reloadOptions,
+  } = useHyResource(seatingLoader, {
+    enabled: seatingEnabled,
+    key: bookingId ? `booking:${bookingId}:seating-options` : undefined,
+    ttlMs: resourcePolicy.defaultTtlMs,
+  });
+  const {
+    data: groups,
+    error: groupsError,
+    reload: reloadGroups,
+  } = useHyResource(groupsLoader, {
+    enabled: seatingEnabled,
+    key: bookingId ? `booking:${bookingId}:seating-groups` : undefined,
+    ttlMs: resourcePolicy.defaultTtlMs,
+  });
+  const reloadSeating = useCallback(
+    () => Promise.all([reloadOptions(), reloadGroups()]),
+    [reloadOptions, reloadGroups],
+  );
 
   const bookingPortalUrl =
     portalUrl && props.activeBooking?.bookingId
@@ -122,10 +136,19 @@ export function V2PrepareTab(props: V0CommonProps) {
               </Text>
             </HyCard>
 
+            {seatingError || groupsError ? (
+              <HyState
+                kind="error"
+                title="Chưa tải đủ thông tin sơ đồ"
+                body={seatingError ?? groupsError ?? ''}
+                onRetry={() => void reloadSeating()}
+              />
+            ) : null}
+
             {/* Seating Layout Options (Reference Templates) */}
-            {seatingLoading && !seatingData ? (
+            {seatingLoading && !options ? (
               <HyState kind="loading" />
-            ) : seatingData?.options?.items && seatingData.options.items.length > 0 ? (
+            ) : options?.items && options.items.length > 0 ? (
               <HyCard>
                 <Text style={{ fontSize: 15, fontWeight: '700' }}>
                   Tùy chọn bố cục mẫu tham khảo
@@ -134,7 +157,7 @@ export function V2PrepareTab(props: V0CommonProps) {
                   Các mẫu bố cục không gian tương thích với sảnh tiệc. Sơ đồ chính thức cần được xác
                   nhận trên Web.
                 </Text>
-                {seatingData.options.items.map((opt) => (
+                {options.items.map((opt) => (
                   <View
                     key={opt.layoutTemplateVersionId}
                     style={{
@@ -169,7 +192,7 @@ export function V2PrepareTab(props: V0CommonProps) {
                   </View>
                 ))}
               </HyCard>
-            ) : (
+            ) : !seatingError ? (
               <HyCard style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: hy.secondary }}>
                   Sơ đồ bàn hoạt động theo nhóm khách
@@ -179,16 +202,16 @@ export function V2PrepareTab(props: V0CommonProps) {
                   phải có danh sách tên từng khách mời.
                 </Text>
               </HyCard>
-            )}
+            ) : null}
 
             {/* Assigned Groups in Seating */}
-            {seatingData?.groups && seatingData.groups.length > 0 && (
+            {groups && groups.length > 0 && (
               <HyCard>
                 <Text style={{ fontSize: 15, fontWeight: '700' }}>
                   Các nhóm khách tham gia sơ đồ
                 </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-                  {seatingData.groups.map((grp) => (
+                  {groups.map((grp) => (
                     <View
                       key={grp.guestGroupId}
                       style={{

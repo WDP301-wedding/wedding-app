@@ -1,3 +1,4 @@
+import { money } from '@/lib/formatters';
 import React from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
@@ -11,8 +12,7 @@ import type {
 import { useWeddingTheme } from '@/theme';
 import { styles } from '../v0-catalog-subflow.styles';
 
-export const money = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+export { money };
 
 export function HallItemCard({
   hall,

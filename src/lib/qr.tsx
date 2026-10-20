@@ -252,7 +252,7 @@ export interface CanonicalQrCodeProps {
 /**
  * Native React Native component that renders a real, scannable QR Code.
  */
-export function CanonicalQrCode({
+export const CanonicalQrCode = React.memo(function CanonicalQrCode({
   payload,
   size = 160,
   color = '#232321',
@@ -265,6 +265,20 @@ export function CanonicalQrCode({
       return [];
     }
   }, [payload]);
+
+  const rows = React.useMemo(
+    () =>
+      matrix.map((row) => {
+        const runs: { start: number; length: number; dark: boolean }[] = [];
+        row.forEach((dark, index) => {
+          const previous = runs[runs.length - 1];
+          if (previous && previous.dark === dark) previous.length += 1;
+          else runs.push({ start: index, length: 1, dark });
+        });
+        return runs;
+      }),
+    [matrix],
+  );
 
   if (matrix.length === 0) {
     return <View style={[styles.container, { width: size, height: size, backgroundColor }]} />;
@@ -279,15 +293,15 @@ export function CanonicalQrCode({
       accessible={true}
       style={[styles.container, { width: size, height: size, backgroundColor }]}
     >
-      {matrix.map((row, r) => (
+      {rows.map((row, r) => (
         <View key={r} style={[styles.row, { height: cellSize }]}>
-          {row.map((cell, c) => (
+          {row.map((run) => (
             <View
-              key={c}
+              key={run.start}
               style={{
-                width: cellSize,
+                width: cellSize * run.length,
                 height: cellSize,
-                backgroundColor: cell ? color : backgroundColor,
+                backgroundColor: run.dark ? color : backgroundColor,
               }}
             />
           ))}
@@ -295,7 +309,7 @@ export function CanonicalQrCode({
       ))}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

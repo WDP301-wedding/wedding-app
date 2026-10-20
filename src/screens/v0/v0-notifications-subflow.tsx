@@ -77,30 +77,50 @@ export function V0NotificationsSubflow({
     };
   }, []);
 
+  const loadRequestIdRef = useRef(0);
+
   const loadInboxData = useCallback(async () => {
     if (!session) {
       setLoading(false);
       return;
     }
+    const currentReq = ++loadRequestIdRef.current;
     setError(null);
-    try {
-      const [inboxRes, unreadRes] = await Promise.all([
-        session.authorize((token) => notificationGateway.listInbox(token, { limit: 30 })),
-        session.authorize((token) => notificationGateway.countUnread(token)),
-      ]);
-      setInbox(inboxRes.items);
-      setNextCursor(inboxRes.nextCursor ?? null);
-      setUnreadCount(unreadRes);
-      onUnreadCountChanged?.(unreadRes);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'Không thể tải hộp thư thông báo. Vui lòng kiểm tra kết nối.',
-      );
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+
+    const inboxPromise = session
+      .authorize((token) => notificationGateway.listInbox(token, { limit: 30 }))
+      .then((inboxRes) => {
+        if (currentReq === loadRequestIdRef.current) {
+          setInbox(inboxRes.items);
+          setNextCursor(inboxRes.nextCursor ?? null);
+          setLoading(false);
+        }
+      })
+      .catch((caught) => {
+        if (currentReq === loadRequestIdRef.current) {
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : 'Không thể tải hộp thư thông báo. Vui lòng kiểm tra kết nối.',
+          );
+          setLoading(false);
+        }
+      });
+
+    const unreadPromise = session
+      .authorize((token) => notificationGateway.countUnread(token))
+      .then((unreadRes) => {
+        if (currentReq === loadRequestIdRef.current) {
+          setUnreadCount(unreadRes);
+          onUnreadCountChanged?.(unreadRes);
+        }
+      })
+      .catch(() => {
+        // Non-blocking unread count failure
+      });
+
+    await Promise.allSettled([inboxPromise, unreadPromise]);
   }, [session, onUnreadCountChanged]);
 
   const loadPreferencesData = useCallback(async () => {
@@ -159,7 +179,11 @@ export function V0NotificationsSubflow({
       const more = await session.authorize((token) =>
         notificationGateway.listInbox(token, { cursor: nextCursor, limit: 30 }),
       );
-      setInbox((prev) => [...prev, ...more.items]);
+      setInbox((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id));
+        const newItems = more.items.filter((i) => !existingIds.has(i.id));
+        return [...prev, ...newItems];
+      });
       setNextCursor(more.nextCursor ?? null);
     } catch (caught) {
       notify(

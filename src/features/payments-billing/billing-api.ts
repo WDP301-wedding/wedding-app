@@ -186,31 +186,32 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
   const headers = (token: string) => ({ Authorization: `Bearer ${token}` });
   return {
     async loadContext(token, bookingId) {
-      const { data } = await api().GET('/bookings/{bookingId}/proposal', {
-        params: { path: { bookingId } },
-        headers: headers(token),
-        cache: 'no-store',
-      });
-      const value = required(data);
+      const [value, contractsRes] = await Promise.all([
+        api()
+          .GET('/bookings/{bookingId}/proposal', {
+            params: { path: { bookingId } },
+            headers: headers(token),
+            cache: 'no-store',
+          })
+          .then(({ data }) => required(data)),
+        api()
+          .GET('/bookings/{bookingId}/contracts', {
+            params: { path: { bookingId } },
+            headers: headers(token),
+            cache: 'no-store',
+          })
+          .catch(() => null),
+      ]);
 
       let contractRevisionId: string | null = null;
       let documentDigest: string | null = null;
-      try {
-        const contractsRes = await api().GET('/bookings/{bookingId}/contracts', {
-          params: { path: { bookingId } },
-          headers: headers(token),
-          cache: 'no-store',
-        });
-        const contractData = contractsRes.data?.data as CommercialContractView | undefined;
-        const approvedContract = contractData?.revisions?.find(
-          (r: { readonly state: string }) => r.state === 'APPROVED',
-        );
-        if (approvedContract) {
-          contractRevisionId = approvedContract.revisionId;
-          documentDigest = approvedContract.documentDigest;
-        }
-      } catch {
-        // Non-blocking
+      const contractData = contractsRes?.data?.data as CommercialContractView | undefined;
+      const approvedContract = contractData?.revisions?.find(
+        (revision) => revision.state === 'APPROVED',
+      );
+      if (approvedContract) {
+        contractRevisionId = approvedContract.revisionId;
+        documentDigest = approvedContract.documentDigest;
       }
 
       return {

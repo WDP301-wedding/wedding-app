@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 import { RotateCcwIcon } from '@/components/v0-primitives';
@@ -15,82 +15,140 @@ import type { V0CommonProps } from './v0-types';
 import { styles } from './v0-catalog-subflow.styles';
 import { DishCard, HallItemCard, MenuPackageCard, money } from './catalog/v0-catalog-cards';
 
+import { sharedResourceStore, fetchWithDeduplication } from '@/screens/hy/resource-store';
+
 export { styles, money };
 
 const catalogGateway = createCatalogGateway();
 
+const RESTAURANT_TTL = 300_000;
+const CATALOG_TTL = 180_000;
+
 export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
   const { tokens } = useWeddingTheme();
   const [tab, setTab] = useState<'restaurant' | 'halls' | 'menus' | 'dishes'>('restaurant');
-  const [restaurant, setRestaurant] = useState<PublicRestaurantView | null>(null);
-  const [halls, setHalls] = useState<PublicHallsView['items']>([]);
+
+  // Initialize from shared cache if available
+  const [restaurant, setRestaurant] = useState<PublicRestaurantView | null>(() =>
+    sharedResourceStore.get<PublicRestaurantView>('restaurantCatalog'),
+  );
+  const [halls, setHalls] = useState<PublicHallsView['items']>(() => {
+    const cached = sharedResourceStore.get<PublicHallsView>('catalog:halls');
+    return cached?.items ?? [];
+  });
+  const [hallsCursor, setHallsCursor] = useState<string | null>(() => {
+    const cached = sharedResourceStore.get<PublicHallsView>('catalog:halls');
+    return cached?.nextCursor ?? null;
+  });
+
   const [selectedHall, setSelectedHall] = useState<PublicHallDetailView | null>(null);
-  const [menuPackages, setMenuPackages] = useState<PublicMenuPackagesView['items']>([]);
-  const [dishes, setDishes] = useState<PublicDishesView['items']>([]);
+  const [menuPackages, setMenuPackages] = useState<PublicMenuPackagesView['items']>(() => {
+    const cached = sharedResourceStore.get<PublicMenuPackagesView>(
+      'catalog:menu-packages:first-page',
+    );
+    return cached?.items ?? [];
+  });
+  const [menusCursor, setMenusCursor] = useState<string | null>(() => {
+    const cached = sharedResourceStore.get<PublicMenuPackagesView>(
+      'catalog:menu-packages:first-page',
+    );
+    return cached?.nextCursor ?? null;
+  });
+
+  const [dishes, setDishes] = useState<PublicDishesView['items']>(() => {
+    const cached = sharedResourceStore.get<PublicDishesView>('catalog:dishes');
+    return cached?.items ?? [];
+  });
+  const [dishesCursor, setDishesCursor] = useState<string | null>(() => {
+    const cached = sharedResourceStore.get<PublicDishesView>('catalog:dishes');
+    return cached?.nextCursor ?? null;
+  });
+
   const [dishSearch, setDishSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    const hasCached = sharedResourceStore.get('restaurantCatalog') !== null;
+    return !hasCached;
+  });
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const fetchCatalogData = useCallback(async () => {
-    try {
-      const [restRes, hallsRes, menusRes, dishesRes] = await Promise.allSettled([
-        catalogGateway.getRestaurant(),
-        catalogGateway.listHalls(),
-        catalogGateway.listMenuPackages(),
-        catalogGateway.listDishes(),
-      ]);
+  const hallReqIdRef = useRef(0);
 
-      const failures: string[] = [];
-      if (restRes.status === 'fulfilled') {
-        setRestaurant(restRes.value);
-      } else {
-        failures.push('Nhà hàng');
-      }
+  const fetchCatalogData = useCallback(async (force: boolean = false) => {
+    setError(null);
+    const failures: string[] = [];
 
-      if (hallsRes.status === 'fulfilled') {
-        setHalls(hallsRes.value.items);
-      } else {
-        failures.push('Sảnh tiệc');
-      }
+    // Load each resource progressively with deduplication & cache
+    const restPromise = fetchWithDeduplication(
+      'restaurantCatalog',
+      () => catalogGateway.getRestaurant(),
+      {
+        ttlMs: RESTAURANT_TTL,
+        force,
+      },
+    )
+      .then((data) => setRestaurant(data))
+      .catch(() => failures.push('Nhà hàng'));
 
-      if (menusRes.status === 'fulfilled') {
-        setMenuPackages(menusRes.value.items);
-      } else {
-        failures.push('Gói thực đơn');
-      }
+    const hallsPromise = fetchWithDeduplication('catalog:halls', () => catalogGateway.listHalls(), {
+      ttlMs: CATALOG_TTL,
+      force,
+    })
+      .then((data) => {
+        setHalls(data.items);
+        setHallsCursor(data.nextCursor ?? null);
+      })
+      .catch(() => failures.push('Sảnh tiệc'));
 
-      if (dishesRes.status === 'fulfilled') {
-        setDishes(dishesRes.value.items);
-      } else {
-        failures.push('Món ăn');
-      }
+    const menusPromise = fetchWithDeduplication(
+      'catalog:menu-packages:first-page',
+      () => catalogGateway.listMenuPackages(),
+      {
+        ttlMs: CATALOG_TTL,
+        force,
+      },
+    )
+      .then((data) => {
+        setMenuPackages(data.items);
+        setMenusCursor(data.nextCursor ?? null);
+      })
+      .catch(() => failures.push('Gói thực đơn'));
 
-      if (failures.length === 4) {
-        setError('Không thể kết nối đến máy chủ danh mục công khai. Vui lòng thử lại.');
-      } else if (failures.length > 0) {
-        setError(`Chưa tải được một số danh mục: ${failures.join(', ')}. Hãy nhấn tải lại.`);
-      }
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'Chưa tải được danh mục dịch vụ từ máy chủ.',
-      );
-    } finally {
-      setLoading(false);
+    const dishesPromise = fetchWithDeduplication(
+      'catalog:dishes',
+      () => catalogGateway.listDishes(),
+      {
+        ttlMs: CATALOG_TTL,
+        force,
+      },
+    )
+      .then((data) => {
+        setDishes(data.items);
+        setDishesCursor(data.nextCursor ?? null);
+      })
+      .catch(() => failures.push('Món ăn'));
+
+    await Promise.allSettled([restPromise, hallsPromise, menusPromise, dishesPromise]);
+
+    if (failures.length === 4) {
+      setError('Không thể kết nối đến máy chủ danh mục công khai. Vui lòng thử lại.');
+    } else if (failures.length > 0) {
+      setError(`Chưa tải được một số danh mục: ${failures.join(', ')}. Hãy nhấn tải lại.`);
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchCatalogData();
+    const task = setTimeout(() => void fetchCatalogData(false), 0);
+    return () => clearTimeout(task);
   }, [fetchCatalogData]);
 
   const loadCatalog = async () => {
     setLoading(true);
     setError(null);
-    await fetchCatalogData();
+    await fetchCatalogData(true);
   };
 
   const handleSelectHall = async (hallId: string) => {
@@ -99,17 +157,79 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
       setDetailError(null);
       return;
     }
+    const currentReq = ++hallReqIdRef.current;
     setLoadingDetail(true);
     setDetailError(null);
     try {
-      const detail = await catalogGateway.getHall(hallId);
-      setSelectedHall(detail);
-    } catch (caught) {
-      setDetailError(
-        caught instanceof Error ? caught.message : 'Chưa tải được chi tiết sảnh tiệc.',
+      const detail = await fetchWithDeduplication(
+        `catalog:hall:${hallId}`,
+        () => catalogGateway.getHall(hallId),
+        { ttlMs: RESTAURANT_TTL },
       );
+      if (currentReq === hallReqIdRef.current) {
+        setSelectedHall(detail);
+      }
+    } catch (caught) {
+      if (currentReq === hallReqIdRef.current) {
+        setDetailError(
+          caught instanceof Error ? caught.message : 'Chưa tải được chi tiết sảnh tiệc.',
+        );
+      }
     } finally {
-      setLoadingDetail(false);
+      if (currentReq === hallReqIdRef.current) {
+        setLoadingDetail(false);
+      }
+    }
+  };
+
+  const handleLoadMoreHalls = async () => {
+    if (!hallsCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await catalogGateway.listHalls({ cursor: hallsCursor });
+      setHalls((prev) => {
+        const ids = new Set(prev.map((h) => h.id));
+        return [...prev, ...res.items.filter((h) => !ids.has(h.id))];
+      });
+      setHallsCursor(res.nextCursor ?? null);
+    } catch {
+      // Non-blocking pagination error
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMoreMenus = async () => {
+    if (!menusCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await catalogGateway.listMenuPackages({ cursor: menusCursor });
+      setMenuPackages((prev) => {
+        const ids = new Set(prev.map((m) => m.id));
+        return [...prev, ...res.items.filter((m) => !ids.has(m.id))];
+      });
+      setMenusCursor(res.nextCursor ?? null);
+    } catch {
+      // Non-blocking pagination error
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleLoadMoreDishes = async () => {
+    if (!dishesCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await catalogGateway.listDishes({ cursor: dishesCursor });
+      setDishes((prev) => {
+        const ids = new Set(prev.map((d) => d.id));
+        return [...prev, ...res.items.filter((d) => !ids.has(d.id))];
+      });
+      setDishesCursor(res.nextCursor ?? null);
+    } catch {
+      // Non-blocking pagination error
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -342,6 +462,22 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
               </Text>
             </View>
           ) : null}
+          {hallsCursor && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tải thêm sảnh tiệc"
+              disabled={loadingMore}
+              onPress={handleLoadMoreHalls}
+              style={[
+                styles.refreshButton,
+                { alignSelf: 'center', marginTop: 8, paddingHorizontal: 16 },
+              ]}
+            >
+              <Text style={{ color: tokens.primary, fontWeight: '600', fontSize: 13 }}>
+                {loadingMore ? 'Đang tải thêm...' : 'Tải thêm sảnh tiệc'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -357,6 +493,22 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
               </Text>
             </View>
           ) : null}
+          {menusCursor && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tải thêm gói thực đơn"
+              disabled={loadingMore}
+              onPress={handleLoadMoreMenus}
+              style={[
+                styles.refreshButton,
+                { alignSelf: 'center', marginTop: 8, paddingHorizontal: 16 },
+              ]}
+            >
+              <Text style={{ color: tokens.primary, fontWeight: '600', fontSize: 13 }}>
+                {loadingMore ? 'Đang tải thêm...' : 'Tải thêm gói thực đơn'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -383,6 +535,22 @@ export function V0CatalogSubflow({ onNavigate }: V0CommonProps) {
               </Text>
             </View>
           ) : null}
+          {dishesCursor && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tải thêm món ăn"
+              disabled={loadingMore}
+              onPress={handleLoadMoreDishes}
+              style={[
+                styles.refreshButton,
+                { alignSelf: 'center', marginTop: 8, paddingHorizontal: 16 },
+              ]}
+            >
+              <Text style={{ color: tokens.primary, fontWeight: '600', fontSize: 13 }}>
+                {loadingMore ? 'Đang tải thêm...' : 'Tải thêm món ăn'}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
     </ScrollView>

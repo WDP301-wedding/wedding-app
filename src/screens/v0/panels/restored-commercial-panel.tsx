@@ -93,18 +93,23 @@ export function RestoredCommercialPanel({
     setLoading(true);
     try {
       const result = await session.authorize(async (token) => {
-        const [proposal, contracts, appendices, invoices, menus] = await Promise.all([
-          sharedResourceStore.fetchWithDeduplication<Proposal>(
-            `booking:${bookingId}:proposal`,
-            () => api.loadProposal(token, bookingId),
-            60_000,
-          ),
+        const proposalPromise = sharedResourceStore.fetchWithDeduplication<Proposal>(
+          `booking:${bookingId}:proposal`,
+          () => api.loadProposal(token, bookingId),
+          60_000,
+        );
+        const legalPromise = proposalPromise.then((p) =>
+          api.coupleProfile(token, p.consultationId),
+        );
+
+        const [proposal, contracts, appendices, invoices, menus, legal] = await Promise.all([
+          proposalPromise,
           allContracts(token, bookingId),
           mode === 'appendix' ? allAppendices(token, bookingId) : Promise.resolve(null),
           api.readInvoices(token, bookingId),
           loadAllMenus(),
+          legalPromise,
         ]);
-        const legal = await api.coupleProfile(token, proposal.consultationId);
         return {
           proposal,
           contracts,

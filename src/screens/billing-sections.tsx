@@ -1,3 +1,4 @@
+import { money } from '@/lib/formatters';
 import { HyButton, HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
 
 import { View } from 'react-native';
@@ -11,8 +12,7 @@ import type {
 import { type, useWeddingTheme } from '@/theme';
 import { billingStyles as styles } from './billing.styles';
 
-export const money = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+export { money };
 
 export const labels: Record<keyof BillingView['totals'], string> = {
   acceptedChargesVnd: 'Tổng tiền phải thanh toán',

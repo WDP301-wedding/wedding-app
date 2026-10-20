@@ -1,3 +1,4 @@
+import { money } from '@/lib/formatters';
 import { sharedResourceStore } from '@/screens/hy/resource-store';
 import { toast } from '@/lib/toast/store';
 import { reportError } from '@/lib/toast/feedback';
@@ -44,8 +45,7 @@ export const message = (e: unknown): string => {
   return e instanceof Error ? e.message : 'Không thể xử lý yêu cầu. Vui lòng thử lại.';
 };
 
-export const money = (v: number) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(v);
+export { money };
 
 export function Button({
   label,

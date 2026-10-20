@@ -43,22 +43,34 @@ export function HomeScreen({
   useEffect(() => {
     let active = true;
     void (async () => {
-      const url = incomingUrl ?? (await Linking.getInitialURL());
+      // Start restoration immediately; URL lookup must not serialize the network request.
+      const [nextSnapshot, url] = await Promise.all([
+        session.restore(),
+        Linking.getInitialURL().catch(() => null),
+      ]);
+      if (!active) return;
       if (url && (url.includes('/reset') || url.includes('#reset'))) {
         setMode('reset-request');
       }
-      if (initialResetToken !== undefined && initialResetToken !== null) {
-        setMode('reset-request');
-      }
-      const nextSnapshot = await session.restore();
-      if (!active) return;
       setSnapshot(nextSnapshot);
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, [initialResetToken, incomingUrl, session]);
+  }, [session]);
+
+  useEffect(() => {
+    // Deep-link updates select the screen without rotating the session again.
+    if (
+      (incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
+      (initialResetToken !== undefined && initialResetToken !== null)
+    ) {
+      const task = setTimeout(() => setMode('reset-request'), 0);
+      return () => clearTimeout(task);
+    }
+    return undefined;
+  }, [initialResetToken, incomingUrl]);
 
   if (loading) {
     return (

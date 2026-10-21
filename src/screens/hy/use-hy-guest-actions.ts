@@ -114,12 +114,11 @@ export function useHyGuestActions({
         billing.updateGuestPlan!(t, bookingId, freshPlan.revision, num),
       );
       if (bookingId) {
-        sharedResourceStore.invalidate(`booking:${bookingId}:guests-data`);
         sharedResourceStore.invalidate(`booking:${bookingId}:guests-aux`);
       }
       toast.success('Đã cập nhật số khách dự kiến.');
       setEditHeadcountOpen(false);
-      await Promise.all([reload(), reloadAux()]);
+      await reloadAux();
     } catch (caught: any) {
       const msg = caught?.message || 'Chưa thể lưu số lượng khách. Vui lòng thử lại.';
       setHeadcountError(`${msg}${caught?.code ? ` [${caught.code}]` : ''}`);

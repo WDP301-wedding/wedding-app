@@ -163,7 +163,19 @@ export function CoupleOverviewScreen({
       setCanonicalGroom('');
 
       try {
-        const result = await session.authorize((token) => planning.loadConfirmed(token, id));
+        const confirmedPromise = session.authorize((token) => planning.loadConfirmed(token, id));
+        const contractsPromise =
+          typeof billing.loadContracts === 'function'
+            ? sharedResourceStore
+                .fetchWithDeduplication(
+                  `booking:${id}:contracts`,
+                  () => session.authorize((token) => billing.loadContracts(token, id)),
+                  60_000,
+                )
+                .catch(() => null)
+            : Promise.resolve(null);
+
+        const result = await confirmedPromise;
         if (reqId !== currentBookingRequestIdRef.current) return;
         if (result.status === 'confirmed') {
           setPlan(result.snapshot);
@@ -176,30 +188,22 @@ export function CoupleOverviewScreen({
           try {
             let namesResolved = false;
 
-            if (typeof billing.loadContracts === 'function') {
-              const contracts = await sharedResourceStore
-                .fetchWithDeduplication(
-                  `booking:${id}:contracts`,
-                  () => session.authorize((token) => billing.loadContracts(token, id)),
-                  60_000,
-                )
-                .catch(() => null);
-              if (reqId !== currentBookingRequestIdRef.current) return;
-              const latestContract = contracts?.revisions?.[0]?.document;
-              if (latestContract) {
-                const b = latestContract.brideName?.trim();
-                const g = latestContract.groomName?.trim();
-                if (b && g) {
-                  setCanonicalBride(b);
-                  setCanonicalGroom(g);
-                  namesResolved = true;
-                } else {
-                  if (b) setCanonicalBride(b);
-                  if (g) setCanonicalGroom(g);
-                }
-                if (latestContract.restaurantName) {
-                  setVenueName(latestContract.restaurantName.trim());
-                }
+            const contracts = await contractsPromise;
+            if (reqId !== currentBookingRequestIdRef.current) return;
+            const latestContract = contracts?.revisions?.[0]?.document;
+            if (latestContract) {
+              const b = latestContract.brideName?.trim();
+              const g = latestContract.groomName?.trim();
+              if (b && g) {
+                setCanonicalBride(b);
+                setCanonicalGroom(g);
+                namesResolved = true;
+              } else {
+                if (b) setCanonicalBride(b);
+                if (g) setCanonicalGroom(g);
+              }
+              if (latestContract.restaurantName) {
+                setVenueName(latestContract.restaurantName.trim());
               }
             }
 

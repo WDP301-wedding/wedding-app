@@ -14,7 +14,18 @@ Copy-Item .env.example .env
 npm run android
 ```
 
-`EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3001` reaches a backend on the host machine from the standard Android emulator. A physical device needs a reachable development-machine address. Use HTTPS outside development.
+The shared backend is `https://wedding-be-render-trial.onrender.com/api/v1`.
+Copy `.env.example` to `.env` for local Expo development. The existing EAS `preview`
+APK profile uses the same Render API and the official web portal. After changing
+public environment variables, fully reload Expo Go or your development app; an
+installed standalone APK needs a new build and installation because these values
+are embedded in its JavaScript bundle. This project does not currently configure
+EAS Update for replacing that bundle over the air.
+
+For a backend on the host machine, use
+`EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3001/api/v1` from the standard Android
+emulator. A physical device needs a reachable development-machine address. Use
+HTTPS outside development.
 
 All `EXPO_PUBLIC_` values are embedded in client output. Never put database credentials, Supabase service-role keys, provider keys, signing material, or EAS access tokens in them. `EXPO_PUBLIC_EAS_PROJECT_ID` remains blank until the Expo project is intentionally linked.
 

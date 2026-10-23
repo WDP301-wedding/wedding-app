@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { HyText as Text, HyScreen, HyButton, HyCard, HyState, HySheet } from '@/components/hy-ui';
 import { hy } from '@/theme';
 import type { AppDesignView } from '@/features/invitation-studio/app-invitation-api';
@@ -165,9 +165,10 @@ export function InvitePreviewView({
       }}
     >
       <View
-        pointerEvents="none"
+        pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
         style={{
           position: 'absolute',
+          pointerEvents: 'none',
           height: 200,
           width: 200,
           borderRadius: 100,
@@ -178,9 +179,10 @@ export function InvitePreviewView({
         }}
       />
       <View
-        pointerEvents="none"
+        pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
         style={{
           position: 'absolute',
+          pointerEvents: 'none',
           height: 160,
           width: 160,
           borderRadius: 80,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { HyButton, HyInput, HySheet, HyText as Text } from '@/components/hy-ui';
+import { HyAlert, HyButton, HyInput, HySheet, HyText as Text } from '@/components/hy-ui';
 import { hy } from '@/theme';
 import type { Group, Guest } from './hy-guest-types';
 
@@ -131,11 +131,7 @@ export function HyGuestCreateSheet({
           />
         </View>
 
-        {error ? (
-          <Text accessibilityRole="alert" style={{ fontSize: 13, color: hy.error, lineHeight: 18 }}>
-            {error}
-          </Text>
-        ) : null}
+        {error ? <HyAlert variant="error" message={error} style={{ marginBottom: 12 }} /> : null}
 
         <HyButton
           label={saving ? 'Đang lưu...' : 'Lưu khách mời'}
@@ -275,11 +271,7 @@ export function HyGuestEditSheet({
           />
         </View>
 
-        {error ? (
-          <Text accessibilityRole="alert" style={{ fontSize: 13, color: hy.error, lineHeight: 18 }}>
-            {error}
-          </Text>
-        ) : null}
+        {error ? <HyAlert variant="error" message={error} style={{ marginBottom: 12 }} /> : null}
 
         <HyButton
           label={saving ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -334,11 +326,7 @@ export function HyHeadcountEditSheet({
           placeholder="Ví dụ: 280"
         />
 
-        {error ? (
-          <Text accessibilityRole="alert" style={{ fontSize: 13, color: hy.error }}>
-            {error}
-          </Text>
-        ) : null}
+        {error ? <HyAlert variant="error" message={error} style={{ marginBottom: 12 }} /> : null}
 
         <HyButton
           label={saving ? 'Đang lưu...' : 'Lưu số lượng khách'}

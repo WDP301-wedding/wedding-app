@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
 import { Linking, View } from 'react-native';
-import { HyButton, HyCard, HySheet, HyText as Text } from '@/components/hy-ui';
+import { HyAlert, HyButton, HyCard, HySheet, HyText as Text } from '@/components/hy-ui';
 import { toast } from '@/lib/toast/store';
 import { hy } from '@/theme';
 import type { Guest, Group } from './hy-guest-types';
@@ -100,9 +100,7 @@ export function HyGuestDetailSheet({
         )}
 
         {issueError ? (
-          <Text accessibilityRole="alert" style={{ fontSize: 13, color: hy.error, lineHeight: 18 }}>
-            {issueError}
-          </Text>
+          <HyAlert variant="error" message={issueError} style={{ marginBottom: 12 }} />
         ) : null}
 
         {/* Actions */}

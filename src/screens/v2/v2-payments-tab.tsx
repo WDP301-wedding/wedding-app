@@ -1,5 +1,5 @@
 import { toast } from '@/lib/toast/store';
-import { useResultFeedback, reportError } from '@/lib/toast/feedback';
+import { reportError } from '@/lib/toast/feedback';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus, View } from 'react-native';
 import {
@@ -12,6 +12,7 @@ import {
   HySheet,
   HyBadge,
   OfflineBanner,
+  HyAlert,
 } from '@/components/hy-ui';
 import { hy } from '@/theme';
 import {
@@ -254,7 +255,6 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  useResultFeedback({ error: payError });
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [activeAttemptId, setActiveAttemptId] = useState<string | null>(null);
   const [attemptResult, setAttemptResult] = useState<AttemptView | null>(null);
@@ -677,9 +677,12 @@ export function V2PaymentsTab({ activeBooking, session, onNavigate }: V0CommonPr
           </HyCard>
 
           {payError ? (
-            <Text accessibilityRole="alert" style={{ fontSize: 13, color: hy.error }}>
-              {payError}
-            </Text>
+            <HyAlert
+              variant="error"
+              message={payError}
+              onDismiss={() => setPayError(null)}
+              style={{ marginVertical: 4 }}
+            />
           ) : null}
 
           <HyButton

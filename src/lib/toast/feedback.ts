@@ -52,7 +52,11 @@ export function notify(
     message: safeMessage(message ?? title),
   });
 }
-/** Bridges existing persistent inline command feedback without changing business handlers. */
+/**
+ * @deprecated Use mutually exclusive feedback:
+ * If an error/message is already displayed inline (e.g. HyAlert), do NOT fire a toast.
+ * If feedback is delivered as a toast, do NOT show an inline alert banner.
+ */
 export function useResultFeedback({
   success,
   error,

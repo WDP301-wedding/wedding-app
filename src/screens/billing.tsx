@@ -1,8 +1,7 @@
-import { useResultFeedback } from '@/lib/toast/feedback';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
-import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
+import { HyText as Text, HyInput as TextInput, HyAlert } from '@/components/hy-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type AndroidIdentitySession,
@@ -145,7 +144,6 @@ export function AndroidBillingScreen({
   const [pending, setPending] = useState(false);
   const [gated, setGated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useResultFeedback({ error: error });
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const busy = useRef(false);
@@ -343,9 +341,12 @@ export function AndroidBillingScreen({
         </View>
       )}
       {error !== null && (
-        <Text accessibilityRole="alert" style={[type.body, { color: brand.script }]}>
-          {error}
-        </Text>
+        <HyAlert
+          variant="error"
+          message={error}
+          onDismiss={() => setError(null)}
+          style={{ marginVertical: 8 }}
+        />
       )}
       {gated && (
         <View style={[styles.notice, { borderColor: brand.gold }]}>

@@ -32,7 +32,7 @@ export function ToastHost({
 }: {
   modal?: boolean;
   visible?: boolean;
-}) {
+} = {}) {
   const state = useSyncExternalStore(
     toastStore.subscribe,
     toastStore.getSnapshot,
@@ -58,7 +58,7 @@ export function ToastHost({
         Animated.timing(opacity, {
           toValue: 1,
           duration: reduced ? 0 : 150,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }).start();
     });
     if (toastStore.announce(current.id))
@@ -72,17 +72,28 @@ export function ToastHost({
   const colors = palette[current.kind];
   return (
     <View
-      pointerEvents="box-none"
+      pointerEvents={Platform.OS === 'web' ? undefined : 'box-none'}
       style={[
-        StyleSheet.absoluteFill,
         styles.overlay,
-        { top: insets.top + 8, left: insets.left + 12, right: insets.right + 12 },
+        {
+          position: 'absolute',
+          top: insets.top + 8,
+          left: insets.left + 12,
+          right: insets.right + 12,
+          pointerEvents: Platform.OS === 'web' ? 'none' : 'box-none',
+        },
       ]}
     >
       <Animated.View
+        pointerEvents="auto"
         style={[
           styles.card,
-          { opacity, backgroundColor: colors.backgroundColor, borderColor: colors.color },
+          {
+            opacity,
+            backgroundColor: colors.backgroundColor,
+            borderColor: colors.color,
+            pointerEvents: 'auto',
+          },
         ]}
       >
         <Text accessible={false} style={[styles.icon, { color: colors.color }]}>

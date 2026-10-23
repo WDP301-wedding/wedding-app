@@ -1,9 +1,8 @@
-import { useResultFeedback } from '@/lib/toast/feedback';
 import { toast } from '@/lib/toast/store';
 import React, { useEffect, useState } from 'react';
 import { useAppInsets } from '@/lib/safe-area';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
-import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
+import { HyText as Text, HyInput as TextInput, HyAlert } from '@/components/hy-ui';
 
 import {
   createPasswordOtpGateway,
@@ -69,7 +68,6 @@ export function IdentityScreen({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useResultFeedback({ error: error, success: message });
 
   const submit = () => {
     if (pending) return;
@@ -311,23 +309,16 @@ export function IdentityScreen({
         ) : null}
 
         {error === null ? null : (
-          <Text
-            selectable
-            accessibilityRole="alert"
-            style={[styles.authMessage, { color: brand.script }]}
-          >
-            {error}
-          </Text>
+          <HyAlert variant="error" message={error} style={{ marginBottom: 16 }} />
         )}
 
         {message === null ? null : (
-          <Text
-            selectable
-            accessibilityLiveRegion="polite"
-            style={[styles.authMessage, { color: brand.primary }]}
-          >
-            {message}
-          </Text>
+          <HyAlert
+            variant="info"
+            message={message}
+            onDismiss={() => setMessage(null)}
+            style={{ marginBottom: 16 }}
+          />
         )}
 
         <Pressable

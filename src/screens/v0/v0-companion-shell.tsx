@@ -263,60 +263,79 @@ export function V0CompanionShell({
       {/* Top Header */}
       {screen !== 'notifications' && (
         <View
-        style={{
-          minHeight: 64,
-          paddingHorizontal: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: hy.rule,
-          backgroundColor: hy.canvas,
-        }}
-      >
-        {!isTabScreen ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Quay lại"
-            onPress={back}
-            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Text style={{ fontSize: 28, color: hy.primary }}>‹</Text>
-          </Pressable>
-        ) : onSwitchBooking ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Đổi tiệc cưới"
-            onPress={onSwitchBooking}
-            style={{
-              minHeight: 44,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingRight: 6,
-            }}
-          >
-            <Text style={{ fontSize: 24, color: hy.primary, marginRight: 2, marginTop: -2 }}>
-              ‹
-            </Text>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: hy.primary }}>Đổi tiệc</Text>
-          </Pressable>
-        ) : null}
+          style={{
+            minHeight: 64,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: hy.rule,
+            backgroundColor: hy.canvas,
+          }}
+        >
+          {!isTabScreen ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Quay lại"
+              onPress={back}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontSize: 28, color: hy.primary }}>‹</Text>
+            </Pressable>
+          ) : onSwitchBooking ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Đổi tiệc cưới"
+              onPress={onSwitchBooking}
+              style={{
+                minHeight: 44,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingRight: 6,
+              }}
+            >
+              <Text style={{ fontSize: 24, color: hy.primary, marginRight: 2, marginTop: -2 }}>
+                ‹
+              </Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: hy.primary }}>Đổi tiệc</Text>
+            </Pressable>
+          ) : null}
 
-        {/* Title or Booking Switcher */}
-        {allBookings && allBookings.length >= 2 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Đổi tiệc cưới"
-            onPress={() => setSwitcherOpen(true)}
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              paddingVertical: 8,
-            }}
-          >
+          {/* Title or Booking Switcher */}
+          {allBookings && allBookings.length >= 2 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Đổi tiệc cưới"
+              onPress={() => setSwitcherOpen(true)}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingVertical: 8,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: hy.bold,
+                    fontSize: 18,
+                    lineHeight: 24,
+                    fontWeight: '700',
+                    color: hy.ink,
+                  }}
+                  numberOfLines={1}
+                >
+                  {activeBooking?.hallName || names[screen]}
+                </Text>
+                <Text style={{ fontSize: 12, color: hy.muted }}>
+                  {props.facts.formattedDate} · Chạm để đổi tiệc ⌄
+                </Text>
+              </View>
+            </Pressable>
+          ) : activeBooking && screen === 'overview' ? (
             <View style={{ flex: 1 }}>
               <Text
                 style={{
@@ -328,109 +347,90 @@ export function V0CompanionShell({
                 }}
                 numberOfLines={1}
               >
-                {activeBooking?.hallName || names[screen]}
+                {activeBooking.hallName}
               </Text>
-              <Text style={{ fontSize: 12, color: hy.muted }}>
-                {props.facts.formattedDate} · Chạm để đổi tiệc ⌄
-              </Text>
+              <Text style={{ fontSize: 12, color: hy.muted }}>{props.facts.formattedDate}</Text>
             </View>
-          </Pressable>
-        ) : activeBooking && screen === 'overview' ? (
-          <View style={{ flex: 1 }}>
+          ) : (
             <Text
               style={{
                 fontFamily: hy.bold,
-                fontSize: 18,
-                lineHeight: 24,
+                fontSize: 20,
+                lineHeight: 28,
                 fontWeight: '700',
+                flex: 1,
                 color: hy.ink,
               }}
               numberOfLines={1}
             >
-              {activeBooking.hallName}
+              {names[screen]}
             </Text>
-            <Text style={{ fontSize: 12, color: hy.muted }}>{props.facts.formattedDate}</Text>
-          </View>
-        ) : (
-          <Text
-            style={{
-              fontFamily: hy.bold,
-              fontSize: 20,
-              lineHeight: 28,
-              fontWeight: '700',
-              flex: 1,
-              color: hy.ink,
-            }}
-            numberOfLines={1}
-          >
-            {names[screen]}
-          </Text>
-        )}
+          )}
 
-        {/* Notification Bell with Badge */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Mở thông báo${unreadCount > 0 ? `, ${unreadCount} tin chưa đọc` : ''}`}
-          onPress={() => navigate('notifications')}
-          style={{
-            width: 44,
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-          }}
-        >
-          <BellIcon color={hy.muted} />
-          {unreadCount > 0 && (
-            <View
+          {/* Notification Bell with Badge */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Mở thông báo${unreadCount > 0 ? `, ${unreadCount} tin chưa đọc` : ''}`}
+            onPress={() => navigate('notifications')}
+            style={{
+              width: 44,
+              height: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
+              position: 'relative',
+            }}
+          >
+            <BellIcon color={hy.muted} />
+            {unreadCount > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: hy.error,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 4,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+
+          {/* Avatar opening Profile */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mở hồ sơ cá nhân"
+            onPress={() => navigate('account')}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: hy.primarySoft,
+              borderWidth: 1.5,
+              borderColor: hy.gold,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
               style={{
-                position: 'absolute',
-                top: 4,
-                right: 4,
-                minWidth: 18,
-                height: 18,
-                borderRadius: 9,
-                backgroundColor: hy.error,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 4,
+                fontFamily: hy.monogram,
+                fontSize: 13,
+                fontWeight: '600',
+                color: hy.primary,
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-
-        {/* Avatar opening Profile */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Mở hồ sơ cá nhân"
-          onPress={() => navigate('account')}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: hy.primarySoft,
-            borderWidth: 1.5,
-            borderColor: hy.gold,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: hy.monogram,
-              fontSize: 13,
-              fontWeight: '600',
-              color: hy.primary,
-            }}
-          >
-            HY
-          </Text>
-        </Pressable>
-      </View>
+              HY
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {/* Screen Subtree (keyed by booking ID for clean resets when switching bookings) */}

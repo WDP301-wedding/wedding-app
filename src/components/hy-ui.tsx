@@ -103,7 +103,7 @@ export function HyEnter({
       toValue: 1,
       duration: reduced ? motion.fast : motion.standard,
       easing: Easing.bezier(...motion.ease),
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     });
     animation.start();
     return () => animation.stop();
@@ -383,13 +383,13 @@ export function HySkeleton({
           toValue: 0.85,
           duration: 700,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(opacity, {
           toValue: 0.4,
           duration: 700,
           easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]),
     );
@@ -433,6 +433,154 @@ export function OfflineBanner({ visible }: { visible: boolean }) {
       <HyText style={{ fontSize: 13, color: hy.warning, fontWeight: '600' }}>
         Đang hiển thị dữ liệu đã lưu
       </HyText>
+    </View>
+  );
+}
+
+export type HyAlertVariant = 'error' | 'warning' | 'info' | 'success';
+
+export function HyAlert({
+  message,
+  title,
+  variant = 'error',
+  action,
+  onDismiss,
+  style,
+  children,
+}: {
+  message?: string | null;
+  title?: string;
+  variant?: HyAlertVariant;
+  action?: { label: string; onPress: () => void };
+  onDismiss?: () => void;
+  style?: StyleProp<ViewStyle>;
+  children?: React.ReactNode;
+}) {
+  if (!message && !children) return null;
+
+  const config = {
+    error: {
+      bg: hy.errorBg,
+      border: '#F5C6CB',
+      color: hy.error,
+      icon: '!',
+    },
+    warning: {
+      bg: hy.warningBg,
+      border: '#F6E0B5',
+      color: hy.warning,
+      icon: '!',
+    },
+    info: {
+      bg: hy.infoBg,
+      border: '#D1E0E8',
+      color: hy.info,
+      icon: 'i',
+    },
+    success: {
+      bg: hy.successBg,
+      border: '#C4E2D0',
+      color: hy.success,
+      icon: '✓',
+    },
+  }[variant];
+
+  return (
+    <View
+      accessibilityRole={variant === 'error' || variant === 'warning' ? 'alert' : undefined}
+      accessibilityLiveRegion="polite"
+      style={[
+        {
+          backgroundColor: config.bg,
+          borderColor: config.border,
+          borderWidth: 1,
+          borderRadius: 12,
+          paddingVertical: 10,
+          paddingHorizontal: 12,
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          gap: 10,
+        },
+        style,
+      ]}
+    >
+      <View
+        style={{
+          width: 20,
+          height: 20,
+          borderRadius: 10,
+          backgroundColor: 'rgba(0,0,0,0.06)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: 1,
+        }}
+      >
+        <HyText style={{ fontSize: 12, fontFamily: hy.bold, color: config.color, lineHeight: 16 }}>
+          {config.icon}
+        </HyText>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        {title ? (
+          <HyText
+            style={{
+              fontSize: 13,
+              fontFamily: hy.bold,
+              color: config.color,
+              marginBottom: 2,
+            }}
+          >
+            {title}
+          </HyText>
+        ) : null}
+        {message ? (
+          <HyText
+            style={{
+              fontSize: 13,
+              lineHeight: 18,
+              fontFamily: hy.body,
+              color: hy.ink,
+            }}
+          >
+            {message}
+          </HyText>
+        ) : null}
+        {children}
+        {action ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={action.onPress}
+            style={{ marginTop: 6, alignSelf: 'flex-start' }}
+          >
+            <HyText
+              style={{
+                fontSize: 13,
+                fontFamily: hy.semibold,
+                color: config.color,
+                textDecorationLine: 'underline',
+              }}
+            >
+              {action.label}
+            </HyText>
+          </Pressable>
+        ) : null}
+      </View>
+      {onDismiss ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Đóng thông báo"
+          onPress={onDismiss}
+          style={{
+            width: 28,
+            height: 28,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: -4,
+            marginTop: -4,
+          }}
+        >
+          <HyText style={{ fontSize: 18, color: config.color, lineHeight: 20 }}>×</HyText>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -620,3 +768,6 @@ const s = StyleSheet.create({
     backgroundColor: hy.canvas,
   },
 });
+
+export { HyConfirmModal } from './hy-confirm-modal';
+export { ConfirmHost } from './hy-confirm-host';

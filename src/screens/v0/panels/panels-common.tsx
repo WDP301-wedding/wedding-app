@@ -1,7 +1,6 @@
 import { money } from '@/lib/formatters';
 import { sharedResourceStore } from '@/screens/hy/resource-store';
 import { toast } from '@/lib/toast/store';
-import { reportError } from '@/lib/toast/feedback';
 import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { HyText as Text, HyInput as TextInput } from '@/components/hy-ui';
@@ -109,9 +108,38 @@ export function Panel({ title, children }: React.PropsWithChildren<{ title: stri
 export function ErrorNote({ error }: { error: string | null }) {
   const { tokens } = useWeddingTheme();
   return error ? (
-    <Text accessibilityRole="alert" style={{ color: tokens.tagWarmText }}>
-      {error}
-    </Text>
+    <View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={{
+        backgroundColor: tokens.tagWarmBg,
+        borderColor: tokens.champagne,
+        borderWidth: 1,
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        marginVertical: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 9,
+          backgroundColor: 'rgba(0,0,0,0.06)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 11, fontWeight: '700', color: tokens.tagWarmText }}>!</Text>
+      </View>
+      <Text style={{ color: tokens.tagWarmText, fontSize: 13, lineHeight: 18, flex: 1 }}>
+        {error}
+      </Text>
+    </View>
   ) : null;
 }
 
@@ -146,7 +174,6 @@ export function useMutation(session: V0CommonProps['session']) {
       return true;
     } catch (e) {
       setError(message(e));
-      reportError(e);
       return false;
     } finally {
       busy.current = false;

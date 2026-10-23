@@ -1,5 +1,5 @@
 import { toast } from '@/lib/toast/store';
-import { useResultFeedback, notify } from '@/lib/toast/feedback';
+import { notify } from '@/lib/toast/feedback';
 import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Share as NativeShare } from 'react-native';
@@ -61,12 +61,9 @@ export function V0InviteTab({
   const [message, setMessage] = useState('');
   const [footer, setFooter] = useState('');
 
-  // Toast and copy feedback state
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  useResultFeedback({ error: publishError, success: toastMessage });
+  // Copy feedback state
   const [copied, setCopied] = useState(false);
 
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRequestCounterRef = useRef(0);
 
@@ -95,17 +92,13 @@ export function V0InviteTab({
     setGreeting,
     setMessage,
     setFooter,
-    setToastMessage,
     setSubscreen,
     onNavigate,
-    toastTimeoutRef,
   });
 
   useEffect(() => {
-    const toastTimeout = toastTimeoutRef.current;
     const copyTimeout = copyTimeoutRef.current;
     return () => {
-      if (toastTimeout) clearTimeout(toastTimeout);
       if (copyTimeout) clearTimeout(copyTimeout);
     };
   }, []);
@@ -295,7 +288,7 @@ export function V0InviteTab({
         ),
       );
       setPublication(result);
-      setToastMessage('Đã xuất bản thiệp cưới công khai thành công');
+      toast.success('Đã xuất bản thiệp cưới công khai thành công');
     } catch (caught: unknown) {
       setPublishError(caught instanceof Error ? caught.message : 'Không thể xuất bản thiệp cưới.');
     } finally {
@@ -317,7 +310,7 @@ export function V0InviteTab({
         ),
       );
       setPublication(null);
-      setToastMessage('Đã thu hồi xuất bản thiệp cưới');
+      toast.success('Đã thu hồi xuất bản thiệp cưới');
     } catch (caught: unknown) {
       setPublishError(
         caught instanceof Error ? caught.message : 'Không thể thu hồi xuất bản thiệp.',

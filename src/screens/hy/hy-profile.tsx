@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import { HyText as Text, HyCard, HyRow, HyScreen, HySheet, HyButton } from '@/components/hy-ui';
 import { hy } from '@/theme';
 import type { Profile } from '@/features/identity-access/experience-api';
-import { NativeAccountSettings } from '../couple-overview';
+import { NativeAccountSettings } from '../native-account-settings';
 import { RestoredHealthPanel } from '../v0/restored-flow-controls';
 import type { V0CommonProps } from '../v0/v0-types';
 

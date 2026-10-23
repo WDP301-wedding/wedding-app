@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Animated, PanResponder, Pressable, Switch, View } from 'react-native';
+import { Animated, PanResponder, Platform, Pressable, Switch, View } from 'react-native';
 import { HyText as Text } from '@/components/hy-ui';
 import { CheckIcon, StatusTag } from '@/components/v0-primitives';
 import type {
@@ -25,10 +25,18 @@ function ReadSwipe({
         onPanResponderMove: (_, g) => offset.setValue(Math.max(-100, Math.min(0, g.dx))),
         onPanResponderRelease: (_, g) => {
           if (g.dx < -80) onRead();
-          Animated.timing(offset, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+          Animated.timing(offset, {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: Platform.OS !== 'web',
+          }).start();
         },
         onPanResponderTerminate: () => {
-          Animated.timing(offset, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+          Animated.timing(offset, {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: Platform.OS !== 'web',
+          }).start();
         },
       }),
     [unread, onRead, offset],
@@ -37,7 +45,10 @@ function ReadSwipe({
     <View
       style={{ backgroundColor: '#7A1F3D', borderRadius: 20, overflow: 'hidden', marginBottom: 12 }}
     >
-      <View pointerEvents="none" style={{ position: 'absolute', right: 16, top: 32 }}>
+      <View
+        pointerEvents={Platform.OS === 'web' ? undefined : 'none'}
+        style={{ position: 'absolute', right: 16, top: 32, pointerEvents: 'none' }}
+      >
         <Text style={{ color: '#FFFFFF', fontSize: 12 }}>Đánh dấu đã đọc</Text>
       </View>
       <Animated.View {...pan.panHandlers} style={{ transform: [{ translateX: offset }] }}>

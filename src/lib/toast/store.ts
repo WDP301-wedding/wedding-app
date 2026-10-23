@@ -134,7 +134,7 @@ export const toastStore = {
     };
   },
   getSnapshot: () => snapshot,
-  getServerSnapshot: () => empty,
+  getServerSnapshot: () => snapshot,
   register: (id: string) => {
     publish({ ...snapshot, outlets: [...snapshot.outlets.filter((outlet) => outlet !== id), id] });
   },

@@ -1,6 +1,6 @@
-import { useResultFeedback, notify } from '@/lib/toast/feedback';
+import { notify } from '@/lib/toast/feedback';
 import { OtpResendCountdown } from '@/components/otp-resend-countdown';
-import { HyText as Text, HyButton, HyInput } from '@/components/hy-ui';
+import { HyText as Text, HyButton, HyInput, HyAlert } from '@/components/hy-ui';
 import '@/lib/alert';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
@@ -42,7 +42,6 @@ export function NativeAccountSettings({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useResultFeedback({ error: error, success: message });
   const [sessions, setSessions] = useState<readonly SessionSummary[] | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
@@ -258,14 +257,20 @@ export function NativeAccountSettings({
       <Text style={[type.largeTitle, { color: brand.display }]}>Hồ sơ và bảo mật</Text>
       {pending && <ActivityIndicator color={brand.primary} />}
       {error && (
-        <Text accessibilityRole="alert" style={[type.body, { color: brand.script }]}>
-          {error}
-        </Text>
+        <HyAlert
+          variant="error"
+          message={error}
+          onDismiss={() => setError(null)}
+          style={{ marginVertical: 8 }}
+        />
       )}
       {message && (
-        <Text accessibilityLiveRegion="polite" style={[type.body, { color: brand.primary }]}>
-          {message}
-        </Text>
+        <HyAlert
+          variant="success"
+          message={message}
+          onDismiss={() => setMessage(null)}
+          style={{ marginVertical: 8 }}
+        />
       )}
       {action('Tải lại hồ sơ', () => void load())}
       {profile && (

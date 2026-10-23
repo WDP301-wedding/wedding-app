@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useResultFeedback } from '@/lib/toast/feedback';
+import { toast } from '@/lib/toast/store';
 import type {
   AppDesignView,
   AppInvitationGateway,
@@ -23,10 +23,8 @@ export interface UseInviteSaveParams {
   setGreeting: (v: string) => void;
   setMessage: (v: string) => void;
   setFooter: (v: string) => void;
-  setToastMessage: (msg: string | null) => void;
   setSubscreen: (s: 'preview' | 'edit' | 'share') => void;
   onNavigate: (s: any) => void;
-  toastTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }
 
 export function useInviteSave({
@@ -45,14 +43,11 @@ export function useInviteSave({
   setGreeting,
   setMessage,
   setFooter,
-  setToastMessage,
   setSubscreen,
   onNavigate,
-  toastTimeoutRef,
 }: UseInviteSaveParams) {
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  useResultFeedback({ error: editError });
   const [conflictState, setConflictState] = useState<ConflictState | null>(null);
 
   const pendingSaveRef = useRef(false);
@@ -108,14 +103,9 @@ export function useInviteSave({
       setConflictState(null);
       activeIntentKeyRef.current = null;
       activeIntentPayloadRef.current = null;
-      setToastMessage(`Đã lưu phiên bản ${updated.revisionNumber}`);
+      toast.success(`Đã lưu phiên bản ${updated.revisionNumber}`);
       setSubscreen('preview');
       onNavigate('invite');
-
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      toastTimeoutRef.current = setTimeout(() => {
-        setToastMessage(null);
-      }, 3500);
     } catch (caught: unknown) {
       if (caught instanceof ApiClientError && caught.status === 409) {
         const isRevisionConflict =
@@ -186,7 +176,7 @@ export function useInviteSave({
     setFooter(fresh.textFields?.footer ?? '');
     setConflictState(null);
     setEditError(null);
-    setToastMessage(`Đã cập nhật theo phiên bản mới nhất (#${fresh.revisionNumber})`);
+    toast.success(`Đã cập nhật theo phiên bản mới nhất (#${fresh.revisionNumber})`);
   };
 
   const handleReapplyOnServerVersion = async () => {

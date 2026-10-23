@@ -21,6 +21,7 @@ export type IdentityScreenProps = Readonly<{
   initialMode?: 'login' | 'reset-request';
   onAuthenticated: (snapshot: AndroidSessionSnapshot) => void;
   session: AndroidIdentitySession;
+  onBackToPublic?: () => void;
 }>;
 
 export function mapAuthError(caught: unknown): string {
@@ -47,6 +48,7 @@ export function IdentityScreen({
   initialMode = 'login',
   onAuthenticated,
   session,
+  onBackToPublic,
 }: IdentityScreenProps) {
   const { brand, colors } = useWeddingTheme();
   const insets = useAppInsets();
@@ -181,6 +183,27 @@ export function IdentityScreen({
         },
       ]}
     >
+      {onBackToPublic ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quay lại khám phá"
+          onPress={onBackToPublic}
+          style={({ pressed }) => [
+            {
+              alignSelf: 'flex-start',
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              marginBottom: 8,
+            },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          <Text style={{ fontSize: 14, color: brand.primary, fontWeight: '600' }}>
+            ← Khám phá sảnh & thực đơn
+          </Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.authBrand} accessibilityLabel="Hỷ Yến">
         <View
           style={{

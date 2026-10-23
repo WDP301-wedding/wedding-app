@@ -1,5 +1,5 @@
 import { createApiClient, type ApiClient } from '@/lib/api/client';
-import type { operations } from '@/lib/api/generated/schema';
+import type { operations, components } from '@/lib/api/generated/schema';
 
 export type PublicDishesView =
   operations['listPublicDishes']['responses'][200]['content']['application/json']['data'];
@@ -11,6 +11,13 @@ export type PublicMenuPackagesView =
   operations['listPublicMenuPackages']['responses'][200]['content']['application/json']['data'];
 export type PublicRestaurantView =
   operations['getPublicRestaurant']['responses'][200]['content']['application/json']['data'];
+export type ConsultationRequestBody = components['schemas']['ConsultationRequestBody'];
+
+export function minimumPreferredDate(now = new Date()): string {
+  const vietnamDate = new Date(now.getTime() + 7 * 60 * 60_000);
+  vietnamDate.setUTCDate(vietnamDate.getUTCDate() + 2);
+  return vietnamDate.toISOString().slice(0, 10);
+}
 
 export interface CatalogGateway {
   listDishes(
@@ -29,6 +36,7 @@ export interface CatalogGateway {
     query?: { cursor?: string; limit?: number },
   ): Promise<PublicMenuPackagesView>;
   getRestaurant(this: void): Promise<PublicRestaurantView>;
+  submitConsultation(this: void, body: ConsultationRequestBody): Promise<void>;
 }
 
 function required<T>(value: T | undefined): T {
@@ -77,6 +85,13 @@ export function createCatalogGateway(client?: ApiClient): CatalogGateway {
       const { data, error } = await api().GET('/catalog/restaurant');
       if (error !== undefined) throw new Error('Không thể tải thông tin nhà hàng.');
       return required(data).data as unknown as PublicRestaurantView;
+    },
+
+    async submitConsultation(body) {
+      const { error } = await api().POST('/consultation-requests', { body });
+      if (error !== undefined) {
+        throw new Error('Chưa thể gửi yêu cầu tư vấn. Vui lòng thử lại sau.');
+      }
     },
   };
 }

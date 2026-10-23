@@ -1,4 +1,4 @@
-import { HyText as Text, HyButton } from '@/components/hy-ui';
+import { HyText as Text, HyButton, HyBadge } from '@/components/hy-ui';
 import '@/lib/alert';
 import { useAppInsets } from '@/lib/safe-area';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,6 +22,7 @@ import { createCoupleBillingGateway } from '@/features/payments-billing/billing-
 import { V0CompanionShell } from './v0/v0-companion-shell';
 import type { V0EventFacts, V0Screen } from './v0/v0-types';
 import { sharedResourceStore } from '@/screens/hy/resource-store';
+import { AgreementWorkspace } from './agreement/agreement-workspace';
 
 const type = typeTokens;
 
@@ -78,7 +79,8 @@ export function CoupleOverviewScreen({
 }>) {
   const { brand, colors } = useWeddingTheme();
   const insets = useAppInsets();
-  const [view, setView] = useState<'selector' | 'overview' | 'account'>('selector');
+  const [view, setView] = useState<'selector' | 'overview' | 'account' | 'agreement'>('selector');
+  const [agreementBookingId, setAgreementBookingId] = useState<string | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [plan, setPlan] = useState<ConfirmedPlanningSnapshot | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -226,7 +228,8 @@ export function CoupleOverviewScreen({
           }
         } else {
           setPlan(null);
-          setError('Kế hoạch chưa sẵn sàng trên ứng dụng. Hãy tiếp tục trên Web.');
+          setAgreementBookingId(id);
+          setView('agreement');
         }
       } catch {
         if (reqId === currentBookingRequestIdRef.current) {
@@ -251,6 +254,7 @@ export function CoupleOverviewScreen({
   const handleSwitchBooking = useCallback(() => {
     currentBookingRequestIdRef.current += 1;
     setPlan(null);
+    setAgreementBookingId(null);
     setView('selector');
     setCanonicalBride('');
     setCanonicalGroom('');
@@ -266,7 +270,12 @@ export function CoupleOverviewScreen({
     }
     const firstBooking = overview?.data?.[0];
     if (firstBooking) {
-      void open(firstBooking.bookingId);
+      if (firstBooking.phase === 'DRAFT' || firstBooking.phase === 'AWAITING_DEPOSIT') {
+        setAgreementBookingId(firstBooking.bookingId);
+        setView('agreement');
+      } else {
+        void open(firstBooking.bookingId);
+      }
       return;
     }
     void load();
@@ -308,6 +317,20 @@ export function CoupleOverviewScreen({
         planningHeadcount: 0,
         revisionNumber: 0,
       };
+
+  if (view === 'agreement' && agreementBookingId) {
+    return (
+      <AgreementWorkspace
+        bookingId={agreementBookingId}
+        session={session}
+        onBack={handleSwitchBooking}
+        onCompleted={() => {
+          void load();
+          void open(agreementBookingId);
+        }}
+      />
+    );
+  }
 
   // Render V0 companion shell as the primary native experience once a confirmed booking is loaded
   // or when explicitly entering overview / account from the top menu
@@ -387,10 +410,12 @@ export function CoupleOverviewScreen({
         )}
         {overview?.data.length === 0 && (
           <View style={styles.planningNotice}>
-            <Text style={[type.title, { color: brand.display }]}>Chưa có kế hoạch đã xác nhận</Text>
+            <Text style={[type.title, { color: brand.display }]}>
+              Chưa có tiệc cưới trong tài khoản
+            </Text>
             <Text style={[type.body, { color: colors.secondaryLabel }]}>
-              Sau khi tiền cọc được xác nhận, kế hoạch sẽ xuất hiện tại đây. Bạn có thể tiếp tục
-              trao đổi với nhà hàng trên Web.
+              Bạn có thể bắt đầu bằng việc khám phá các sảnh tiệc, dự tính chi phí thực đơn hoặc gửi
+              yêu cầu tư vấn để đội ngũ Hỷ Yến hỗ trợ chu đáo nhất.
             </Text>
             {lastRefreshedAt && (
               <Text style={[type.caption, { color: brand.script, marginTop: 4 }]}>
@@ -399,43 +424,94 @@ export function CoupleOverviewScreen({
                   hour: '2-digit',
                   minute: '2-digit',
                   second: '2-digit',
-                })}{' '}
-                · Chưa có tiệc nào ở trạng thái đã xác nhận cọc
+                })}
               </Text>
             )}
           </View>
         )}
-        {overview?.data.map((item) => (
-          <View
-            key={item.bookingId}
-            style={[
-              styles.planningNotice,
-              { borderColor: brand.gold, backgroundColor: brand.powder },
-            ]}
-          >
-            <Text style={[type.caption, { color: brand.script }]}>
-              {item.phase === 'COMPLETED' ? 'ĐÃ HOÀN THÀNH' : 'ĐÃ XÁC NHẬN'}
-            </Text>
-            <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
-            <Text style={[type.body, { color: colors.label }]}>
-              {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
-              {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} · {item.planningHeadcount}{' '}
-              khách
-            </Text>
-            <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
-              {!item.hasTimeline
-                ? 'Kịch bản đang được chuẩn bị'
-                : item.coupleApproved && item.managerApproved
-                  ? 'Kịch bản đã được hai bên thống nhất'
-                  : 'Kịch bản cần được thống nhất'}
-            </Text>
-            <ActionButton
-              label="Xem kế hoạch"
-              action={() => void open(item.bookingId)}
-              disabled={pending}
-            />
-          </View>
-        ))}
+        {overview?.data.map((item) => {
+          const isPreDeposit = item.phase === 'DRAFT' || item.phase === 'AWAITING_DEPOSIT';
+          return (
+            <View
+              key={item.bookingId}
+              style={[
+                styles.planningNotice,
+                { borderColor: brand.gold, backgroundColor: brand.powder },
+              ]}
+            >
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 6,
+                }}
+              >
+                <Text style={[type.caption, { color: brand.script }]}>
+                  {item.phase === 'COMPLETED'
+                    ? 'ĐÃ HOÀN TẤT'
+                    : item.phase === 'CONFIRMED'
+                      ? 'ĐÃ XÁC NHẬN CỌC'
+                      : item.phase === 'AWAITING_DEPOSIT'
+                        ? 'CHỜ ĐẶT CỌC'
+                        : item.phase === 'DRAFT'
+                          ? 'BẢN NHÁP'
+                          : 'ĐÃ HỦY'}
+                </Text>
+                <HyBadge
+                  status={
+                    item.phase === 'CONFIRMED' || item.phase === 'COMPLETED'
+                      ? 'done'
+                      : item.phase === 'AWAITING_DEPOSIT'
+                        ? 'waiting'
+                        : 'info'
+                  }
+                  label={
+                    item.phase === 'CONFIRMED' || item.phase === 'COMPLETED'
+                      ? 'Đã cọc'
+                      : item.phase === 'AWAITING_DEPOSIT'
+                        ? 'Chờ cọc'
+                        : item.phase === 'DRAFT'
+                          ? 'Thỏa thuận'
+                          : 'Đã hủy'
+                  }
+                />
+              </View>
+
+              <Text style={[type.title, { color: brand.display }]}>{item.hallName}</Text>
+              <Text style={[type.body, { color: colors.label }]}>
+                {new Date(`${item.eventDate}T00:00:00+07:00`).toLocaleDateString('vi-VN')} ·{' '}
+                {item.shiftCode === 'LUNCH' ? 'Tiệc trưa' : 'Tiệc tối'} · {item.planningHeadcount}{' '}
+                khách
+              </Text>
+              <Text style={[type.subhead, { color: colors.secondaryLabel }]}>
+                {!item.hasTimeline
+                  ? 'Kịch bản đang được chuẩn bị'
+                  : item.coupleApproved && item.managerApproved
+                    ? 'Kịch bản đã được hai bên thống nhất'
+                    : 'Kịch bản cần được thống nhất'}
+              </Text>
+              <ActionButton
+                label={
+                  isPreDeposit
+                    ? item.phase === 'AWAITING_DEPOSIT'
+                      ? 'Đặt cọc & Hợp đồng'
+                      : 'Thỏa thuận & Kịch bản'
+                    : 'Vào kế hoạch tiệc'
+                }
+                action={() => {
+                  if (isPreDeposit) {
+                    setAgreementBookingId(item.bookingId);
+                    setView('agreement');
+                  } else {
+                    void open(item.bookingId);
+                  }
+                }}
+                disabled={pending}
+              />
+            </View>
+          );
+        })}
         {overview?.nextCursor && (
           <ActionButton label="Xem thêm kế hoạch" action={() => void load(overview.nextCursor!)} />
         )}

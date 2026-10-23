@@ -399,7 +399,8 @@ export class AndroidIdentitySession {
       toast.clear();
       this.state = {
         status: 'authenticated',
-        access: actor.roles.includes('COUPLE') ? 'full' : 'denied',
+        access:
+          actor.roles.includes('STAFF') && !actor.roles.includes('COUPLE') ? 'denied' : 'full',
         actor,
         denial: null,
       };

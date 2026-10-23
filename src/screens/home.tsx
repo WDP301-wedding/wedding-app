@@ -14,6 +14,7 @@ import { type, useWeddingTheme } from '@/theme';
 import { CoupleOverviewScreen } from './couple-overview';
 import { styles } from './home.styles';
 import { IdentityScreen } from './identity-screen';
+import { PublicShell } from './public/public-shell';
 
 export { IdentityScreen };
 
@@ -33,6 +34,7 @@ export function HomeScreen({
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<'login' | 'reset-request'>('login');
+  const [authVisible, setAuthVisible] = useState(false);
 
   useEffect(() => {
     return session.subscribe(() => {
@@ -66,7 +68,10 @@ export function HomeScreen({
       (incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
       (initialResetToken !== undefined && initialResetToken !== null)
     ) {
-      const task = setTimeout(() => setMode('reset-request'), 0);
+      const task = setTimeout(() => {
+        setMode('reset-request');
+        setAuthVisible(true);
+      }, 0);
       return () => clearTimeout(task);
     }
     return undefined;
@@ -89,18 +94,27 @@ export function HomeScreen({
     Boolean(incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
     (initialResetToken !== undefined && initialResetToken !== null);
 
-  if (isReset || snapshot.status === 'anonymous') {
-    return (
-      <IdentityScreen
-        key={isReset ? 'identity-reset' : 'identity-anon'}
-        session={session}
-        initialMode={isReset ? 'reset-request' : mode}
-        onAuthenticated={(nextSnapshot) => {
-          setSnapshot(nextSnapshot);
-          setMode('login');
-        }}
-      />
-    );
+  if (snapshot.status === 'anonymous') {
+    if (isReset || authVisible) {
+      return (
+        <IdentityScreen
+          key={isReset ? 'identity-reset' : 'identity-anon'}
+          session={session}
+          initialMode={isReset ? 'reset-request' : mode}
+          onBackToPublic={() => {
+            setAuthVisible(false);
+            setMode('login');
+          }}
+          onAuthenticated={(nextSnapshot) => {
+            setSnapshot(nextSnapshot);
+            setMode('login');
+            setAuthVisible(false);
+          }}
+        />
+      );
+    }
+
+    return <PublicShell onOpenLogin={() => setAuthVisible(true)} />;
   }
 
   if (snapshot.access === 'denied') {
@@ -122,9 +136,9 @@ export function HomeScreen({
             { color: colors.secondaryLabel, textAlign: 'center', marginVertical: 16 },
           ]}
         >
-          Ứng dụng di động chỉ dành cho Cặp đôi có quyền FULL sau khi hoàn tất đặt cọc. Tài khoản
-          của bạn ({snapshot.actor.displayEmail}) hiện ở trạng thái RESTRICTED hoặc chưa đủ quyền.
-          Vui lòng thao tác trên phiên bản Web.
+          Ứng dụng Hỷ Yến dành cho Cặp đôi. Tài khoản của bạn ({snapshot.actor.displayEmail}) là tài
+          khoản nội bộ hoặc chưa được phân quyền Cặp đôi. Vui lòng đăng nhập bằng tài khoản Cặp đôi
+          hoặc quay lại trang khám phá.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -134,7 +148,10 @@ export function HomeScreen({
             void session
               .logout()
               .catch(() => {})
-              .finally(() => setSnapshot(session.snapshot()));
+              .finally(() => {
+                setSnapshot(session.snapshot());
+                setAuthVisible(false);
+              });
           }}
           style={({ pressed }) => [
             styles.authPrimaryAction,
@@ -143,6 +160,26 @@ export function HomeScreen({
           ]}
         >
           <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>ĐĂNG XUẤT</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Khám phá sảnh & thực đơn"
+          onPress={() => {
+            void session
+              .logout()
+              .catch(() => {})
+              .finally(() => {
+                setSnapshot(session.snapshot());
+                setAuthVisible(false);
+              });
+          }}
+          style={({ pressed }) => [
+            styles.authTextAction,
+            { marginTop: 12 },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={[type.subhead, { color: brand.primary }]}>← Khám phá sảnh & thực đơn</Text>
         </Pressable>
       </View>
     );
@@ -157,7 +194,10 @@ export function HomeScreen({
         void session
           .logout()
           .catch(() => {})
-          .finally(() => setSnapshot(session.snapshot()));
+          .finally(() => {
+            setSnapshot(session.snapshot());
+            setAuthVisible(false);
+          });
       }}
     />
   );

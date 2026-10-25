@@ -416,13 +416,13 @@ describe('HomeScreen', () => {
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
     expect(await screen.findByText('Mã OTP phải gồm chính xác 6 chữ số.')).toBeOnTheScreen();
 
-    // Short password
+    // Empty password
     await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
-    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'short');
-    await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), 'short');
+    await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), '');
+    await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), '');
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
     expect(
-      await screen.findByText('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.'),
+      await screen.findByText('Mật khẩu không được để trống và tối đa 128 ký tự.'),
     ).toBeOnTheScreen();
   });
 });

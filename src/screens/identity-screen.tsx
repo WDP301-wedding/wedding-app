@@ -133,8 +133,8 @@ export function IdentityScreen({
       setError('Mã OTP phải gồm chính xác 6 chữ số.');
       return;
     }
-    if (password.length < 12 || password.length > 128) {
-      setError('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.');
+    if (!password.trim() || password.length > 128) {
+      setError('Mật khẩu không được để trống và tối đa 128 ký tự.');
       return;
     }
     if (password !== confirmation) {

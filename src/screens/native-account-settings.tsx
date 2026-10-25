@@ -289,7 +289,7 @@ export function NativeAccountSettings({
           {field('Mật khẩu mới', next, setNext, true)}
           {field('Xác nhận mật khẩu mới', confirm, setConfirm, true)}
           <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-            Dùng 12–128 ký tự. Sau khi đổi, hệ thống sẽ thu hồi các phiên và bạn cần đăng nhập lại.
+            Mật khẩu tối đa 128 ký tự. Sau khi đổi, hệ thống sẽ thu hồi các phiên và bạn cần đăng nhập lại.
           </Text>
           {challenge && (
             <NativeField label="Mã OTP" value={code} onChangeText={setCode} secret={false} otp />

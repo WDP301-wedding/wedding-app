@@ -5,7 +5,7 @@ import { randomUUID } from 'expo-crypto';
 
 import type { components } from '@/lib/api/generated/schema';
 import { ApiClientError, createApiClient, type ApiClient } from '@/lib/api/client';
-import { sharedResourceStore } from '@/screens/hy/resource-store';
+import { sharedResourceStore } from '@/lib/cache/resource-store';
 import { toast } from '@/lib/toast/store';
 
 type Role = components['schemas']['CurrentUserResponse']['data']['roles'][number];
@@ -399,8 +399,7 @@ export class AndroidIdentitySession {
       toast.clear();
       this.state = {
         status: 'authenticated',
-        access:
-          actor.roles.includes('STAFF') && !actor.roles.includes('COUPLE') ? 'denied' : 'full',
+        access: actor.roles.includes('COUPLE') ? 'full' : 'denied',
         actor,
         denial: null,
       };

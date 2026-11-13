@@ -46,6 +46,18 @@ function proposal(overrides: Partial<Proposal> = {}): Proposal {
       canWithdrawApproval: false,
     },
     proposal: {
+      menus: [
+        {
+          packageId: '00000000-0000-4000-8000-000000000601',
+          versionId: '00000000-0000-4000-8000-000000000602',
+          versionNumber: 1,
+          name: 'Thực đơn',
+          description: 'Tiệc cưới',
+          priceVndPerTable: 1000000,
+          tableCount: 28,
+          lineTotalVnd: 28000000,
+        },
+      ],
       hall: {
         id: '00000000-0000-4000-8000-000000000501',
         name: 'Sảnh Ánh Dương',

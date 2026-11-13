@@ -1,4 +1,5 @@
 import '@/lib/alert';
+import '../safe-area.css';
 import { ToastProvider } from '@/lib/toast/toast-host';
 import { ConfirmHost } from '@/components/hy-confirm-host';
 import { useFonts } from 'expo-font';

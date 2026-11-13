@@ -14,7 +14,8 @@ import type { OtpChallenge } from '@/features/identity-access/password-otp-api';
 import type { AndroidIdentitySession } from '@/features/identity-access/session';
 import { ApiClientError } from '@/lib/api/client';
 import { useWeddingTheme, type } from '@/theme';
-import { styles } from './home.styles';
+import { styles } from './identity.styles';
+import { Action, Disclosure } from './workspace/workspace-common';
 
 const experience = createExperienceGateway();
 
@@ -22,10 +23,14 @@ export function NativeAccountSettings({
   session,
   onSignedOut,
   onProfileUpdated,
+  showSessions = true,
+  embedded = false,
 }: Readonly<{
   session: AndroidIdentitySession;
   onSignedOut: () => void;
   onProfileUpdated?: (updated: Profile) => void;
+  showSessions?: boolean;
+  embedded?: boolean;
 }>) {
   const { brand, colors } = useWeddingTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -61,17 +66,17 @@ export function NativeAccountSettings({
     setPending(true);
     setError(null);
     // These reads are independent. A slow/failed profile must not serialize session inventory.
-    void loadSessions();
+    if (showSessions) void loadSessions();
     try {
       const value = await session.authorize((token) => experience.profile(token));
       setProfile(value);
       setName(value.displayName ?? '');
     } catch {
-      setError('Không tải được hồ sơ từ máy chủ. Vui lòng kiểm tra mạng và thử lại.');
+      setError('Chưa tải được thông tin tài khoản. Vui lòng kiểm tra mạng và thử lại.');
     } finally {
       setPending(false);
     }
-  }, [session, loadSessions]);
+  }, [session, loadSessions, showSessions]);
 
   useEffect(() => {
     queueMicrotask(() => void load());
@@ -95,7 +100,7 @@ export function NativeAccountSettings({
           const fresh = await session.authorize((token) => experience.profile(token));
           setProfile(fresh);
         } catch {}
-        setError('Hồ sơ đã thay đổi. Tải lại trước khi tiếp tục.');
+        setError('Thông tin tài khoản vừa được cập nhật. Hãy tải lại trước khi lưu thay đổi.');
       } else {
         setError(
           caught instanceof ApiClientError && caught.message
@@ -126,8 +131,8 @@ export function NativeAccountSettings({
       setCode('');
       setMessage(
         isResend
-          ? 'Đã gửi mã OTP mới vào email.'
-          : 'Mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
+          ? 'Đã gửi mã xác thực mới qua email.'
+          : 'Mã xác thực (OTP) đã được gửi qua email. Mã có hiệu lực trong 10 phút.',
       );
     } catch (caught) {
       if (
@@ -151,20 +156,20 @@ export function NativeAccountSettings({
       setError('Vui lòng nhập mật khẩu hiện tại.');
       return;
     }
-    if (next.length < 12 || next.length > 128) {
-      setError('Mật khẩu mới phải có độ dài từ 12 đến 128 ký tự.');
-      return;
-    }
-    if (next !== confirm) {
-      setError('Mật khẩu xác nhận không trùng khớp.');
-      return;
-    }
     if (!challenge) {
       await changeRequest(false);
       return;
     }
+    if (next.length === 0 || next.length > 128) {
+      setError('Mật khẩu mới phải có độ dài từ 1 đến 128 ký tự.');
+      return;
+    }
+    if (next !== confirm) {
+      setError('Mật khẩu nhập lại chưa khớp với mật khẩu mới.');
+      return;
+    }
     if (!/^\d{6}$/.test(code.trim())) {
-      setError('Nhập mã OTP gồm 6 chữ số.');
+      setError('Nhập mã xác thực gồm 6 chữ số trong email.');
       return;
     }
 
@@ -187,9 +192,9 @@ export function NativeAccountSettings({
         if (caught.code === 'CURRENT_PASSWORD_INVALID' || caught.status === 401) {
           setError('Mật khẩu hiện tại chưa chính xác.');
         } else if (caught.code === 'CHALLENGE_EXPIRED') {
-          setError('Mã OTP đã hết hiệu lực. Vui lòng gửi lại mã mới.');
+          setError('Mã xác thực đã hết hạn. Vui lòng yêu cầu mã mới.');
         } else if (caught.code === 'OTP_INVALID' || caught.status === 400) {
-          setError('Mã OTP 6 chữ số chưa chính xác.');
+          setError('Mã xác thực chưa chính xác. Vui lòng kiểm tra lại 6 chữ số trong email.');
         } else if (caught.status === 429) {
           setError('Quá nhiều lần thử sai. Vui lòng đợi trong giây lát.');
         } else {
@@ -238,10 +243,60 @@ export function NativeAccountSettings({
     value: string,
     onChangeText: (value: string) => void,
     secret = false,
-  ) => <NativeField label={label} value={value} onChangeText={onChangeText} secret={secret} />;
+  ) => (
+    <NativeField
+      label={label}
+      value={value}
+      onChangeText={onChangeText}
+      secret={secret}
+      disabled={pending}
+    />
+  );
 
-  const action = (label: string, onPress: () => void) => (
-    <HyButton label={label} disabled={pending} onPress={onPress} />
+  const action = (label: string, onPress: () => void) =>
+    embedded ? (
+      <Action
+        label={label}
+        disabled={pending}
+        onPress={onPress}
+        variant={label === 'Tải lại hồ sơ' ? 'text' : 'primary'}
+      />
+    ) : (
+      <HyButton label={label} disabled={pending} onPress={onPress} />
+    );
+
+  const passwordForm = (
+    <>
+      {field('Mật khẩu hiện tại', current, setCurrent, true)}
+      {(!embedded || challenge) && field('Mật khẩu mới', next, setNext, true)}
+      {(!embedded || challenge) && field('Xác nhận mật khẩu mới', confirm, setConfirm, true)}
+      <Text style={[type.caption, { color: colors.secondaryLabel }]}>
+        Mật khẩu tối đa 128 ký tự. Sau khi đổi mật khẩu, bạn cần đăng nhập lại trên các thiết bị.
+      </Text>
+      {challenge && (
+        <NativeField
+          label="Mã xác thực"
+          value={code}
+          onChangeText={setCode}
+          secret={false}
+          disabled={pending}
+          otp
+        />
+      )}
+      {action(challenge ? 'Xác nhận đổi mật khẩu' : 'Gửi mã xác thực', () => void change())}
+      {challenge &&
+        remaining === 0 &&
+        action('Gửi lại mã xác thực', () => {
+          void changeRequest(true);
+        })}
+      {challenge && remaining > 0 && (
+        <OtpResendCountdown
+          seconds={remaining}
+          onComplete={finishCooldown}
+          style={[type.caption, { color: colors.secondaryLabel }]}
+        />
+      )}
+    </>
   );
 
   const snap = session.snapshot();
@@ -250,11 +305,13 @@ export function NativeAccountSettings({
   return (
     <View
       style={[
-        styles.authPanel,
-        { marginTop: 0, backgroundColor: brand.powder, borderColor: brand.gold },
+        embedded ? { gap: 12 } : styles.authPanel,
+        !embedded && { marginTop: 0, backgroundColor: brand.powder, borderColor: brand.gold },
       ]}
     >
-      <Text style={[type.largeTitle, { color: brand.display }]}>Hồ sơ và bảo mật</Text>
+      {!embedded && (
+        <Text style={[type.largeTitle, { color: brand.display }]}>Hồ sơ và bảo mật</Text>
+      )}
       {pending && <ActivityIndicator color={brand.primary} />}
       {error && (
         <HyAlert
@@ -272,99 +329,97 @@ export function NativeAccountSettings({
           style={{ marginVertical: 8 }}
         />
       )}
-      {action('Tải lại hồ sơ', () => void load())}
+      {!embedded && action('Tải lại hồ sơ', () => void load())}
       {profile && (
         <>
           <Text selectable style={[type.body, { color: colors.label }]}>
             {profile.displayEmail}
           </Text>
-          <Text style={[type.caption, { color: colors.secondaryLabel, marginBottom: 8 }]}>
-            Phiên bản hồ sơ: #{profile.revision}
-          </Text>
+          {!embedded && (
+            <Text style={[type.caption, { color: colors.secondaryLabel, marginBottom: 8 }]}>
+              Phiên bản hồ sơ: #{profile.revision}
+            </Text>
+          )}
           {field('Tên hiển thị', name, setName)}
           {action('Lưu thay đổi', () => void save())}
 
-          <Text style={[type.title, { color: brand.display, marginTop: 18 }]}>Đổi mật khẩu</Text>
-          {field('Mật khẩu hiện tại', current, setCurrent, true)}
-          {field('Mật khẩu mới', next, setNext, true)}
-          {field('Xác nhận mật khẩu mới', confirm, setConfirm, true)}
-          <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-            Mật khẩu tối đa 128 ký tự. Sau khi đổi, hệ thống sẽ thu hồi các phiên và bạn cần đăng nhập lại.
-          </Text>
-          {challenge && (
-            <NativeField label="Mã OTP" value={code} onChangeText={setCode} secret={false} otp />
-          )}
-          {action(challenge ? 'Xác nhận và cập nhật mật khẩu' : 'Gửi mã OTP', () => void change())}
-          {challenge &&
-            remaining === 0 &&
-            action('Gửi lại mã OTP', () => {
-              void changeRequest(true);
-            })}
-          {challenge && remaining > 0 && (
-            <OtpResendCountdown
-              seconds={remaining}
-              onComplete={finishCooldown}
-              style={[type.caption, { color: colors.secondaryLabel }]}
-            />
+          {embedded ? (
+            <Disclosure title="Đổi mật khẩu">{passwordForm}</Disclosure>
+          ) : (
+            <>
+              <Text style={[type.title, { color: brand.display, marginTop: 18 }]}>
+                Đổi mật khẩu
+              </Text>
+              {passwordForm}
+            </>
           )}
 
-          <Text style={[type.title, { color: brand.display, marginTop: 24 }]}>
-            Quản lý các phiên đăng nhập
-          </Text>
-          <Text style={[type.caption, { color: colors.secondaryLabel, marginBottom: 8 }]}>
-            Danh sách phiên làm việc an toàn của tài khoản trên máy chủ.
-          </Text>
-          {loadingSessions ? (
-            <ActivityIndicator color={brand.primary} />
-          ) : sessions && sessions.length > 0 ? (
-            sessions.map((s) => {
-              const isCurrent = currentSessionId === s.sessionId;
-              const lastSeen = new Date(s.lastSeenAt).toLocaleString('vi-VN', {
-                timeZone: 'Asia/Ho_Chi_Minh',
-              });
-              return (
-                <View
-                  key={s.sessionId}
-                  style={{
-                    padding: 12,
-                    borderWidth: 1,
-                    borderColor: isCurrent ? brand.primary : brand.gold,
-                    borderRadius: 6,
-                    marginBottom: 8,
-                    backgroundColor: isCurrent ? '#F4F0EB' : 'transparent',
-                  }}
-                >
-                  <Text style={[type.subhead, { fontWeight: '700', color: colors.label }]}>
-                    {s.clientKind === 'ANDROID' ? 'Thiết bị di động Android' : 'Trình duyệt Web'}
-                    {isCurrent ? ' (Phiên hiện tại)' : ''}
-                  </Text>
-                  <Text style={[type.caption, { color: colors.secondaryLabel, marginVertical: 4 }]}>
-                    Hoạt động gần nhất: {lastSeen} · Trạng thái: {s.status}
-                  </Text>
-                  {!isCurrent && s.status === 'ACTIVE' ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Thu hồi phiên này"
-                      disabled={pending}
-                      onPress={() => revoke(s.sessionId)}
-                      style={{ alignSelf: 'flex-start', marginTop: 4 }}
+          {showSessions && (
+            <>
+              <Text style={[type.title, { color: brand.display, marginTop: 24 }]}>
+                Quản lý các phiên đăng nhập
+              </Text>
+              <Text style={[type.caption, { color: colors.secondaryLabel, marginBottom: 8 }]}>
+                Danh sách phiên làm việc an toàn của tài khoản trên máy chủ.
+              </Text>
+              {loadingSessions ? (
+                <ActivityIndicator color={brand.primary} />
+              ) : sessions && sessions.length > 0 ? (
+                sessions.map((s) => {
+                  const isCurrent = currentSessionId === s.sessionId;
+                  const lastSeen = new Date(s.lastSeenAt).toLocaleString('vi-VN', {
+                    timeZone: 'Asia/Ho_Chi_Minh',
+                  });
+                  return (
+                    <View
+                      key={s.sessionId}
+                      style={{
+                        padding: 12,
+                        borderWidth: 1,
+                        borderColor: isCurrent ? brand.primary : brand.gold,
+                        borderRadius: 6,
+                        marginBottom: 8,
+                        backgroundColor: isCurrent ? '#F4F0EB' : 'transparent',
+                      }}
                     >
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: brand.script }}>
-                        Thu hồi phiên này
+                      <Text style={[type.subhead, { fontWeight: '700', color: colors.label }]}>
+                        {s.clientKind === 'ANDROID'
+                          ? 'Thiết bị di động Android'
+                          : 'Trình duyệt Web'}
+                        {isCurrent ? ' (Phiên hiện tại)' : ''}
                       </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })
-          ) : (
-            <Text style={[type.caption, { color: colors.secondaryLabel }]}>
-              Chưa tải được danh sách phiên. Bấm &quot;Tải lại danh sách phiên&quot; bên dưới.
-            </Text>
+                      <Text
+                        style={[type.caption, { color: colors.secondaryLabel, marginVertical: 4 }]}
+                      >
+                        Hoạt động gần nhất: {lastSeen} · Trạng thái: {s.status}
+                      </Text>
+                      {!isCurrent && s.status === 'ACTIVE' ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Thu hồi phiên này"
+                          disabled={pending}
+                          onPress={() => revoke(s.sessionId)}
+                          style={{ alignSelf: 'flex-start', marginTop: 4 }}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: brand.script }}>
+                            Thu hồi phiên này
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={[type.caption, { color: colors.secondaryLabel }]}>
+                  Chưa tải được danh sách phiên. Bấm &quot;Tải lại danh sách phiên&quot; bên dưới.
+                </Text>
+              )}
+              {action('Tải lại danh sách phiên', () => void loadSessions())}
+            </>
           )}
-          {action('Tải lại danh sách phiên', () => void loadSessions())}
         </>
       )}
+      {embedded && action('Tải lại hồ sơ', () => void load())}
     </View>
   );
 }
@@ -375,12 +430,14 @@ function NativeField({
   onChangeText,
   secret,
   otp = false,
+  disabled = false,
 }: Readonly<{
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   secret: boolean;
   otp?: boolean;
+  disabled?: boolean;
 }>) {
   const { colors } = useWeddingTheme();
 
@@ -391,6 +448,7 @@ function NativeField({
       <HyInput
         accessibilityLabel={label}
         value={value}
+        editable={!disabled}
         onChangeText={(text) => {
           onChangeText(text);
         }}

@@ -1,4 +1,5 @@
 import { fetch as expoFetch } from 'expo/fetch';
+import { Platform } from 'react-native';
 
 import { createApiClient, type ApiClientError } from './client';
 
@@ -23,6 +24,104 @@ afterEach(() => {
 });
 
 describe('createApiClient', () => {
+  it('keeps native uncached billing and invoice requests inside the strict query contract', async () => {
+    const originalRequest = globalThis.Request;
+    const originalHeaders = globalThis.Headers;
+    const native = jest.requireActual<{ Request: typeof Request; Headers: typeof Headers }>(
+      'whatwg-fetch',
+    );
+    globalThis.Request = native.Request;
+    globalThis.Headers = native.Headers;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { createApiClient: nativeClient } = await import('./client');
+        const requests: Request[] = [];
+        const client = nativeClient({
+          baseUrl: 'https://api.example.com/api/v1',
+          fetch: async (request) => {
+            requests.push(request);
+            return Response.json({ data: { history: [] } });
+          },
+        });
+        await client.GET('/bookings/{bookingId}/billing', {
+          params: { path: { bookingId: 'booking' }, query: { limit: 25 } },
+          headers: { Authorization: 'Bearer test-token' },
+          cache: 'no-store',
+        });
+        await client.GET('/bookings/{bookingId}/final-invoices', {
+          params: { path: { bookingId: 'booking' } },
+          headers: { Authorization: 'Bearer test-token' },
+          cache: 'no-store',
+        });
+        await client.POST('/bookings/{bookingId}/payments/balance', {
+          params: { path: { bookingId: 'booking' }, header: { 'Idempotency-Key': 'test-key' } },
+          body: { expectedBillingRevision: 4 },
+          headers: { Authorization: 'Bearer test-token' },
+          cache: 'no-store',
+        });
+        expect(requests.map((request) => new URL(request.url).search)).toEqual([
+          '?limit=25',
+          '',
+          '',
+        ]);
+        for (const request of requests) {
+          expect(request.headers.get('Cache-Control')).toBe('no-store, no-cache');
+          expect(request.headers.get('Authorization')).toBe('Bearer test-token');
+          expect(request.headers.get('x-request-id')).toBe(requestId);
+        }
+        expect(requests[2]!.method).toBe('POST');
+        expect(requests[2]!.headers.get('Idempotency-Key')).toBe('test-key');
+        expect(await requests[2]!.json()).toEqual({ expectedBillingRevision: 4 });
+      });
+    } finally {
+      globalThis.Request = originalRequest;
+      globalThis.Headers = originalHeaders;
+    }
+  });
+
+  it('preserves the browser no-store mode without adding query parameters', async () => {
+    const platform = jest.replaceProperty(Platform, 'OS', 'web');
+    try {
+      const fetch = jest.fn(async (request: Request) => {
+        expect(request.url).toBe('https://api.example.com/health/live');
+        expect(request.cache).toBe('no-store');
+        return Response.json({ data: { status: 'live', requestId } });
+      });
+      await createApiClient({ baseUrl: 'https://api.example.com', fetch }).GET('/health/live', {
+        cache: 'no-store',
+      });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      platform.restore();
+    }
+  });
+
+  it('does not append a native cache-buster to an authenticated readable PDF download', async () => {
+    const originalRequest = globalThis.Request;
+    const originalHeaders = globalThis.Headers;
+    const native = jest.requireActual<{ Request: typeof Request; Headers: typeof Headers }>(
+      'whatwg-fetch',
+    );
+    globalThis.Request = native.Request;
+    globalThis.Headers = native.Headers;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        const { downloadContractPdf } = await import('@/features/couple-workspace/contract-files');
+        const requests: Request[] = [];
+        await downloadContractPdf('test-token', 'booking', 'revision', true, async (request) => {
+          requests.push(request);
+          return new Response('%PDF-1.7\nfixture');
+        });
+        expect(new URL(requests[0]!.url).search).toBe('?layout=readable');
+        expect(requests[0]!.headers.get('Cache-Control')).toBe('no-store, no-cache');
+        expect(requests[0]!.headers.get('Authorization')).toBe('Bearer test-token');
+      });
+    } finally {
+      globalThis.Request = originalRequest;
+      globalThis.Headers = originalHeaders;
+    }
+  });
+
   it('returns typed successful data and sends a request ID to the configured base URL', async () => {
     const fetch = jest.fn((request: Request) => {
       expect(request.url).toBe('https://api.example.com/health/live');

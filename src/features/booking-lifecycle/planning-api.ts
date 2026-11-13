@@ -1,5 +1,5 @@
 import { createRestoredFlowsGateway } from '@/features/restored-flows/restored-flows-api';
-import { sharedResourceStore, resourcePolicy } from '@/screens/hy/resource-store';
+import { sharedResourceStore, resourcePolicy } from '@/lib/cache/resource-store';
 import { createApiClient, type ApiClient } from '@/lib/api/client';
 
 export type ConfirmedPlanningSnapshot = Readonly<{

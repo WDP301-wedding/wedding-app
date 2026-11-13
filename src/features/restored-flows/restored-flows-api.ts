@@ -62,35 +62,19 @@ export function createRestoredFlowsGateway(client?: ApiClient) {
       return required(data)
         .data as operations['requestBookingTimelineChange']['responses'][201]['content']['application/json']['data'];
     },
-    async checkInSettings(token: string, bookingId: string) {
-      const { data } = await api().GET('/bookings/{bookingId}/check-in-settings', {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { path: { bookingId } },
-        cache: 'no-store',
-      });
-      return required(data)
-        .data as operations['readCheckInSettings']['responses'][200]['content']['application/json']['data'];
+    async checkInSettings(
+      _token: string,
+      _bookingId: string,
+    ): Promise<{ checkInMode: 'NONE' | 'BY_GUEST_NAME'; revision: number; locked: boolean }> {
+      throw new Error('Check-in theo tên khách đã ngừng sử dụng.');
     },
     async configureCheckIn(
-      token: string,
-      bookingId: string,
-      body: operations['configureCheckIn']['requestBody']['content']['application/json'],
-      key?: string,
+      _token: string,
+      _bookingId: string,
+      _body: { checkInMode: 'NONE' | 'BY_GUEST_NAME'; expectedRevision: number },
+      _key?: string,
     ) {
-      const { data } = await api().PATCH('/bookings/{bookingId}/check-in-settings', {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          path: { bookingId },
-          header: {
-            'Idempotency-Key':
-              key ?? createDeterministicIdempotencyKey('configureCheckIn', bookingId, 'body', body),
-          },
-        },
-        body,
-        cache: 'no-store',
-      });
-      return required(data)
-        .data as operations['configureCheckIn']['responses'][200]['content']['application/json']['data'];
+      throw new Error('Check-in theo tên khách đã ngừng sử dụng.');
     },
     ...createCommercialFlowsMethods(api, required),
     async loadProposal(token: string, bookingId: string) {

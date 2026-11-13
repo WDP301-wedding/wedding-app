@@ -22,6 +22,13 @@ import {
 import { ApiClientError } from '@/lib/api/client';
 
 import { HomeScreen } from './home';
+import { confirmModal } from '@/lib/confirm';
+jest.mock('@/features/couple-workspace/realtime', () => ({
+  connectWorkspaceRealtime: () => () => {},
+}));
+jest.mock('@/features/notifications/notification-api', () => ({
+  createNotificationGateway: () => ({ countUnread: jest.fn().mockResolvedValue(0) }),
+}));
 
 jest.mock('@/features/identity-access/password-otp-api', () => {
   const gateway = {
@@ -54,6 +61,7 @@ jest.mock('@/features/identity-access/experience-api', () => ({
 }));
 
 jest.mock('@expo/ui', () => ({
+  ...jest.requireActual('./workspace/workspace-sheet-test-support'),
   Host: ({ children }: { children: ReactNode }) => <MockView>{children}</MockView>,
   Button: ({ label, onPress, testID }: { label: string; onPress: () => void; testID?: string }) => (
     <MockPressable testID={testID} onPress={onPress}>
@@ -98,6 +106,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await cleanup();
+  jest.restoreAllMocks();
 });
 
 describe('AndroidIdentitySession', () => {
@@ -171,7 +180,7 @@ describe('HomeScreen', () => {
     await session.login('minhanh@example.com', 'initial-password-123');
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue('wir_initial');
     const rendered = await render(<HomeScreen session={session} />);
-    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
+    expect(await screen.findByText('Không gian của hai bạn')).toBeOnTheScreen();
     jest.mocked(Linking.useURL).mockReturnValue(`weddingapp://reset#wip_${'a'.repeat(43)}`);
     await rendered.rerender(<HomeScreen session={session} />);
     expect(await screen.findByText('Khôi phục mật khẩu')).toBeOnTheScreen();
@@ -181,12 +190,15 @@ describe('HomeScreen', () => {
     jest.mocked(SecureStore.getItemAsync).mockResolvedValue('wir_previous');
     const api = createApi();
     const session = new AndroidIdentitySession(api, createSecureRefreshStore());
+    jest.spyOn(confirmModal, 'confirm').mockResolvedValue(true);
 
     await render(<HomeScreen session={session} />);
 
-    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
-    expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
-    await user.press(screen.getByText('Đăng xuất'));
+    expect(await screen.findByText('Không gian của hai bạn')).toBeOnTheScreen();
+    expect(await screen.findByText(/Tài khoản này chưa có thông tin tiệc/)).toBeOnTheScreen();
+    await user.press(screen.getByRole('tab', { name: 'Thêm' }));
+    await user.press(screen.getByRole('button', { name: 'Hồ sơ' }));
+    await user.press(screen.getByRole('button', { name: 'Đăng xuất' }));
     await waitFor(() => expect(api.logout).toHaveBeenCalledWith('wia_rotated'));
     expect(await screen.findByText('Đăng nhập cho cặp đôi')).toBeOnTheScreen();
   });
@@ -202,8 +214,8 @@ describe('HomeScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'sample-password-123');
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
 
-    expect(await screen.findByText('Cùng chuẩn bị ngày chung đôi')).toBeOnTheScreen();
-    expect(await screen.findByText('Chưa có kế hoạch đã xác nhận')).toBeOnTheScreen();
+    expect(await screen.findByText('Không gian của hai bạn')).toBeOnTheScreen();
+    expect(await screen.findByText(/Tài khoản này chưa có thông tin tiệc/)).toBeOnTheScreen();
   });
 
   it('shows a recoverable error when login is rejected', async () => {
@@ -234,11 +246,11 @@ describe('HomeScreen', () => {
     await screen.findByText('Đăng nhập cho cặp đôi');
     await user.press(screen.getByRole('button', { name: 'Quên mật khẩu?' }));
     await fireEvent.changeText(screen.getByLabelText('Email'), 'unknown@example.com');
-    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
+    await user.press(screen.getByRole('button', { name: 'Gửi mã xác thực' }));
 
     expect(
       await screen.findByText(
-        'Nếu tài khoản đủ điều kiện, mã OTP đã được gửi vào email. Mã có hiệu lực 10 phút.',
+        'Nếu tài khoản đủ điều kiện, bạn sẽ nhận được mã xác thực (OTP) qua email. Mã có hiệu lực trong 10 phút.',
       ),
     ).toBeOnTheScreen();
     expect(createPasswordOtpGateway().request).toHaveBeenCalledWith('unknown@example.com');
@@ -254,9 +266,9 @@ describe('HomeScreen', () => {
     await render(<HomeScreen session={session} initialResetToken={`wip_${'a'.repeat(43)}`} />);
     await screen.findByText('Khôi phục mật khẩu');
     await fireEvent.changeText(screen.getByLabelText('Email'), 'minhanh@example.com');
-    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
-    await screen.findByLabelText('Mã OTP');
-    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
+    await user.press(screen.getByRole('button', { name: 'Gửi mã xác thực' }));
+    await screen.findByLabelText('Mã xác thực');
+    await fireEvent.changeText(screen.getByLabelText('Mã xác thực'), '123456');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'new-sample-password-123');
     await fireEvent.changeText(
       screen.getByLabelText('Xác nhận mật khẩu'),
@@ -290,7 +302,7 @@ describe('HomeScreen', () => {
     await session.login('staff@example.com', 'sample-password-123');
 
     await render(<HomeScreen session={session} />);
-    expect(await screen.findByText('TRUY CẬP BỊ TỪ CHỐI')).toBeOnTheScreen();
+    expect(await screen.findByText('Ứng dụng dành cho cặp đôi')).toBeOnTheScreen();
     expect(screen.getByText(/Tài khoản chưa có quyền truy cập/)).toBeOnTheScreen();
 
     await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất' }));
@@ -327,7 +339,7 @@ describe('HomeScreen', () => {
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu'), 'password123');
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
     expect(
-      await screen.findByText('Dữ liệu không hợp lệ. Mật khẩu phải có độ dài từ 12 đến 128 ký tự.'),
+      await screen.findByText('Dữ liệu không hợp lệ. Mật khẩu phải có độ dài từ 1 đến 128 ký tự.'),
     ).toBeOnTheScreen();
 
     // 429 error mapping
@@ -359,9 +371,7 @@ describe('HomeScreen', () => {
     );
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
     expect(
-      await screen.findByText(
-        'Dịch vụ gửi email OTP tạm thời chưa sẵn sàng (worker đang tắt). Vui lòng liên hệ quản trị viên.',
-      ),
+      await screen.findByText('Hiện chưa gửi được mã xác thực qua email. Vui lòng thử lại sau.'),
     ).toBeOnTheScreen();
 
     // Network error
@@ -391,7 +401,7 @@ describe('HomeScreen', () => {
     );
     await user.press(screen.getByRole('button', { name: 'Đăng nhập' }));
     expect(
-      await screen.findByText('Yêu cầu quá thời gian chờ (Timeout). Vui lòng thử lại.'),
+      await screen.findByText('Chưa nhận được phản hồi. Vui lòng thử lại sau.'),
     ).toBeOnTheScreen();
 
     // Go to reset request
@@ -402,22 +412,22 @@ describe('HomeScreen', () => {
       resendAfterSeconds: 0 as any,
     });
     await user.press(screen.getByRole('button', { name: 'Quên mật khẩu?' }));
-    await user.press(screen.getByRole('button', { name: 'Gửi mã OTP' }));
-    await screen.findByLabelText('Mã OTP');
+    await user.press(screen.getByRole('button', { name: 'Gửi mã xác thực' }));
+    await screen.findByLabelText('Mã xác thực');
 
     // Resend OTP in reset complete mode
-    await user.press(screen.getByText('Gửi lại mã OTP'));
-    expect(await screen.findByText('Đã yêu cầu gửi lại mã OTP mới.')).toBeOnTheScreen();
+    await user.press(screen.getByText('Gửi lại mã xác thực'));
+    expect(await screen.findByText('Đã yêu cầu gửi lại mã xác thực.')).toBeOnTheScreen();
 
     // Invalid OTP format
-    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '12');
+    await fireEvent.changeText(screen.getByLabelText('Mã xác thực'), '12');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), 'new-password-12345');
     await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), 'new-password-12345');
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));
-    expect(await screen.findByText('Mã OTP phải gồm chính xác 6 chữ số.')).toBeOnTheScreen();
+    expect(await screen.findByText('Nhập mã xác thực gồm 6 chữ số trong email.')).toBeOnTheScreen();
 
     // Empty password
-    await fireEvent.changeText(screen.getByLabelText('Mã OTP'), '123456');
+    await fireEvent.changeText(screen.getByLabelText('Mã xác thực'), '123456');
     await fireEvent.changeText(screen.getByLabelText('Mật khẩu mới'), '');
     await fireEvent.changeText(screen.getByLabelText('Xác nhận mật khẩu'), '');
     await user.press(screen.getByRole('button', { name: 'Cập nhật mật khẩu' }));

@@ -33,6 +33,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     [
+      'expo-media-library',
+      {
+        photosPermission: 'Cho phép Hỷ Yến truy cập ảnh khi bạn lưu mã QR thanh toán.',
+        savePhotosPermission: 'Cho phép Hỷ Yến lưu mã QR thanh toán vào thư viện ảnh.',
+        granularPermissions: ['photo'],
+      },
+    ],
+    [
       'expo-splash-screen',
       {
         backgroundColor: '#FFF8F1',

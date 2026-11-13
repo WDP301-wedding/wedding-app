@@ -1,6 +1,22 @@
+const expoPreset = require('jest-expo/jest-preset');
+const scriptPattern = '\\.[jt]sx?$';
+const [babelTransformer, babelOptions] = expoPreset.transform[scriptPattern];
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  roots: ['<rootDir>/src'],
+  // Keep lazy native imports mockable in Jest's CommonJS runtime; Metro is unchanged.
+  transform: {
+    ...expoPreset.transform,
+    [scriptPattern]: [
+      babelTransformer,
+      {
+        ...babelOptions,
+        plugins: [...(babelOptions.plugins ?? []), '@babel/plugin-transform-dynamic-import'],
+      },
+    ],
+  },
   testMatch: ['<rootDir>/src/**/*.test.{ts,tsx}'],
   collectCoverageFrom: [
     'src/screens/**/*.{ts,tsx}',

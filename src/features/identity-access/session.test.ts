@@ -41,6 +41,23 @@ function identity(): IdentityApi {
 }
 
 describe('session restoration across independently mounted screens', () => {
+  it.each([{ roles: [] }, { roles: ['MANAGER'] }, { roles: ['STAFF'] }] as const)(
+    'does not grant the Couple experience to roles $roles',
+    async ({ roles }) => {
+      const api = identity();
+      jest.mocked(api.getCurrentUser).mockResolvedValue({
+        accountId: 'fixture-account',
+        displayEmail: 'fixture@example.invalid',
+        roles,
+        sessionId: 'fixture-session',
+      });
+      const session = new AndroidIdentitySession(api, sharedStore());
+      expect(await session.login('fixture@example.invalid', 'fixture-password')).toMatchObject({
+        status: 'authenticated',
+        access: 'denied',
+      });
+    },
+  );
   it.each([false, true])(
     'clears Billing cached actor after Home clears the shared credential (offline logout: %s)',
     async (offline) => {

@@ -19,7 +19,7 @@ function createPublicEnvSchema(runtimeEnvironment: string | undefined) {
     ),
     EXPO_PUBLIC_WEB_PORTAL_URL: z.preprocess(
       (value) => (value === '' ? undefined : value),
-      z.url({ protocol: /^https?:$/ }).optional(),
+      z.url({ protocol: /^https?$/ }).optional(),
     ),
     EXPO_PUBLIC_EAS_PROJECT_ID: z.preprocess(
       (value) => (value === '' ? undefined : value),
@@ -47,8 +47,10 @@ export function parsePublicEnv(
 
 export function readPublicEnv(): PublicEnv {
   return parsePublicEnv({
-    EXPO_PUBLIC_API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL,
+    EXPO_PUBLIC_API_BASE_URL:
+      process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://wedding-be-render-trial.onrender.com/api/v1',
     EXPO_PUBLIC_EAS_PROJECT_ID: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
-    EXPO_PUBLIC_WEB_PORTAL_URL: process.env.EXPO_PUBLIC_WEB_PORTAL_URL,
+    EXPO_PUBLIC_WEB_PORTAL_URL:
+      process.env.EXPO_PUBLIC_WEB_PORTAL_URL ?? 'https://wedding-web-silk.vercel.app',
   });
 }

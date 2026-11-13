@@ -1,11 +1,22 @@
-import { randomUUID } from 'expo-crypto';
-import { createApiClient, type ApiClient } from '../../lib/api/client';
+import { ApiClientError, createApiClient, type ApiClient } from '../../lib/api/client';
 import type { components, operations } from '../../lib/api/generated/schema';
 import { createDeterministicIdempotencyKey } from '../../lib/idempotency';
 
 import { readPublicEnv } from '../../lib/env';
+import {
+  retiredGuestOperation,
+  type GuestItem,
+  type NamedGuestView,
+  type PersonalInvitationLinkView,
+} from './retired-guest-types';
+export type { GuestItem, NamedGuestView, PersonalInvitationLinkView } from './retired-guest-types';
 
-export type BillingView = components['schemas']['BookingBillingResponse']['data'];
+type CurrentBillingView = components['schemas']['BookingBillingResponse']['data'];
+export type BillingView = Omit<CurrentBillingView, 'balancePaymentEligibility'> &
+  Readonly<{
+    /** Older deployed responses may omit this advisory field; admission must fail closed. */
+    balancePaymentEligibility?: CurrentBillingView['balancePaymentEligibility'] | undefined;
+  }>;
 export type AttemptView = components['schemas']['BillingAttemptResponse']['data'];
 export type CheckoutView = components['schemas']['BillingCheckoutResponse']['data'];
 export type DepositBody = components['schemas']['BillingDepositBody'];
@@ -21,11 +32,6 @@ export type CommercialInvoiceView =
   operations['listCommercialInvoices']['responses'][200]['content']['application/json']['data'];
 export type GuestGroupView =
   operations['listGuestGroups']['responses'][200]['content']['application/json']['data'];
-export type NamedGuestView =
-  operations['listNamedGuests']['responses'][200]['content']['application/json']['data'];
-export type GuestItem = NamedGuestView['items'][number];
-export type PersonalInvitationLinkView =
-  operations['issueReadOnlyGuestInvitation']['responses'][201]['content']['application/json']['data'];
 
 export type BillingContext = Readonly<{
   bookingId: string;
@@ -316,7 +322,13 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
         cache: 'no-store',
       });
       const value = required(data);
-      return { ...value, history: Array.from(value.history) };
+      return {
+        ...value,
+        history: Array.from(value.history),
+        balancePaymentEligibility: value.balancePaymentEligibility?.canPay
+          ? { ...value.balancePaymentEligibility, reasonCode: null }
+          : value.balancePaymentEligibility,
+      };
     },
     async loadAttempt(token, bookingId, attemptId) {
       const { data } = await api().GET('/bookings/{bookingId}/payments/{attemptId}', {
@@ -384,19 +396,8 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       });
       return required(data) as GuestGroupView;
     },
-    async loadGuests(token, bookingId, cursor, status) {
-      const query: { cursor?: string; status?: 'ACTIVE' | 'ARCHIVED' } = {};
-      if (cursor) query.cursor = cursor;
-      if (status) query.status = status;
-      const { data } = await api().GET('/bookings/{bookingId}/guests', {
-        params: {
-          path: { bookingId },
-          ...(Object.keys(query).length > 0 ? { query } : {}),
-        },
-        headers: headers(token),
-        cache: 'no-store',
-      });
-      return required(data) as NamedGuestView;
+    async loadGuests() {
+      return retiredGuestOperation();
     },
     async downloadContractPdf(token, bookingId, revisionId) {
       const baseUrl = readPublicEnv().EXPO_PUBLIC_API_BASE_URL;
@@ -461,59 +462,36 @@ export function createCoupleBillingGateway(client?: ApiClient): CoupleCommercial
       ) as operations['readSeatingPlan']['responses'][200]['content']['application/json']['data'];
     },
     async loadCurrentSeatingPlan(token, bookingId) {
-      const baseUrl = readPublicEnv().EXPO_PUBLIC_API_BASE_URL;
-      const res = await fetch(`${baseUrl}/bookings/${bookingId}/seating-plans/current`, {
-        headers: headers(token),
-        cache: 'no-store',
-      });
-      if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Chưa thể tải sơ đồ bàn hiện tại.');
-      }
-      const json = await res.json();
-      return (json?.data as SeatingPlanData) ?? null;
-    },
-    async createGuest(token, bookingId, body, key) {
-      const idempKey = key ?? randomUUID();
-      const { data } = await api().POST('/bookings/{bookingId}/guests', {
-        params: {
-          path: { bookingId },
-          header: { 'Idempotency-Key': idempKey },
-        },
-        headers: headers(token),
-        body,
-        cache: 'no-store',
-      });
-      return required(data) as GuestItem;
-    },
-    async updateGuest(token, bookingId, guestId, body, key) {
-      const idempKey = key ?? randomUUID();
-      const { data } = await api().PATCH('/bookings/{bookingId}/guests/{guestId}', {
-        params: {
-          path: { bookingId, guestId },
-          header: { 'Idempotency-Key': idempKey },
-        },
-        headers: headers(token),
-        body,
-        cache: 'no-store',
-      });
-      return required(data) as GuestItem;
-    },
-    async issueGuestInvitationLink(token, bookingId, guestId, expectedRevision, key) {
-      const idempKey = key ?? randomUUID();
-      const { data } = await api().POST(
-        '/bookings/{bookingId}/guests/{guestId}/personalized-invitations',
-        {
-          params: {
-            path: { bookingId, guestId },
-            header: { 'Idempotency-Key': idempKey },
-          },
+      try {
+        const { data } = await api().GET('/bookings/{bookingId}/seating-plans/current', {
           headers: headers(token),
-          body: { expectedRevision },
+          params: { path: { bookingId } },
           cache: 'no-store',
-        },
-      );
-      return required(data) as PersonalInvitationLinkView;
+        });
+        if (data === undefined) throw new Error('Chưa thể tải sơ đồ bàn hiện tại.');
+        const plan = data.data;
+        return plan === null
+          ? null
+          : {
+              ...plan,
+              droppedTableIds: Array.from(plan.droppedTableIds),
+              labels: Array.from(plan.labels),
+              renderSnapshot: Array.from(plan.renderSnapshot),
+              warnings: Array.from(plan.warnings),
+            };
+      } catch (error) {
+        if (error instanceof ApiClientError && error.status === 404) return null;
+        throw error;
+      }
+    },
+    async createGuest() {
+      return retiredGuestOperation();
+    },
+    async updateGuest() {
+      return retiredGuestOperation();
+    },
+    async issueGuestInvitationLink() {
+      return retiredGuestOperation();
     },
   };
 }

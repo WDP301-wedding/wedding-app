@@ -65,7 +65,8 @@ describe('generated Couple billing HTTP adapter', () => {
     expect(
       requests.every(
         (request) =>
-          request.headers.get('Authorization') === 'Bearer token' && request.cache === 'no-store',
+          request.headers.get('Authorization') === 'Bearer token' &&
+          request.headers.get('Cache-Control') === 'no-store, no-cache',
       ),
     ).toBe(true);
   });

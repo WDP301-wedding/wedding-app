@@ -1,4 +1,5 @@
 import { beginRequestMetric } from './request-metrics';
+import { ApiRequest } from './api-request';
 import { randomUUID } from 'expo-crypto';
 import { fetch as expoFetch } from 'expo/fetch';
 import createClient, { type Client } from 'openapi-fetch';
@@ -7,7 +8,7 @@ import { z } from 'zod';
 import { readPublicEnv } from '../env';
 import type { components, paths } from './generated/schema';
 
-const defaultTimeoutMs = 10_000;
+const defaultTimeoutMs = 25_000;
 const jsonMediaTypePattern = /^application\/(?:[\w.+-]+\+)?json$/i;
 
 const apiErrorResponseSchema = z.strictObject({
@@ -209,6 +210,7 @@ export function createApiClient(options: CreateApiClientOptions = {}): ApiClient
 
   return createClient<paths>({
     baseUrl: options.baseUrl ?? readPublicEnv().EXPO_PUBLIC_API_BASE_URL,
+    Request: ApiRequest,
     fetch: createFetchWithPolicy(
       options.fetch ?? ((request) => expoFetch(request)),
       timeoutMs,

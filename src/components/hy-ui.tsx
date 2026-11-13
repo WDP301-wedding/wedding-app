@@ -16,6 +16,7 @@ import {
   RefreshControl,
   type TextProps,
   type TextInputProps,
+  type TextInputInstance,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -48,7 +49,7 @@ export function HyText({ style, ...props }: TextProps) {
     />
   );
 }
-export const HyInput = forwardRef<NativeInput, TextInputProps>(function HyInput(
+export const HyInput = forwardRef<TextInputInstance, TextInputProps>(function HyInput(
   { style, ...props },
   ref,
 ) {
@@ -768,6 +769,3 @@ const s = StyleSheet.create({
     backgroundColor: hy.canvas,
   },
 });
-
-export { HyConfirmModal } from './hy-confirm-modal';
-export { ConfirmHost } from './hy-confirm-host';

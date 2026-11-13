@@ -8,6 +8,7 @@ module.exports = defineConfig([
     '.expo/**',
     'coverage/**',
     'dist/**',
+    'test-results/**',
     'expo-env.d.ts',
     '.agents/**',
     '.claude/**',

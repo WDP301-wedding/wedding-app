@@ -1,204 +1,141 @@
-import type { V0Screen } from './v0/v0-types';
 import * as Linking from 'expo-linking';
-import React, { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { HyText as Text } from '@/components/hy-ui';
-
-import {
-  type AndroidIdentitySession,
-  type AndroidSessionSnapshot,
+import { useEffect, useState } from 'react';
+import type {
+  AndroidIdentitySession,
+  AndroidSessionSnapshot,
 } from '@/features/identity-access/session';
 import { sharedDeviceSession } from '@/features/identity-access/device-session';
-import { type, useWeddingTheme } from '@/theme';
-
-import { CoupleOverviewScreen } from './couple-overview';
-import { styles } from './home.styles';
 import { IdentityScreen } from './identity-screen';
-import { PublicShell } from './public/public-shell';
+import { CoupleWorkspace } from './workspace/couple-workspace';
+import { Action, Notice, Page, workspaceMessage } from './workspace/workspace-common';
+import type { WorkspaceEntryScreen } from './workspace/workspace-types';
 
 export { IdentityScreen };
-
 export function HomeScreen({
   initialResetToken,
   initialBookingId,
   initialScreen,
+  initialAttemptId,
+  initialMode = 'login',
   session = sharedDeviceSession,
 }: Readonly<{
   initialResetToken?: string | null;
   initialBookingId?: string | undefined;
-  initialScreen?: V0Screen | undefined;
+  initialScreen?: WorkspaceEntryScreen | undefined;
+  initialAttemptId?: string | undefined;
+  initialMode?: 'login' | 'reset-request';
   session?: AndroidIdentitySession;
 }>) {
-  const { brand, colors } = useWeddingTheme();
   const incomingUrl = Linking.useURL();
   const [snapshot, setSnapshot] = useState<AndroidSessionSnapshot>(() => session.snapshot());
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<'login' | 'reset-request'>('login');
-  const [authVisible, setAuthVisible] = useState(false);
-
-  useEffect(() => {
-    return session.subscribe(() => {
-      setSnapshot(session.snapshot());
-    });
-  }, [session]);
-
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreNonce, setRestoreNonce] = useState(0);
+  const [mode, setMode] = useState<'login' | 'reset-request'>(
+    initialResetToken != null ? 'reset-request' : initialMode,
+  );
+  const [previousSession, setPreviousSession] = useState(session);
+  if (previousSession !== session) {
+    setPreviousSession(session);
+    setSnapshot(session.snapshot());
+    setLoading(true);
+    setRestoreError(null);
+  }
+  const [resetInput, setResetInput] = useState({ initialResetToken, incomingUrl });
+  if (
+    resetInput.initialResetToken !== initialResetToken ||
+    resetInput.incomingUrl !== incomingUrl
+  ) {
+    setResetInput({ initialResetToken, incomingUrl });
+    if (
+      initialResetToken != null ||
+      (incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset')))
+    )
+      setMode('reset-request');
+  }
+  useEffect(() => session.subscribe(() => setSnapshot(session.snapshot())), [session]);
   useEffect(() => {
     let active = true;
-    void (async () => {
-      // Start restoration immediately; URL lookup must not serialize the network request.
-      const [nextSnapshot, url] = await Promise.all([
-        session.restore(),
-        Linking.getInitialURL().catch(() => null),
-      ]);
-      if (!active) return;
-      if (url && (url.includes('/reset') || url.includes('#reset'))) {
-        setMode('reset-request');
-      }
-      setSnapshot(nextSnapshot);
-      setLoading(false);
-    })();
+    void Promise.all([session.restore(), Linking.getInitialURL().catch(() => null)]).then(
+      ([value, url]) => {
+        if (!active) return;
+        setSnapshot(value);
+        if (url && (url.includes('/reset') || url.includes('#reset'))) setMode('reset-request');
+        setLoading(false);
+      },
+      (error: unknown) => {
+        if (active) {
+          setRestoreError(workspaceMessage(error));
+          setLoading(false);
+        }
+      },
+    );
     return () => {
       active = false;
     };
-  }, [session]);
-
-  useEffect(() => {
-    // Deep-link updates select the screen without rotating the session again.
-    if (
-      (incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
-      (initialResetToken !== undefined && initialResetToken !== null)
-    ) {
-      const task = setTimeout(() => {
-        setMode('reset-request');
-        setAuthVisible(true);
-      }, 0);
-      return () => clearTimeout(task);
-    }
-    return undefined;
-  }, [initialResetToken, incomingUrl]);
-
-  if (loading) {
+  }, [session, restoreNonce]);
+  const signOut = () => {
+    void session
+      .logout()
+      .catch(() => {})
+      .finally(() => {
+        setSnapshot(session.snapshot());
+        setMode('login');
+        setRestoreError(null);
+        setLoading(false);
+      });
+  };
+  if (loading)
     return (
-      <View style={[styles.sessionState, { backgroundColor: colors.background }]}>
-        <Text style={[styles.sessionEyebrow, { color: brand.primary }]}>Hỷ Yến</Text>
-        <Text style={[styles.sessionTitle, { color: brand.display }]}>Đang khôi phục phiên</Text>
-        <Text selectable style={[type.body, { color: colors.secondaryLabel }]}>
-          Phiên an toàn đang được kiểm tra từ máy chủ.
-        </Text>
-      </View>
+      <Page title="Hỷ Yến">
+        <Notice>Đang kiểm tra đăng nhập…</Notice>
+      </Page>
     );
-  }
-
-  const isReset =
-    mode === 'reset-request' ||
-    Boolean(incomingUrl && (incomingUrl.includes('/reset') || incomingUrl.includes('#reset'))) ||
-    (initialResetToken !== undefined && initialResetToken !== null);
-
-  if (snapshot.status === 'anonymous') {
-    if (isReset || authVisible) {
-      return (
-        <IdentityScreen
-          key={isReset ? 'identity-reset' : 'identity-anon'}
-          session={session}
-          initialMode={isReset ? 'reset-request' : mode}
-          onBackToPublic={() => {
-            setAuthVisible(false);
-            setMode('login');
-          }}
-          onAuthenticated={(nextSnapshot) => {
-            setSnapshot(nextSnapshot);
-            setMode('login');
-            setAuthVisible(false);
+  if (restoreError)
+    return (
+      <Page title="Chưa kiểm tra được đăng nhập">
+        <Notice error>{restoreError}</Notice>
+        <Action
+          label="Thử lại"
+          onPress={() => {
+            setLoading(true);
+            setRestoreError(null);
+            setRestoreNonce((value) => value + 1);
           }}
         />
-      );
-    }
-
-    return <PublicShell onOpenLogin={() => setAuthVisible(true)} />;
-  }
-
-  if (snapshot.access === 'denied') {
-    return (
-      <View
-        style={[
-          styles.sessionState,
-          { backgroundColor: colors.background, paddingHorizontal: 24, justifyContent: 'center' },
-        ]}
-      >
-        <Text style={[styles.sessionEyebrow, { color: brand.script }]}>TRUY CẬP BỊ TỪ CHỐI</Text>
-        <Text style={[styles.sessionTitle, { color: brand.display, marginTop: 8 }]}>
-          Tài khoản chưa có quyền truy cập
-        </Text>
-        <Text
-          selectable
-          style={[
-            type.body,
-            { color: colors.secondaryLabel, textAlign: 'center', marginVertical: 16 },
-          ]}
-        >
-          Ứng dụng Hỷ Yến dành cho Cặp đôi. Tài khoản của bạn ({snapshot.actor.displayEmail}) là tài
-          khoản nội bộ hoặc chưa được phân quyền Cặp đôi. Vui lòng đăng nhập bằng tài khoản Cặp đôi
-          hoặc quay lại trang khám phá.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Đăng xuất"
-          testID="logout-button"
-          onPress={() => {
-            void session
-              .logout()
-              .catch(() => {})
-              .finally(() => {
-                setSnapshot(session.snapshot());
-                setAuthVisible(false);
-              });
-          }}
-          style={({ pressed }) => [
-            styles.authPrimaryAction,
-            { backgroundColor: brand.primary, width: '100%' },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={[styles.authPrimaryLabel, { color: brand.primaryText }]}>ĐĂNG XUẤT</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Khám phá sảnh & thực đơn"
-          onPress={() => {
-            void session
-              .logout()
-              .catch(() => {})
-              .finally(() => {
-                setSnapshot(session.snapshot());
-                setAuthVisible(false);
-              });
-          }}
-          style={({ pressed }) => [
-            styles.authTextAction,
-            { marginTop: 12 },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={[type.subhead, { color: brand.primary }]}>← Khám phá sảnh & thực đơn</Text>
-        </Pressable>
-      </View>
+        <Action label="Đăng nhập bằng tài khoản khác" onPress={signOut} secondary />
+      </Page>
     );
-  }
-
+  if (snapshot.status === 'anonymous' || mode === 'reset-request')
+    return (
+      <IdentityScreen
+        key={mode}
+        session={session}
+        initialMode={mode}
+        onAuthenticated={(next) => {
+          setSnapshot(next);
+          setMode('login');
+        }}
+      />
+    );
+  if (snapshot.access === 'denied')
+    return (
+      <Page title="Ứng dụng dành cho cặp đôi">
+        <Notice error>
+          Tài khoản chưa có quyền truy cập. Ứng dụng dành cho cô dâu chú rể; tài khoản nhà hàng vui
+          lòng dùng web quản lý.
+        </Notice>
+        <Action label="Đăng xuất" onPress={signOut} />
+      </Page>
+    );
   return (
-    <CoupleOverviewScreen
+    <CoupleWorkspace
+      key={snapshot.actor.accountId}
+      session={session}
+      onLogout={signOut}
       initialBookingId={initialBookingId}
       initialScreen={initialScreen}
-      session={session}
-      onLogout={() => {
-        void session
-          .logout()
-          .catch(() => {})
-          .finally(() => {
-            setSnapshot(session.snapshot());
-            setAuthVisible(false);
-          });
-      }}
+      initialAttemptId={initialAttemptId}
     />
   );
 }

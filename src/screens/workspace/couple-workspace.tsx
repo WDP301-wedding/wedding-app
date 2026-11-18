@@ -194,7 +194,7 @@ export function CoupleWorkspace({
             destination={destination}
             detail={detail}
             onDetailChange={setDetail}
-            initialAttemptId={initialAttemptId}
+            initialAttemptId={booking.bookingId === initialBookingId ? initialAttemptId : undefined}
             contextReady={!bookings.loading && !bookings.error}
           />
         </View>

@@ -2,7 +2,7 @@
 
 Expo/React Native Android application for Couple workflows. It consumes the backend contract and never owns database access, privileged credentials, or authoritative business rules.
 
-Current framework (2026-11-13): **Expo SDK 58** (`expo` 58.0.25), React Native 0.88.1 and React 19.3.0. See the [upgrade report](docs/reports/expo-sdk-58-upgrade-2026-11-13.md) for compatibility changes and verification limits, and [Expo's SDK 58 release notes](https://expo.dev/changelog/sdk-58).
+Current framework (2026-11-18): **Expo SDK 58** (`expo` 58.0.26), React Native 0.88.1 and React 19.3.0. See the [upgrade report](docs/reports/expo-sdk-58-upgrade-2026-11-13.md), the [SDK 58 dependency alignment](docs/reports/expo-sdk-58-alignment-2026-11-18.md) and [Expo's SDK 58 release notes](https://expo.dev/changelog/sdk-58) for compatibility changes and verification limits.
 
 For the complete four-repository setup and contract workflow, see the backend-owned [cross-repository development guide](https://github.com/WDP301-wedding/wedding-be/blob/main/docs/cross-repo-development.md).
 
@@ -83,11 +83,14 @@ Run `api:check` for normal verification. Run `api:generate` only after the backe
 
 ## Validation status
 
-The latest local checks (2026-11-13) passed 147 tests across 32 suites, TypeScript,
+The latest local checks (2026-11-18) passed 149 tests across 32 suites, TypeScript,
 ESLint, formatting, the locked API check and Android JavaScript export. Release
-acceptance remains open: the last recorded coverage is 69.66% lines / 65.32%
-branches against 80% required, the dependency audit still reports an unreviewed
-high-severity Zod advisory, and full native/provider journeys remain unverified.
+acceptance remains open: coverage is 70.60% lines / 66.97% branches against 80%
+required, the dependency audit reports 72 high and 10 moderate affected packages
+(primarily the shared Picomatch advisory plus Zod), and full native/provider
+journeys remain unverified. Local Expo package compatibility passes; the remote
+config-schema check hit a TLS connection failure. CI results are tracked in
+[PR #17](https://github.com/WDP301-wedding/wedding-app/pull/17).
 See `tasks/todo.md` and the reports under `docs/reports/` for the evidence boundaries.
 
 ## Troubleshooting

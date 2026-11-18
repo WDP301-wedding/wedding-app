@@ -37,9 +37,22 @@ jest.mock('./workspace-overview', () => {
 jest.mock('./workspace-agreement', () => ({
   WorkspaceAgreement: () => <MockText>agreement panel</MockText>,
 }));
-jest.mock('./workspace-payment', () => ({
-  WorkspacePayment: () => <MockText>payment panel</MockText>,
-}));
+jest.mock('./workspace-payment', () => {
+  const { Page } = jest.requireActual('./workspace-common');
+  return {
+    WorkspacePayment: ({
+      booking,
+      initialAttemptId,
+    }: {
+      booking: { bookingId: string };
+      initialAttemptId?: string;
+    }) => (
+      <Page title="Thanh toán">
+        <MockText>{`payment:${booking.bookingId}:${initialAttemptId ?? 'active'}`}</MockText>
+      </Page>
+    ),
+  };
+});
 jest.mock('./workspace-prepare', () => ({
   WorkspacePrepare: () => <MockText>prepare panel</MockText>,
 }));
@@ -50,15 +63,24 @@ jest.mock('./workspace-notifications', () => ({
   WorkspaceNotifications: ({
     onOpenBooking,
   }: {
-    onOpenBooking: (id: string, target: { destination: 'agreement' }) => void;
+    onOpenBooking: (id: string, target: { destination: 'agreement' | 'payment' }) => void;
   }) => (
-    <MockPressable
-      accessibilityRole="button"
-      accessibilityLabel="Foreign booking notification"
-      onPress={() => onOpenBooking('not-owned', { destination: 'agreement' })}
-    >
-      <MockText>foreign</MockText>
-    </MockPressable>
+    <>
+      <MockPressable
+        accessibilityRole="button"
+        accessibilityLabel="Foreign booking notification"
+        onPress={() => onOpenBooking('not-owned', { destination: 'agreement' })}
+      >
+        <MockText>foreign</MockText>
+      </MockPressable>
+      <MockPressable
+        accessibilityRole="button"
+        accessibilityLabel="Owned booking payment notification"
+        onPress={() => onOpenBooking('second-booking', { destination: 'payment' })}
+      >
+        <MockText>owned payment</MockText>
+      </MockPressable>
+    </>
   ),
 }));
 const api = jest.mocked(createExperienceGateway());
@@ -104,6 +126,66 @@ it('rejects notification navigation to a booking outside the authorized list', a
   await fireEvent.press(screen.getByRole('button', { name: 'Foreign booking notification' }));
   expect(screen.getByText(/hiện không có quyền xem tiệc/)).toBeOnTheScreen();
   expect(proposal.loadProposal).not.toHaveBeenCalledWith(expect.any(String), 'not-owned');
+});
+it('keeps the linked attempt scoped to its booking when switching and returning', async () => {
+  const first = bookingFixture();
+  const second = bookingFixture({ bookingId: 'second-booking', alias: 'Tiệc thứ hai' });
+  api.overview.mockResolvedValue({ data: [first, second], nextCursor: null });
+  const session = await sessionFixture();
+  const rendered = await render(
+    <CoupleWorkspace
+      session={session}
+      onLogout={jest.fn()}
+      initialBookingId={first.bookingId}
+      initialScreen="payments"
+      initialAttemptId="first-attempt"
+    />,
+  );
+  expect(await screen.findByText(`payment:${first.bookingId}:first-attempt`)).toBeOnTheScreen();
+  const choose = async (booking: typeof first) => {
+    await fireEvent.press(screen.getByRole('tab', { name: 'Thêm' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Đổi tiệc đang xem' }));
+    await fireEvent.press(
+      screen.getByRole('button', {
+        name: `Chọn tiệc ${booking.alias || booking.hallName} ngày ${booking.eventDate}`,
+      }),
+    );
+  };
+  await choose(second);
+  expect(await screen.findByText(`payment:${second.bookingId}:active`)).toBeOnTheScreen();
+  await choose(first);
+  expect(await screen.findByText(`payment:${first.bookingId}:first-attempt`)).toBeOnTheScreen();
+  await rendered.rerender(
+    <CoupleWorkspace
+      session={session}
+      onLogout={jest.fn()}
+      initialBookingId={second.bookingId}
+      initialScreen="payments"
+      initialAttemptId="second-attempt"
+    />,
+  );
+  expect(await screen.findByText(`payment:${second.bookingId}:second-attempt`)).toBeOnTheScreen();
+  session.dispose();
+});
+it('uses the selected booking payment context when opening an owned notification', async () => {
+  const first = bookingFixture();
+  const second = bookingFixture({ bookingId: 'second-booking' });
+  api.overview.mockResolvedValue({ data: [first, second], nextCursor: null });
+  const session = await sessionFixture();
+  await render(
+    <CoupleWorkspace
+      session={session}
+      onLogout={jest.fn()}
+      initialBookingId={first.bookingId}
+      initialScreen="payments"
+      initialAttemptId="first-attempt"
+    />,
+  );
+  await screen.findByText(`payment:${first.bookingId}:first-attempt`);
+  await fireEvent.press(screen.getByRole('button', { name: 'Thông báo' }));
+  await fireEvent.press(screen.getByRole('button', { name: 'Owned booking payment notification' }));
+  expect(await screen.findByText(`payment:${second.bookingId}:active`)).toBeOnTheScreen();
+  session.dispose();
 });
 it('maps existing direct entries to the source four-section structure', () => {
   expect(initialWorkspaceTarget('contracts')).toEqual({

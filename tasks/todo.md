@@ -51,13 +51,13 @@
 
 ## Remaining acceptance work
 
-Latest checkout verification, 2026-11-13: API pin, formatting, lint, TypeScript and Android JavaScript export passed. All 147 Jest cases passed across 32 suites. The latest recorded coverage measurement after legacy cleanup is 69.66% lines and 65.32% branches against 80% required for each; this gate remains open. Audit remains failed (0 critical, 1 high, 27 moderate, 1 low), including the unreviewed Zod advisory GHSA-mrhx-c7xc-m3w5. SDK 58 package compatibility passes; the Expo Doctor remote schema check remains unverified after its recorded TLS failure. Read-only emulator checks cover the documented data-loading and catalog-auth fixes, not full native/provider journey acceptance. Publishing the feature branch does not certify release readiness.
+Latest checkout verification, 2026-11-18: API pin, formatting, lint, TypeScript and Android JavaScript export passed after the payment-attempt scope fix and the six-package SDK 58 alignment. All 149 Jest cases passed across 32 suites. Coverage is 70.60% lines and 66.97% branches against 80% required for each; this gate remains open. Audit remains failed (0 critical, 72 high, 10 moderate, 0 low), primarily affected packages sharing the Picomatch advisory GHSA-fc5q-39xc-vjpf plus Zod advisory GHSA-mrhx-c7xc-m3w5. SDK 58 package compatibility passes locally; the Expo Doctor remote config-schema check hit a TLS connection failure. Final CI results are tracked in PR #17. Read-only emulator checks cover the previously documented data-loading and catalog-auth fixes, not full native/provider journey acceptance. Publishing or merging this patch does not certify release readiness.
 
 Implementation/focused-test checkmarks above do not certify device or deployed-provider acceptance. The overall migration has not passed release gates.
 
 - [ ] Raise meaningful regression coverage to the unchanged 80% branch and line requirements. The complete suite's current passing cases do not waive the coverage result.
 - [ ] Resolve the inherited dependency audit findings through a reviewed compatible dependency change; do not expand audit exceptions to publish this migration.
-- [x] Review the existing Expo SDK 57 patch-version mismatches: superseded by the owner-requested SDK 58 upgrade; package compatibility now passes. The remote Expo Doctor schema check remains unverified because its API TLS connection failed; see `../docs/reports/expo-sdk-58-upgrade-2026-11-13.md`.
+- [x] Review the existing Expo SDK 57 patch-version mismatches: superseded by the owner-requested SDK 58 upgrade and the six-package SDK 58 alignment. Local package compatibility passes; the remote config-schema check hit a TLS connection failure. See `../docs/reports/expo-sdk-58-alignment-2026-11-18.md` and PR #17 for CI verification.
 - [ ] Verify the native Android keyboard/safe area, gallery permission/QR save, PDF/share chooser, background/resume and process restart on a device.
 - [ ] Run the source commercial journey against an authorized test backend/provider before release acceptance. Local fixture results are not live integration evidence.
 

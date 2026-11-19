@@ -45,18 +45,18 @@
 ## 8 — Account, notifications and final verification
 
 - [x] Inbox/unread/read actions and source profile/password/session flows work with scoped invalidation.
-- [ ] API, formatting, lint, typecheck, all Jest tests and Android JS export pass without lowering checks.
+- [x] API, formatting, lint, typecheck, all Jest tests and Android JS export pass without lowering checks.
 - [ ] Runtime/screenshots at narrow and regular phone widths verify typography, Back, keyboard, empty/error/busy/read-only states.
-- [x] Final report distinguishes local mocked evidence, browser evidence and untested device/provider behavior; no APK/DB/deployment/push actions.
+- [x] Final report distinguishes local mocked evidence, browser evidence and untested device/provider behavior; verification does not imply APK, database or deployment acceptance.
 
 ## Remaining acceptance work
 
-Latest checkout verification, 2026-11-18: API pin, formatting, lint, TypeScript and Android JavaScript export passed after the payment-attempt scope fix and the six-package SDK 58 alignment. All 149 Jest cases passed across 32 suites. Coverage is 70.60% lines and 66.97% branches against 80% required for each; this gate remains open. Audit remains failed (0 critical, 72 high, 10 moderate, 0 low), primarily affected packages sharing the Picomatch advisory GHSA-fc5q-39xc-vjpf plus Zod advisory GHSA-mrhx-c7xc-m3w5. SDK 58 package compatibility passes locally; the Expo Doctor remote config-schema check hit a TLS connection failure. Final CI results are tracked in PR #17. Read-only emulator checks cover the previously documented data-loading and catalog-auth fixes, not full native/provider journey acceptance. Publishing or merging this patch does not certify release readiness.
+Current local verification, 2026-11-19: API pin, formatting, lint, TypeScript and Android JavaScript export pass. All 190 Jest cases pass across 38 suites with a cold cache, and all configured coverage files are collected without transform errors. Coverage is 83.55% lines and 80.46% branches against the unchanged 80% required for each. The workflow enforces formatting, API artifact/type checks, tests/coverage and the existing dependency audit policy alongside its SDK, lint, type and export gates; hosted CI still needs verification for these changes. Audit passes the unchanged high/critical policy (0 critical, 0 high, 27 moderate, 0 low). Zod is patched to 4.6.6. Picomatch advisory GHSA-fc5q-39xc-vjpf was withdrawn upstream on 2026-11-18; this is an advisory-database change, not a Picomatch patch or local waiver. Remaining moderate findings originate from Glob and Minimatch. Expo Doctor passes 19 of 20 local checks; the remote config-schema check fails during TLS connection setup. Native/provider journey acceptance remains open. Publishing or merging these changes does not certify release readiness.
 
 Implementation/focused-test checkmarks above do not certify device or deployed-provider acceptance. The overall migration has not passed release gates.
 
-- [ ] Raise meaningful regression coverage to the unchanged 80% branch and line requirements. The complete suite's current passing cases do not waive the coverage result.
-- [ ] Resolve the inherited dependency audit findings through a reviewed compatible dependency change; do not expand audit exceptions to publish this migration.
+- [x] Raise meaningful regression coverage to the unchanged 80% branch and line requirements. The complete suite's current passing cases do not waive the coverage result.
+- [ ] Resolve the remaining moderate dependency findings through reviewed compatible changes; retain the passing high/critical gate without expanding audit exceptions.
 - [x] Review the existing Expo SDK 57 patch-version mismatches: superseded by the owner-requested SDK 58 upgrade and the six-package SDK 58 alignment. Local package compatibility passes; the remote config-schema check hit a TLS connection failure. See `../docs/reports/expo-sdk-58-alignment-2026-11-18.md` and PR #17 for CI verification.
 - [ ] Verify the native Android keyboard/safe area, gallery permission/QR save, PDF/share chooser, background/resume and process restart on a device.
 - [ ] Run the source commercial journey against an authorized test backend/provider before release acceptance. Local fixture results are not live integration evidence.

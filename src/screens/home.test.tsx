@@ -70,6 +70,19 @@ jest.mock('@expo/ui', () => ({
   ),
 }));
 
+// React Native exports these through lazy getters. Compile their Jest mocks at
+// suite setup, so a cold Babel cache does not consume the reset-link test's budget.
+const nativeComponents = jest.requireActual<typeof import('react-native')>('react-native');
+for (const component of [
+  'ActivityIndicator',
+  'KeyboardAvoidingView',
+  'Modal',
+  'ScrollView',
+  'TextInput',
+] as const) {
+  void nativeComponents[component];
+}
+
 const actor = {
   accountId: '24dcfaac-4408-4d42-8d66-456ed6ee7ea4',
   displayEmail: 'minhanh@example.com',

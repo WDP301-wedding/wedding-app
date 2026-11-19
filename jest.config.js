@@ -13,6 +13,11 @@ module.exports = {
       babelTransformer,
       {
         ...babelOptions,
+        // Coverage instruments unloaded files with supportsStaticESM=true. Jest still
+        // executes CommonJS here, including the lazy imports transformed below.
+        presets: [
+          [require.resolve('expo/internal/babel-preset'), { disableImportExportTransform: false }],
+        ],
         plugins: [...(babelOptions.plugins ?? []), '@babel/plugin-transform-dynamic-import'],
       },
     ],

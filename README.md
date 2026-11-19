@@ -44,7 +44,8 @@ All `EXPO_PUBLIC_` values are embedded in client output. Never put database cred
 - `src/lib/`: shared API/error handling, session-scoped cache, confirmations and feedback.
 
 The inactive v0/v2/hy/public screen trees have been removed after their remaining
-dependencies were separated. Test fixtures remain alongside the workspace tests.
+dependencies were separated. Screen fixtures remain alongside the workspace tests;
+shared test fixtures live in `src/test-support/`.
 See [the cleanup report](docs/reports/codebase-cleanup-2026-11-13.md) for the deletion
 scope, migrated verification and remaining acceptance boundaries.
 
@@ -58,6 +59,11 @@ npm run api:generate
 ```
 
 Run `api:check` for normal verification. Run `api:generate` only after the backend contract has been committed and the lock file has been updated to that immutable artifact. Never hand-edit the generated schema.
+
+CI checks out only `openapi/` from the exact backend commit recorded in the lock,
+using the repository's `BACKEND_CONTRACT_READ_TOKEN` read credential. It then checks
+both the artifact digest and generated types; it never starts the backend or
+connects to its database.
 
 ## Local Android versus EAS
 
@@ -83,15 +89,22 @@ Run `api:check` for normal verification. Run `api:generate` only after the backe
 
 ## Validation status
 
-The latest local checks (2026-11-18) passed 149 tests across 32 suites, TypeScript,
-ESLint, formatting, the locked API check and Android JavaScript export. Release
-acceptance remains open: coverage is 70.60% lines / 66.97% branches against 80%
-required, the dependency audit reports 72 high and 10 moderate affected packages
-(primarily the shared Picomatch advisory plus Zod), and full native/provider
-journeys remain unverified. Local Expo package compatibility passes; the remote
-config-schema check hit a TLS connection failure. CI results are tracked in
-[PR #17](https://github.com/WDP301-wedding/wedding-app/pull/17).
-See `tasks/todo.md` and the reports under `docs/reports/` for the evidence boundaries.
+Local verification (2026-11-19) passes 190 tests across 38 suites with a cold Jest
+cache. Coverage is **83.55% lines / 80.46% branches** against the unchanged 80%
+requirements, with all configured files collected successfully. TypeScript,
+ESLint, formatting, the locked API check and Android JavaScript export also pass.
+CI enforces these checks alongside Expo Doctor and the existing audit policy;
+local results do not certify a hosted CI run or device/provider acceptance.
+Expo Doctor passes 19 of 20 local checks; its remote configuration-schema check
+cannot complete because the connection fails during TLS setup.
+
+Dependency audit passes the unchanged high/critical gate: 0 critical, 0 high and
+27 moderate affected packages. Zod is pinned to patched 4.6.6 and no longer appears
+in the audit. The [Picomatch advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
+was withdrawn upstream on 2026-11-18; its absence is an advisory-database change,
+not a Picomatch code patch. Remaining moderate findings originate from Glob and
+Minimatch. No audit exception or threshold was changed. Full native/provider
+journeys remain unverified. See `tasks/todo.md` for remaining acceptance work.
 
 ## Troubleshooting
 

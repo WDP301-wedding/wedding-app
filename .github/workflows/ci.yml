@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   quality:
-    name: SDK, contract, test, and export gates
+    name: SDK, contract, test, export, and audit gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -51,11 +51,45 @@ jobs:
       - name: Check Expo SDK health
         run: npx --yes expo-doctor@1.20.4
 
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Lint
         run: npm run lint
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Read locked backend contract revision
+        id: contract
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const { source } = JSON.parse(readFileSync('api-contract.lock.json', 'utf8'));
+          if (source.repository !== 'https://github.com/WDP301-wedding/wedding-be' ||
+              source.path !== 'openapi/openapi.json' || !/^[a-f0-9]{40}$/.test(source.commit)) {
+            throw new Error('Invalid locked backend contract source.');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `commit=${source.commit}\n`);
+          NODE
+
+      - name: Check out immutable backend contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: WDP301-wedding/wedding-be
+          ref: ${{ steps.contract.outputs.commit }}
+          token: ${{ secrets.BACKEND_CONTRACT_READ_TOKEN }}
+          path: test-results/backend-contract
+          sparse-checkout: openapi
+          persist-credentials: false
+
+      - name: Verify API contract digest and generated types
+        run: npm run api:check
+        env:
+          OPENAPI_SOURCE: ${{ github.workspace }}/test-results/backend-contract/openapi/openapi.json
+
+      - name: Run tests and enforce coverage
+        run: npm run test:coverage
 
       - name: Restore Metro build cache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
@@ -69,3 +103,6 @@ jobs:
 
       - name: Export Android JavaScript bundle
         run: npm run build
+
+      - name: Enforce dependency audit policy
+        run: npm run audit:ci
